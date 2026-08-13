@@ -1,0 +1,107 @@
+export const profile = {
+  name: 'Atikul Islam',
+  title: 'Data Analyst',
+  tagline: 'Turning large, messy datasets into decisions people can act on.',
+  location: 'Dhaka, Bangladesh',
+  email: 'atikuldipto111@gmail.com',
+  phone: '+880 1316328548',
+  github: 'https://github.com/Atikul-Dipto',
+  githubHandle: 'Atikul-Dipto',
+  linkedin: 'https://linkedin.com/in/AtikulIslam',
+  resumeUrl: '/Atikul_Islam_Resume.pdf',
+  bio: "I'm a Data Analyst with a background in Economics, working at the intersection of large-scale e-commerce data, operational reporting, and business strategy. I've analyzed 10M+ daily transactional records, built KPI dashboards that cut manual reporting time, and worked cross-functionally to keep data clean and decisions grounded in evidence. Before data, I spent years in consulting and competitive debating — which is where the habit of asking \"what does this number actually mean\" comes from.",
+}
+
+export const skills = [
+  {
+    group: 'Technical',
+    items: ['SQL', 'Python (Pandas, NumPy)', 'PostgreSQL', 'Power BI', 'Tableau', 'Metabase', 'Apache Superset', 'SPSS', 'STATA', 'Excel'],
+  },
+  {
+    group: 'Analytics',
+    items: ['Data Cleaning & Validation', 'Dashboard Development', 'Customer Behavior Analysis', 'KPI Reporting', 'Market Research', 'Business Analysis'],
+  },
+  {
+    group: 'Tools & Other',
+    items: ['Git / GitHub', 'Jupyter Notebook', 'SurveyCTO', 'Kobo Toolbox'],
+  },
+]
+
+export const experience = [
+  {
+    role: 'Data Analyst',
+    org: 'US Bangla Group',
+    location: 'Dhaka, Bangladesh',
+    period: 'Jul 2025 — Present',
+    points: [
+      'Analyze high-volume e-commerce datasets exceeding 10M+ daily transactional records to identify customer behavior patterns and operational trends.',
+      'Developed operational dashboards tracking daily KPIs across sales and customer activity, reducing manual reporting time for business teams.',
+      'Collaborate with cross-functional teams to clean, validate, and interpret data, improving reporting accuracy and operational efficiency.',
+    ],
+  },
+  {
+    role: 'Associate',
+    org: 'Inspira Advisory and Consulting Limited',
+    location: 'Dhaka, Bangladesh',
+    period: 'Jan 2025 — Jul 2025',
+    points: [
+      'Performed market assessments, research analysis, and business evaluations to deliver strategic insights for consulting projects across diverse sectors.',
+      'Interpreted quantitative and qualitative data to evaluate program effectiveness and support evidence-based recommendations.',
+      'Prepared client-facing reports, presentations, and proposals while coordinating with stakeholders on business strategy and policy advisory initiatives.',
+    ],
+  },
+  {
+    role: 'R&D Intern',
+    org: 'ARCED Foundation',
+    location: 'Dhaka, Bangladesh',
+    period: 'Apr 2024 — Jul 2024',
+    points: [
+      'Conducted data quality audits and validation checks for the "Use of Lead Acid Battery 2024" research project, funded by Georgetown and Stanford Universities.',
+      'Performed quality assurance and data verification for mystery shopping exercises, ensuring research accuracy and consistency.',
+      'Supported research operations through data transcription, SurveyCTO form management, and analytical reporting.',
+    ],
+  },
+]
+
+export const education = {
+  degree: 'Bachelor of Social Science in Economics',
+  school: 'East West University',
+  period: '2019 — 2024',
+  detail: 'Coursework: Applied Econometrics, Game Theory, Labor Economics, Project Analysis, Law and Economics',
+}
+
+export const certifications = [
+  'Intermediate Python — DataCamp',
+  'Data Manipulation with pandas — DataCamp',
+  'Advanced AI+ Prompt Engineering — NetCom Learning',
+  'Web Designing — Creative IT',
+]
+
+export const projects = [
+  {
+    title: 'Your first project goes here',
+    description: 'This is a placeholder card. Push a repo to GitHub and swap this out for a real project — a dashboard, a cleaned dataset with analysis, a SQL portfolio piece, anything you want a recruiter to see first.',
+    tags: ['SQL', 'Python', 'Power BI'],
+    href: null,
+    placeholder: true,
+  },
+  {
+    title: 'Second project slot',
+    description: 'Another open slot. Good candidates: an e-commerce KPI dashboard rebuild, a public dataset deep-dive, or a Jupyter notebook walking through a real analysis end to end.',
+    tags: ['Dashboards', 'Data Cleaning'],
+    href: null,
+    placeholder: true,
+  },
+  {
+    title: 'Third project slot',
+    description: 'Keep this one for something exploratory — a side analysis, a data viz experiment, or your first step into the supply chain analytics space below.',
+    tags: ['Analysis'],
+    href: null,
+    placeholder: true,
+  },
+]
+
+export const futurePath = {
+  heading: "What's Next: Supply Chain",
+  body: "Alongside data analytics, I'm building a foundation in Supply Chain Management — procurement, logistics, demand planning, and inventory strategy. It's a natural extension of the KPI and operational work I already do: the same instinct for finding signal in messy data applies directly to forecasting demand, spotting bottlenecks, and optimizing how goods and information move. Over the coming months I'll be studying core SCM fundamentals and looking for ways to apply my analytics toolkit — SQL, dashboards, Python — to real supply chain problems.",
+}
