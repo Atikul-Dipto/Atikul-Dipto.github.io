@@ -11,8 +11,8 @@ export default function Projects() {
       </div>
       <h2 className="section__heading">Projects</h2>
       <p className="section__intro">
-        This section is intentionally empty for now — new to GitHub, and these
-        slots are waiting for real work. Follow along on{' '}
+        A work in progress — more slots are filling up over time. Follow along
+        on{' '}
         <a href={profile.github} target="_blank" rel="noreferrer">
           GitHub
         </a>

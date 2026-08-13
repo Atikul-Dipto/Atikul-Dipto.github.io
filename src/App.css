@@ -944,6 +944,42 @@ main {
   border-style: dashed;
 }
 
+.project-card__links {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: auto;
+}
+
+.project-card__link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.project-card__link:hover {
+  color: var(--accent-strong);
+  transform: translateX(2px);
+}
+
+.project-card__link--primary {
+  background: var(--accent);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 999px;
+}
+
+.project-card__link--primary:hover {
+  background: var(--accent-strong);
+  color: #fff;
+  transform: translateY(-1px);
+}
+
 .project-card__badge {
   align-self: flex-start;
   font-size: 12px;

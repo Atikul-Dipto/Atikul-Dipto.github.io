@@ -91,11 +91,12 @@ export const certifications = [
 
 export const projects = [
   {
-    title: 'Your first project goes here',
-    description: 'This is a placeholder card. Push a repo to GitHub and swap this out for a real project — a dashboard, a cleaned dataset with analysis, a SQL portfolio piece, anything you want a recruiter to see first.',
-    tags: ['SQL', 'Python', 'Power BI'],
-    href: null,
-    placeholder: true,
+    title: 'Logistics Operations Portal',
+    description: 'A multi-page Streamlit dashboard for a synthetic Bangladesh e-commerce logistics network — shipment tracking, inventory, and delivery analytics across 5 warehouses and 5 couriers.',
+    tags: ['Python', 'Streamlit', 'Pandas', 'Plotly'],
+    href: 'https://github.com/Atikul-Dipto/logistics-portal',
+    demoHref: null,
+    placeholder: false,
   },
   {
     title: 'Second project slot',

@@ -12,7 +12,7 @@ export default function ProjectCard({ project, index }) {
 
   return (
     <div
-      className={`project-card project-card--placeholder${visible ? ' is-visible' : ''}`}
+      className={`project-card${project.placeholder ? ' project-card--placeholder' : ''}${visible ? ' is-visible' : ''}`}
       style={{ '--delay': `${index * 90}ms` }}
       ref={setRefs}
       onPointerMove={onPointerMove}
@@ -30,7 +30,27 @@ export default function ProjectCard({ project, index }) {
             </span>
           ))}
         </div>
-        <span className="project-card__badge">Coming soon</span>
+        {project.placeholder ? (
+          <span className="project-card__badge">Coming soon</span>
+        ) : (
+          <div className="project-card__links">
+            {project.demoHref && (
+              <a
+                className="project-card__link project-card__link--primary"
+                href={project.demoHref}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Live Demo →
+              </a>
+            )}
+            {project.href && (
+              <a className="project-card__link" href={project.href} target="_blank" rel="noreferrer">
+                GitHub →
+              </a>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
