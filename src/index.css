@@ -1,7 +1,7 @@
 :root {
   --bg: #ffffff;
-  --bg-alt: #f6f7f9;
-  --surface: #ffffff;
+  --bg-alt: rgba(246, 247, 249, 0.75);
+  --surface: rgba(255, 255, 255, 0.72);
   --border: #e4e6eb;
   --text: #3b3f47;
   --text-strong: #14161a;
@@ -12,6 +12,7 @@
   --accent-border: rgba(37, 99, 235, 0.35);
   --shadow: 0 10px 30px -12px rgba(20, 22, 26, 0.15);
   --radius: 12px;
+  --glass-blur: blur(16px);
 
   --sans: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
 
@@ -26,8 +27,8 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0f1115;
-    --bg-alt: #15181e;
-    --surface: #1a1d24;
+    --bg-alt: rgba(21, 24, 30, 0.7);
+    --surface: rgba(26, 29, 36, 0.62);
     --border: #2a2e37;
     --text: #c3c7cf;
     --text-strong: #f5f6f8;
