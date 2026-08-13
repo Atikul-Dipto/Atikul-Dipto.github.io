@@ -3,9 +3,11 @@ import { profile, education, certifications } from '../data'
 export default function About() {
   return (
     <section id="about" className="section">
-      <h2 className="section__heading">About</h2>
       <div className="about">
-        <p className="about__bio">{profile.bio}</p>
+        <div className="about__text">
+          <h2 className="section__heading">About</h2>
+          <p className="about__bio">{profile.bio}</p>
+        </div>
 
         <div className="about__side">
           <div className="card">
