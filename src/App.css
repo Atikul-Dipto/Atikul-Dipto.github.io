@@ -581,6 +581,10 @@ main {
   gap: 20px;
 }
 
+.about__side .card {
+  padding-top: 6px;
+}
+
 @media (max-width: 780px) {
   .about {
     grid-template-columns: 1fr;
