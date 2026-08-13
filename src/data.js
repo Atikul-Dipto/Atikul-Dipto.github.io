@@ -9,9 +9,19 @@ export const profile = {
   phone: '+880 1316328548',
   github: 'https://github.com/Atikul-Dipto',
   githubHandle: 'Atikul-Dipto',
-  linkedin: 'https://linkedin.com/in/AtikulIslam',
+  linkedin: 'https://www.linkedin.com/in/atikul-islam-0a77561b3/',
+  linkedinHandle: 'atikul-islam-0a77561b3',
   resumeUrl: '/Atikul_Islam_Resume.pdf',
-  bio: "I'm a Data Analyst with a background in Economics, working at the intersection of large-scale e-commerce data, operational reporting, and business strategy. I've analyzed 10M+ daily transactional records, built KPI dashboards that cut manual reporting time, and worked cross-functionally to keep data clean and decisions grounded in evidence. Before data, I spent years in consulting and competitive debating — which is where the habit of asking \"what does this number actually mean\" comes from.",
+  bio: [
+    "I'm a ",
+    { text: 'Data Analyst', emphasis: true },
+    ' with a background in Economics, working at the intersection of large-scale e-commerce data, operational reporting, and business strategy. ',
+    "I've analyzed ",
+    { text: '10M+ daily transactional records', emphasis: true },
+    ', built ',
+    { text: 'KPI dashboards', emphasis: true },
+    ' that cut manual reporting time, and worked cross-functionally to keep data clean and decisions grounded in evidence. Before data, I spent years in consulting and competitive debating — which is where the habit of asking "what does this number actually mean" comes from.',
+  ],
 }
 
 export const skills = [

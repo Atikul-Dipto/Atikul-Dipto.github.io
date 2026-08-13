@@ -6,7 +6,17 @@ export default function About() {
       <div className="about">
         <div className="about__text">
           <h2 className="section__heading">About</h2>
-          <p className="about__bio">{profile.bio}</p>
+          <p className="about__bio">
+            {profile.bio.map((part, i) =>
+              typeof part === 'string' ? (
+                <span key={i}>{part}</span>
+              ) : (
+                <strong className="bio-highlight" key={i}>
+                  {part.text}
+                </strong>
+              ),
+            )}
+          </p>
         </div>
 
         <div className="about__side">

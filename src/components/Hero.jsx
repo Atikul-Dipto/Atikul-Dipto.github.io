@@ -43,9 +43,11 @@ export default function Hero() {
             <a className="btn btn--ghost" href={profile.resumeUrl} download>
               Download Resume
             </a>
-            <a className="btn btn--ghost" href="#contact">
-              Get in Touch
-            </a>
+            <span className="btn-pulse-wrap">
+              <a className="btn btn--ghost" href="#contact">
+                Get in Touch
+              </a>
+            </span>
           </div>
         </div>
 
