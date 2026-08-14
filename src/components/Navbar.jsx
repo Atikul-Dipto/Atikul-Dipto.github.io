@@ -13,9 +13,31 @@ const LINKS = [
 export default function Navbar() {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [active, setActive] = useState('about')
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 8)
+    const onScroll = () => {
+      setScrolled(window.scrollY > 8)
+
+      const sectionEls = [...document.querySelectorAll('main section[id]')]
+      if (!sectionEls.length) return
+
+      const offset = window.innerHeight * 0.32
+      let nextActive = 'about'
+
+      for (const section of sectionEls) {
+        const top = section.offsetTop - offset
+        const bottom = top + section.offsetHeight
+
+        if (window.scrollY >= top && window.scrollY < bottom) {
+          nextActive = section.id
+          break
+        }
+      }
+
+      setActive(nextActive)
+    }
+
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -30,7 +52,12 @@ export default function Navbar() {
 
         <nav className={`nav__links${open ? ' nav__links--open' : ''}`}>
           {LINKS.map((link) => (
-            <a key={link.href} href={link.href} onClick={() => setOpen(false)}>
+            <a
+              key={link.href}
+              href={link.href}
+              onClick={() => setOpen(false)}
+              className={active === link.href.slice(1) ? 'active' : ''}
+            >
               {link.label}
             </a>
           ))}

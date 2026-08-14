@@ -49,6 +49,15 @@ export default function Hero() {
               </a>
             </span>
           </div>
+
+          <div className="hero__stats" aria-label="Quick profile stats">
+            {profile.stats.map((stat) => (
+              <div className="hero__stat" key={stat.label}>
+                <strong>{stat.value}</strong>
+                <span>{stat.label}</span>
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="hero__portrait">

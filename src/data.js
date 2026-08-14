@@ -3,6 +3,11 @@ export const profile = {
   title: 'Data Analyst',
   tagline: 'Turning large, messy datasets into decisions people can act on.',
   location: 'Dhaka, Bangladesh',
+  stats: [
+    { value: '10M+', label: 'daily records analyzed' },
+    { value: '3', label: 'dashboard systems built' },
+    { value: '4+', label: 'years in analytics' },
+  ],
   photo: '/profile.jpg',
   photoAlt: 'Portrait of Atikul Islam',
   email: 'atikuldipto111@gmail.com',
