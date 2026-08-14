@@ -99,11 +99,12 @@ export const projects = [
     placeholder: false,
   },
   {
-    title: 'Second project slot',
-    description: 'Another open slot. Good candidates: an e-commerce KPI dashboard rebuild, a public dataset deep-dive, or a Jupyter notebook walking through a real analysis end to end.',
-    tags: ['Dashboards', 'Data Cleaning'],
-    href: null,
-    placeholder: true,
+    title: 'Live Logistics Flow Map',
+    description: 'A standalone React + D3 companion to the Logistics Operations Portal — animates real shipment lane volumes as moving particles across a Bangladesh map, with live DBSCAN hotspot clustering and graph centrality ranking, all client-side.',
+    tags: ['React', 'D3', 'Canvas', 'DBSCAN'],
+    href: 'https://github.com/Atikul-Dipto/logistics-flow-map',
+    demoHref: 'https://atikul-dipto.github.io/logistics-flow-map/',
+    placeholder: false,
   },
   {
     title: 'Third project slot',
