@@ -187,22 +187,22 @@ main {
 }
 
 .btn--primary {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 6px 20px -8px var(--accent-border);
+  background: linear-gradient(135deg, #6bbdff 0%, #4d9ef7 100%);
+  color: #08131d;
+  box-shadow: 0 12px 24px -12px rgba(94, 199, 255, 0.9);
 }
 
 .btn--primary:hover {
-  background: var(--accent-strong);
-  box-shadow: 0 10px 28px -8px var(--accent);
+  background: linear-gradient(135deg, #87d5ff 0%, #67aefb 100%);
+  box-shadow: 0 14px 30px -10px rgba(94, 199, 255, 0.75);
 }
 
 .btn--ghost {
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.01);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
   color: var(--text-strong);
-  border-color: var(--border);
+  border-color: rgba(180, 206, 230, 0.25);
 }
 
 .btn--ghost:hover {
@@ -520,18 +520,18 @@ main {
 }
 
 .hero__stat {
-  background: rgba(255, 255, 255, 0.45);
-  border: 1px solid var(--border);
+  background: rgba(178, 196, 214, 0.12);
+  border: 1px solid rgba(164, 192, 220, 0.15);
   border-radius: 16px;
   padding: 18px 14px;
-  box-shadow: 0 12px 24px -18px rgba(37, 99, 235, 0.4);
+  box-shadow: 0 12px 24px -18px rgba(94, 199, 255, 0.25);
   transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .hero__stat:hover {
   transform: translateY(-3px);
   border-color: var(--accent-border);
-  box-shadow: 0 16px 28px -18px rgba(37, 99, 235, 0.45);
+  box-shadow: 0 16px 28px -18px rgba(94, 199, 255, 0.35);
 }
 
 .hero__stat strong {
@@ -585,15 +585,15 @@ main {
   z-index: 0;
   border-radius: 32px;
   background:
-    radial-gradient(circle at var(--gx) var(--gy), var(--accent) 0%, transparent 55%),
-    conic-gradient(from 0deg, #5b8def, #7c3aed, #22d3ee, #5b8def);
-  opacity: 0.5;
-  filter: blur(20px);
+    radial-gradient(circle at var(--gx) var(--gy), rgba(94, 199, 255, 0.8) 0%, transparent 45%),
+    linear-gradient(135deg, rgba(94, 199, 255, 0.32), rgba(28, 196, 208, 0.1), rgba(56, 189, 248, 0.2));
+  opacity: 0.8;
+  filter: blur(18px);
   transition: opacity 0.25s ease-out;
 }
 
 .portrait-frame:hover .portrait-frame__glow {
-  opacity: 0.85;
+  opacity: 1;
 }
 
 .portrait-frame__ring {
@@ -601,7 +601,8 @@ main {
   inset: -14px;
   z-index: 0;
   border-radius: 36px;
-  border: 1px dashed var(--accent-border);
+  border: 1px dashed rgba(94, 199, 255, 0.58);
+  box-shadow: 0 0 0 1px rgba(94, 199, 255, 0.12);
   animation: portrait-spin 20s linear infinite;
 }
 

@@ -26,18 +26,18 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0f1115;
-    --bg-alt: rgba(21, 24, 30, 0.7);
-    --surface: rgba(26, 29, 36, 0.62);
-    --border: #2a2e37;
-    --text: #c3c7cf;
-    --text-strong: #f5f6f8;
-    --text-muted: #8b909b;
-    --accent: #5b8def;
-    --accent-strong: #7ea6f2;
-    --accent-bg: rgba(91, 141, 239, 0.12);
-    --accent-border: rgba(91, 141, 239, 0.4);
-    --shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.5);
+    --bg: #020d1b;
+    --bg-alt: rgba(10, 18, 28, 0.82);
+    --surface: rgba(28, 37, 47, 0.75);
+    --border: rgba(126, 162, 198, 0.28);
+    --text: #dfeaf5;
+    --text-strong: #f4f9ff;
+    --text-muted: #8ca7bf;
+    --accent: #5ec7ff;
+    --accent-strong: #9edfff;
+    --accent-bg: rgba(94, 199, 255, 0.12);
+    --accent-border: rgba(94, 199, 255, 0.5);
+    --shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.7);
   }
 }
 
