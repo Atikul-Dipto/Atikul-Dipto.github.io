@@ -9,6 +9,27 @@
   --my: 0.5;
 }
 
+.bg-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bg-particle {
+  position: absolute;
+  left: var(--left);
+  top: var(--top);
+  width: var(--size);
+  height: var(--size);
+  border-radius: 50%;
+  background: rgba(94, 199, 255, 0.7);
+  box-shadow: 0 0 12px rgba(94, 199, 255, 0.35);
+  opacity: 0.35;
+  animation: particleFloat var(--duration) ease-in-out infinite alternate;
+  animation-delay: var(--delay);
+}
+
 .bg-parallax {
   position: absolute;
   inset: 0;
@@ -91,8 +112,24 @@
   50% { transform: translate(-5vw, 6vh) scale(1.2); }
 }
 
+@keyframes particleFloat {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.8);
+    opacity: 0.15;
+  }
+  50% {
+    transform: translate3d(18px, -14px, 0) scale(1.25);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate3d(-18px, 18px, 0) scale(0.9);
+    opacity: 0.3;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .bg-blob {
+  .bg-blob,
+  .bg-particle {
     animation: none;
   }
 
