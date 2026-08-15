@@ -5,14 +5,20 @@ export default function AnimatedBackground() {
 
   const particles = useMemo(
     () =>
-      Array.from({ length: 34 }, (_, index) => ({
-        id: index,
-        size: 2 + ((index * 7) % 7) * 0.6,
-        left: `${(index * 13 + 9) % 100}%`,
-        top: `${(index * 17 + 7) % 100}%`,
-        duration: `${8 + (index % 8) * 1.8}s`,
-        delay: `${(index % 7) * 0.9}s`,
-      })),
+      Array.from({ length: 68 }, (_, index) => {
+        const layer = index % 3 // 3 depth layers
+        const speed = 6 + layer * 3 // slower = deeper
+        return {
+          id: index,
+          size: 2 + ((index * 11) % 9) * 0.8,
+          left: `${(index * 23 + 11) % 100}%`,
+          top: `${(index * 31 + 13) % 100}%`,
+          duration: `${speed + (index % 5) * 0.9}s`,
+          delay: `${(index % 9) * 0.4}s`,
+          opacity: 0.35 + (layer * 0.15),
+          layer,
+        }
+      }),
     [],
   )
 
@@ -51,6 +57,8 @@ export default function AnimatedBackground() {
               '--top': particle.top,
               '--duration': particle.duration,
               '--delay': particle.delay,
+              '--opacity': particle.opacity,
+              '--layer': particle.layer,
             }}
           />
         ))}
