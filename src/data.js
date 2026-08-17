@@ -112,11 +112,12 @@ export const projects = [
     placeholder: false,
   },
   {
-    title: 'Third project slot',
-    description: 'Keep this one for something exploratory — a side analysis, a data viz experiment, or your first step into the supply chain analytics space below.',
-    tags: ['Analysis'],
-    href: null,
-    placeholder: true,
+    title: 'ATS Resume Scanner',
+    description: 'A React + FastAPI app that scores resumes for ATS compatibility — formatting risks, missing sections, keyword gaps against a target job description — then searches live job boards for roles matching the candidate\'s extracted title, skills, and experience.',
+    tags: ['React', 'FastAPI', 'scikit-learn', 'NLP'],
+    href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
+    demoHref: null,
+    placeholder: false,
   },
 ]
 
