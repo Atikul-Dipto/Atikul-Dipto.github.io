@@ -116,7 +116,7 @@ export const projects = [
     description: 'A React + FastAPI app that scores resumes for ATS compatibility — formatting risks, missing sections, keyword gaps against a target job description — then searches live job boards for roles matching the candidate\'s extracted title, skills, and experience.',
     tags: ['React', 'FastAPI', 'scikit-learn', 'NLP'],
     href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
-    demoHref: null,
+    demoHref: 'https://atikul-dipto.github.io/ats-resume-scanner/',
     placeholder: false,
   },
 ]
