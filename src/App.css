@@ -1123,42 +1123,6 @@ main {
   border-radius: 999px;
 }
 
-/* ---------- next / future path ---------- */
-.next {
-  max-width: 1080px;
-}
-
-.next__card {
-  background: linear-gradient(135deg, var(--accent-bg), transparent 60%);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--accent-border);
-  border-radius: 20px;
-  padding: 48px;
-  text-align: center;
-}
-
-.next__card h2 {
-  font-size: 28px;
-  margin: 10px 0 18px;
-  letter-spacing: -0.02em;
-}
-
-.next__card p:last-child {
-  max-width: 680px;
-  margin: 0 auto;
-  color: var(--text);
-  font-size: 16px;
-  line-height: 1.75;
-  white-space: pre-line;
-}
-
-@media (max-width: 640px) {
-  .next__card {
-    padding: 32px 24px;
-  }
-}
-
 /* ---------- contact ---------- */
 .contact-grid {
   display: grid;

@@ -5,7 +5,7 @@ export const profile = {
   location: 'Dhaka, Bangladesh',
   stats: [
     { value: '10M+', label: 'daily records analyzed' },
-    { value: '3', label: 'dashboard systems built' },
+    { value: '5', label: 'BI platforms delivered on' },
     { value: '4+', label: 'years in analytics' },
   ],
   photo: '/profile.jpg',
@@ -24,7 +24,7 @@ export const profile = {
     "I've analyzed ",
     { text: '10M+ daily transactional records', emphasis: true },
     ', built ',
-    { text: 'KPI dashboards', emphasis: true },
+    { text: 'KPI dashboards across Power BI, Tableau, Metabase, Apache Superset, and Streamlit', emphasis: true },
     ' that cut manual reporting time, and worked cross-functionally to keep data clean and decisions grounded in evidence. Before data, I spent years in consulting and competitive debating — which is where the habit of asking "what does this number actually mean" comes from.',
   ],
 }
@@ -120,8 +120,3 @@ export const projects = [
     placeholder: false,
   },
 ]
-
-export const futurePath = {
-  heading: "What's Next: Supply Chain",
-  body: "Alongside data analytics, I'm building a foundation in Supply Chain Management — procurement, logistics, demand planning, and inventory strategy. It's a natural extension of the KPI and operational work I already do: the same instinct for finding signal in messy data applies directly to forecasting demand, spotting bottlenecks, and optimizing how goods and information move. Over the coming months I'll be studying core SCM fundamentals and looking for ways to apply my analytics toolkit — SQL, dashboards, Python — to real supply chain problems.",
-}
