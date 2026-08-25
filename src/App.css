@@ -981,7 +981,10 @@ main {
   position: relative;
   overflow-x: auto;
   overflow-y: hidden;
-  margin: 0 -24px;
+  width: 100vw;
+  max-width: none !important;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   padding: 16px 24px 28px;
   scroll-behavior: smooth;
   scrollbar-color: var(--accent-border) transparent;
@@ -1111,7 +1114,8 @@ main {
   }
 
   .projects-viewport {
-    margin: 0 -20px;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
     padding-left: 20px;
     padding-right: 20px;
   }
