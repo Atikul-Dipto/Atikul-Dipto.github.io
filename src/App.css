@@ -890,6 +890,17 @@ main {
   overflow: hidden;
 }
 
+.projects-section > .section__heading,
+.projects-section > .section__intro {
+  text-align: center;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.projects-section > .section__intro {
+  max-width: 680px;
+}
+
 .projects-glow {
   position: absolute;
   inset: 0;
@@ -971,7 +982,7 @@ main {
   position: relative;
   overflow: hidden;
   margin: 0 -24px;
-  padding: 16px 24px 28px;
+  padding: 16px 0 28px;
 }
 
 .projects-viewport::before,
@@ -987,12 +998,12 @@ main {
 
 .projects-viewport::before {
   left: 0;
-  background: linear-gradient(90deg, var(--bg-alt), transparent);
+  background: linear-gradient(90deg, var(--bg-alt) 0%, transparent 100%);
 }
 
 .projects-viewport::after {
   right: 0;
-  background: linear-gradient(270deg, var(--bg-alt), transparent);
+  background: linear-gradient(270deg, var(--bg-alt) 0%, transparent 100%);
 }
 
 .projects-viewport:hover .projects,
@@ -1005,8 +1016,8 @@ main {
 }
 
 @keyframes projects-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(calc(-50% - 12px)); }
+  from { transform: translateX(calc((100vw - 390px) / 2 - 24px)); }
+  to { transform: translateX(calc((100vw - 390px) / 2 - 24px - 50% - 12px)); }
 }
 
 .project-card {
@@ -1103,6 +1114,11 @@ main {
   .projects {
     grid-auto-columns: minmax(285px, 82vw);
     animation-duration: 30s;
+  }
+
+  @keyframes projects-scroll {
+    from { transform: translateX(calc((100vw - 82vw) / 2 - 20px)); }
+    to { transform: translateX(calc((100vw - 82vw) / 2 - 20px - 50% - 12px)); }
   }
 
   .projects-viewport {
