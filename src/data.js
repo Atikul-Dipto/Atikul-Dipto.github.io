@@ -97,7 +97,9 @@ export const certifications = [
 export const projects = [
   {
     title: 'Logistics Operations Portal',
+    summary: 'Operational control center for shipment, inventory, and courier performance.',
     description: 'A multi-page Streamlit dashboard for a synthetic Bangladesh e-commerce logistics network — shipment tracking, inventory, and delivery analytics across 5 warehouses and 5 couriers.',
+    screenshot: '/project-logistics-portal.svg',
     tags: ['Python', 'Streamlit', 'Pandas', 'Plotly'],
     href: 'https://github.com/Atikul-Dipto/logistics-portal',
     demoHref: null,
@@ -105,7 +107,9 @@ export const projects = [
   },
   {
     title: 'Live Logistics Flow Map',
+    summary: 'A living map of shipment lanes, hotspots, and network importance.',
     description: 'A standalone React + D3 companion to the Logistics Operations Portal — animates real shipment lane volumes as moving particles across a Bangladesh map, with live DBSCAN hotspot clustering and graph centrality ranking, all client-side.',
+    screenshot: '/project-logistics-flow-map.svg',
     tags: ['React', 'D3', 'Canvas', 'DBSCAN'],
     href: 'https://github.com/Atikul-Dipto/logistics-flow-map',
     demoHref: 'https://atikul-dipto.github.io/logistics-flow-map/',
@@ -113,7 +117,9 @@ export const projects = [
   },
   {
     title: 'ATS Resume Scanner',
+    summary: 'Resume intelligence that connects candidate strengths to real opportunities.',
     description: 'A React + FastAPI app that scores resumes for ATS compatibility — formatting risks, missing sections, keyword gaps against a target job description — then searches live job boards for roles matching the candidate\'s extracted title, skills, and experience.',
+    screenshot: '/project-ats-resume-scanner.svg',
     tags: ['React', 'FastAPI', 'scikit-learn', 'NLP'],
     href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
     demoHref: 'https://atikul-dipto.github.io/ats-resume-scanner/',

@@ -21,7 +21,12 @@ export default function ProjectCard({ project, index }) {
       <span className="project-card__border" aria-hidden="true" />
       <span className="project-card__spotlight" aria-hidden="true" />
       <div className="project-card__body">
+        <div className="project-card__screenshot">
+          <img src={project.screenshot} alt={`${project.title} screenshot`} loading="lazy" />
+          <span className="project-card__screenshot-label">Project preview</span>
+        </div>
         <h3>{project.title}</h3>
+        <p className="project-card__summary">{project.summary}</p>
         <p>{project.description}</p>
         <div className="tags">
           {project.tags.map((tag) => (

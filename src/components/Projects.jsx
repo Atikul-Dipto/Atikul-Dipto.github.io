@@ -11,17 +11,24 @@ export default function Projects() {
       </div>
       <h2 className="section__heading">Projects</h2>
       <p className="section__intro">
-        A work in progress — more slots are filling up over time. Follow along
+        A growing collection of analytics tools, visual experiments, and operational products. Follow along
         on{' '}
         <a href={profile.github} target="_blank" rel="noreferrer">
           GitHub
         </a>
         .
       </p>
-      <div className="projects">
-        {projects.map((project, index) => (
-          <ProjectCard project={project} index={index} key={project.title} />
-        ))}
+      <div className="projects-viewport">
+        <div className="projects">
+          {projects.map((project, index) => (
+            <ProjectCard project={project} index={index} key={`primary-${project.title}`} />
+          ))}
+          <div className="projects__duplicate" aria-hidden="true" inert>
+            {projects.map((project, index) => (
+              <ProjectCard project={project} index={index} key={`duplicate-${project.title}`} />
+            ))}
+          </div>
+        </div>
       </div>
     </section>
   )
