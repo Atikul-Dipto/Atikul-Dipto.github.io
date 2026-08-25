@@ -1,9 +1,16 @@
-import { useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { profile, projects } from '../data'
 import ProjectCard from './ProjectCard'
 
 export default function Projects() {
   const viewportRef = useRef(null)
+
+  useEffect(() => {
+    const viewport = viewportRef.current
+    if (!viewport) return
+
+    viewport.scrollLeft = viewport.scrollWidth
+  }, [])
 
   const scrollProjects = (direction) => {
     viewportRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' })
