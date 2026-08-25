@@ -969,61 +969,60 @@ main {
 
 .projects {
   position: relative;
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(340px, 390px);
+  display: flex;
+  align-items: stretch;
   gap: 24px;
   perspective: 1200px;
   width: max-content;
-  animation: projects-scroll 38s linear infinite;
+  margin: 0 auto;
 }
 
 .projects-viewport {
   position: relative;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
   margin: 0 -24px;
-  padding: 16px 0 28px;
+  padding: 16px 24px 28px;
+  scroll-behavior: smooth;
+  scrollbar-color: var(--accent-border) transparent;
+  scrollbar-width: thin;
 }
 
-.projects-viewport::before,
-.projects-viewport::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 90px;
-  z-index: 4;
-  pointer-events: none;
+.projects-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin: -20px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.projects-viewport::before {
-  left: 0;
-  background: linear-gradient(90deg, var(--bg-alt) 0%, transparent 100%);
+.projects-controls button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
 
-.projects-viewport::after {
-  right: 0;
-  background: linear-gradient(270deg, var(--bg-alt) 0%, transparent 100%);
-}
-
-.projects-viewport:hover .projects,
-.projects-viewport:focus-within .projects {
-  animation-play-state: paused;
-}
-
-.projects__duplicate {
-  display: contents;
-}
-
-@keyframes projects-scroll {
-  from { transform: translateX(calc((100vw - 390px) / 2 - 24px)); }
-  to { transform: translateX(calc((100vw - 390px) / 2 - 24px - 50% - 12px)); }
+.projects-controls button:hover {
+  transform: translateY(-2px);
+  border-color: var(--accent-border);
+  color: var(--accent);
 }
 
 .project-card {
   --rx: 0deg;
   --ry: 0deg;
   position: relative;
+  flex: 0 0 min(390px, 82vw);
   background: var(--surface);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
@@ -1091,10 +1090,6 @@ main {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .projects {
-    animation: none;
-  }
-
   .project-card {
     opacity: 1;
     transform: none;
@@ -1112,13 +1107,7 @@ main {
 
 @media (max-width: 640px) {
   .projects {
-    grid-auto-columns: minmax(285px, 82vw);
-    animation-duration: 30s;
-  }
-
-  @keyframes projects-scroll {
-    from { transform: translateX(calc((100vw - 82vw) / 2 - 20px)); }
-    to { transform: translateX(calc((100vw - 82vw) / 2 - 20px - 50% - 12px)); }
+    margin-left: 0;
   }
 
   .projects-viewport {
@@ -1127,9 +1116,9 @@ main {
     padding-right: 20px;
   }
 
-  .projects-viewport::before,
-  .projects-viewport::after {
-    width: 36px;
+  .projects-controls {
+    justify-content: space-between;
+    margin-top: -16px;
   }
 }
 

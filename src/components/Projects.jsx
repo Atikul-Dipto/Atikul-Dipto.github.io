@@ -1,7 +1,14 @@
+import { useRef } from 'react'
 import { profile, projects } from '../data'
 import ProjectCard from './ProjectCard'
 
 export default function Projects() {
+  const viewportRef = useRef(null)
+
+  const scrollProjects = (direction) => {
+    viewportRef.current?.scrollBy({ left: direction * 420, behavior: 'smooth' })
+  }
+
   return (
     <section id="projects" className="section section--alt projects-section">
       <div className="projects-glow" aria-hidden="true">
@@ -18,16 +25,20 @@ export default function Projects() {
         </a>
         .
       </p>
-      <div className="projects-viewport">
+      <div className="projects-controls" aria-label="Project navigation">
+        <button type="button" onClick={() => scrollProjects(-1)} aria-label="Show previous projects">
+          <span aria-hidden="true">←</span>
+        </button>
+        <span>Scroll to explore</span>
+        <button type="button" onClick={() => scrollProjects(1)} aria-label="Show next projects">
+          <span aria-hidden="true">→</span>
+        </button>
+      </div>
+      <div className="projects-viewport" ref={viewportRef}>
         <div className="projects">
           {projects.map((project, index) => (
             <ProjectCard project={project} index={index} key={`primary-${project.title}`} />
           ))}
-          <div className="projects__duplicate" aria-hidden="true" inert>
-            {projects.map((project, index) => (
-              <ProjectCard project={project} index={index} key={`duplicate-${project.title}`} />
-            ))}
-          </div>
         </div>
       </div>
     </section>
