@@ -1001,9 +1001,9 @@ main {
 .projects-controls {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: center;
   gap: 12px;
-  margin: -20px 0 0;
+  margin: -20px auto 0;
   color: var(--text-muted);
   font-size: 12px;
   font-weight: 700;
@@ -1032,7 +1032,7 @@ main {
   --rx: 0deg;
   --ry: 0deg;
   position: relative;
-  flex: 0 0 min(390px, 82vw);
+  flex: 0 0 min(320px, 82vw);
   background: var(--surface);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
