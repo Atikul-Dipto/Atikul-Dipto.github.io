@@ -991,6 +991,13 @@ main {
   scrollbar-width: thin;
 }
 
+.projects-section > .projects-viewport {
+  width: 100%;
+  max-width: 100% !important;
+  margin-left: 0;
+  margin-right: 0;
+}
+
 .projects-controls {
   display: flex;
   align-items: center;
