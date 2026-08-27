@@ -41,6 +41,85 @@ function loadWatchlist() {
   }
 }
 
+// --- Cross-platform product matching -----------------------------------
+// There's no shared product ID across 6 unrelated storefronts, so "the same
+// product on two sites" can only be inferred from name text. Getting this
+// wrong actively misleads a shopper (a false "cheaper elsewhere" is worse
+// than not showing a comparison at all), so matching is deliberately
+// layered with hard gates rather than a single similarity score:
+//   1. Quantity notation is normalized ("500 gm" / "500gm" -> "500gm")
+//      so real matches aren't missed on formatting alone.
+//   2. Brand gate: the FIRST word of a listing title is almost always the
+//      brand in these catalogs ("PRAN Full Cream Milk Powder" / "AMA Full
+//      Cream Milk Powder") — two names must share it, or they don't group,
+//      no matter how similar the rest of the words look.
+//   3. Quantity gate: if BOTH names carry a detected size/weight token,
+//      it must match too — otherwise a 500g pack and a 1kg pack of the
+//      same brand would be shown as directly comparable, which they aren't.
+//   4. Only past both gates does word-overlap (Jaccard) get a vote, and it
+//      still has to clear MATCH_THRESHOLD.
+// Net effect: this errs toward showing nothing over showing a wrong match.
+const STOPWORDS = new Set([
+  'with', 'for', 'and', 'the', 'a', 'an', 'of', 'to', 'by', 'in', 'on', 'is', 'are', 'this', 'that',
+])
+const QUANTITY_UNITS = 'kg|g|gm|gram|grams|l|ltr|litre|liter|ml|pcs|pc|pack'
+const QUANTITY_RE = new RegExp(`(\\d+(?:\\.\\d+)?)\\s*(${QUANTITY_UNITS})\\b`, 'gi')
+const QUANTITY_TOKEN_RE = new RegExp(`^\\d+(${QUANTITY_UNITS})$`)
+
+function tokenize(name) {
+  return name
+    .replace(QUANTITY_RE, '$1$2')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .split(' ')
+    .filter((token) => token.length > 1 && !STOPWORDS.has(token))
+}
+
+function quantityToken(tokens) {
+  return tokens.find((token) => QUANTITY_TOKEN_RE.test(token)) ?? null
+}
+
+function jaccard(a, b) {
+  let intersection = 0
+  for (const token of a) if (b.has(token)) intersection++
+  const union = a.size + b.size - intersection
+  return union === 0 ? 0 : intersection / union
+}
+
+const MATCH_THRESHOLD = 0.6
+
+function groupAcrossStores(products) {
+  const groups = []
+  for (const product of products) {
+    const tokenList = tokenize(product.name)
+    if (tokenList.length < 2) continue
+    const brand = tokenList[0]
+    const quantity = quantityToken(tokenList)
+    const tokens = new Set(tokenList)
+
+    let best = null
+    let bestScore = 0
+    for (const group of groups) {
+      if (group.brand !== brand) continue
+      if (group.quantity && quantity && group.quantity !== quantity) continue
+      const score = jaccard(tokens, group.tokens)
+      if (score > bestScore) {
+        bestScore = score
+        best = group
+      }
+    }
+    if (best && bestScore >= MATCH_THRESHOLD) {
+      best.items.push(product)
+    } else {
+      groups.push({ brand, quantity, tokens, items: [product] })
+    }
+  }
+  return groups
+    .map((group) => ({ items: [...group.items].sort((a, b) => a.price - b.price) }))
+    .filter((group) => new Set(group.items.map((item) => item.store)).size >= 2)
+    .sort((a, b) => b.items.length - a.items.length)
+}
+
 function normalize(raw) {
   return raw
     .map((row) => {
@@ -69,22 +148,59 @@ function normalize(raw) {
 export default function App() {
   const [status, setStatus] = useState('loading')
   const [products, setProducts] = useState([])
+  const [banners, setBanners] = useState([])
   const [query, setQuery] = useState('')
   const [store, setStore] = useState('All stores')
   const [sort, setSort] = useState('Biggest discount')
   const [watching, setWatching] = useState(loadWatchlist)
+  const [lastChecked, setLastChecked] = useState(null)
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}products.json`)
-      .then((response) => {
-        if (!response.ok) throw new Error(`HTTP ${response.status}`)
-        return response.json()
-      })
-      .then((raw) => {
-        setProducts(normalize(raw))
-        setStatus('ready')
-      })
-      .catch(() => setStatus('error'))
+    let cancelled = false
+    const loadProducts = () => {
+      fetch(`${import.meta.env.BASE_URL}products.json?t=${Date.now()}`, { cache: 'no-store' })
+        .then((response) => {
+          if (!response.ok) throw new Error(`HTTP ${response.status}`)
+          return response.json()
+        })
+        .then((raw) => {
+          if (cancelled) return
+          setProducts(normalize(raw))
+          setLastChecked(new Date())
+          setStatus('ready')
+        })
+        .catch(() => {
+          if (!cancelled) setStatus('error')
+        })
+    }
+
+    loadProducts()
+    const refreshTimer = window.setInterval(loadProducts, 5 * 60 * 1000)
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshTimer)
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    const loadBanners = () => {
+      fetch(`${import.meta.env.BASE_URL}banners.json?t=${Date.now()}`, { cache: 'no-store' })
+        .then((response) => (response.ok ? response.json() : []))
+        .then((raw) => {
+          if (!cancelled) setBanners(Array.isArray(raw) ? raw : [])
+        })
+        .catch(() => {
+          if (!cancelled) setBanners([])
+        })
+    }
+
+    loadBanners()
+    const refreshTimer = window.setInterval(loadBanners, 5 * 60 * 1000)
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshTimer)
+    }
   }, [])
 
   useEffect(() => {
@@ -137,6 +253,19 @@ export default function App() {
     [products],
   )
 
+  const bannersByStore = useMemo(() => {
+    const grouped = new Map()
+    for (const banner of banners) {
+      const meta = storeMeta(banner.site)
+      const list = grouped.get(meta.label) ?? { store: meta.label, color: meta.color, items: [] }
+      list.items.push(banner)
+      grouped.set(meta.label, list)
+    }
+    return [...grouped.values()].sort((a, b) => a.store.localeCompare(b.store))
+  }, [banners])
+
+  const crossStoreGroups = useMemo(() => groupAcrossStores(products), [products])
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -147,6 +276,10 @@ export default function App() {
           <a className="active" href="#overview">
             Overview
           </a>
+          <a href="#compare">
+            Compare <b>{crossStoreGroups.length}</b>
+          </a>
+          <a href="#banners">Deals & banners</a>
           <a href="#watchlist">
             Watchlist <b>{watching.length}</b>
           </a>
@@ -154,7 +287,7 @@ export default function App() {
         </nav>
         <div className="sync">
           <i />
-          {status === 'ready' ? `Data as of ${timeAgo(lastSync)}` : status === 'error' ? 'Data unavailable' : 'Loading data…'}
+          {status === 'ready' ? `Data as of ${timeAgo(lastSync)} · checked ${lastChecked ? lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}` : status === 'error' ? 'Data unavailable' : 'Loading data…'}
         </div>
       </header>
 
@@ -251,6 +384,47 @@ export default function App() {
               <small>Live sources</small>
             </div>
           </section>
+
+          {crossStoreGroups.length > 0 && (
+            <section className="compare-panel" id="compare">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Cross-platform comparison</p>
+                  <h2>Same product, different stores</h2>
+                </div>
+                <small className="match-note">Matched by listing name similarity — double-check before buying.</small>
+              </div>
+              <div className="compare-list">
+                {crossStoreGroups.map((group) => {
+                  const cheapest = group.items[0]
+                  const priciest = group.items[group.items.length - 1]
+                  return (
+                    <article className="compare-card" key={group.items.map((i) => i.id).join('|')}>
+                      <h3>{cheapest.name}</h3>
+                      <p className="compare-spread">
+                        {group.items.length} stores · spreads {money(priciest.price - cheapest.price)}
+                      </p>
+                      <ul className="compare-rows">
+                        {group.items.map((item, index) => (
+                          <li key={item.id} className={index === 0 ? 'best' : ''}>
+                            <span className="store-chip" style={{ '--product-color': item.color }}>
+                              {item.store}
+                            </span>
+                            <span className="compare-name">{item.name}</span>
+                            <strong>{money(item.price)}</strong>
+                            {index === 0 && <b className="best-tag">Best price</b>}
+                            <a href={item.url} target="_blank" rel="noreferrer">
+                              Visit ↗
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           <section className="content-grid">
             <div className="product-panel">
@@ -353,6 +527,36 @@ export default function App() {
             </aside>
           </section>
         </>
+      )}
+
+      {bannersByStore.length > 0 && (
+        <section className="banners-section" id="banners">
+          <p className="eyebrow">Marketplace campaigns</p>
+          <h2>Current offers &amp; banners, by store</h2>
+          {bannersByStore.map((group) => (
+            <div className="banner-row" key={group.store}>
+              <h3>
+                <span className="store-chip" style={{ '--product-color': group.color }}>
+                  {group.store}
+                </span>
+                <small>{group.items.length} live</small>
+              </h3>
+              <div className="banner-strip">
+                {group.items.map((banner, index) => (
+                  <a
+                    className="banner-card"
+                    key={`${banner.site}-${index}`}
+                    href={banner.link_url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img src={banner.image_url} alt={`${group.store} offer`} loading="lazy" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
       )}
 
       <footer id="sources">

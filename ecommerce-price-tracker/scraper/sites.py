@@ -23,6 +23,14 @@ class SiteConfig:
     verified: bool = False
     notes: str = ""
     wait_seconds: int = 20
+    # Promo banner scraping (homepage hero carousels / offer banners) is
+    # separate from product scraping: different URL (usually the homepage,
+    # not a search/category page), different DOM (an image + a link, no
+    # price to parse), and configured only for sites where it was verified.
+    banner_url: str = ""
+    banner_selectors: list[str] = field(default_factory=list)
+    banner_image_attr: str = ""
+    banner_link_attr: str = ""
 
 
 def load_sites(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, SiteConfig]:
@@ -41,5 +49,9 @@ def load_sites(path: Path = DEFAULT_CONFIG_PATH) -> dict[str, SiteConfig]:
             verified=bool(entry.get("verified", False)),
             notes=entry.get("notes", ""),
             wait_seconds=int(entry.get("wait_seconds", 20)),
+            banner_url=entry.get("banner_url", ""),
+            banner_selectors=list(entry.get("banner_selectors", [])),
+            banner_image_attr=entry.get("banner_image_attr", ""),
+            banner_link_attr=entry.get("banner_link_attr", ""),
         )
     return sites

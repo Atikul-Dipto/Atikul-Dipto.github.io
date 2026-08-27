@@ -45,6 +45,9 @@ daraz:
     - ".discount"
     - ".discount-rate"
     - ".sale-tag"
+  banner_url: "https://www.daraz.com.bd/"
+  banner_selectors:
+    - ".pc-banner-slider-container .swiper-slide"
   verified: true
   wait_seconds: 25
   notes: >
@@ -62,8 +65,9 @@ daraz:
 othoba:
   name: Othoba
   urls:
-    - "https://www.othoba.com/"
+    - "https://othoba.com/food-grocery"
   card_selectors:
+    - ".product.product-image-gap.product-simple"
     - ".product.product-widget"
     - ".product.product-list"
   name_selectors:
@@ -73,13 +77,31 @@ othoba:
     - ".product-price"
   original_price_selectors:
     - ".product-price .old-price"
+  banner_url: "https://www.othoba.com/"
+  banner_selectors:
+    - ".intro-slide"
+  banner_image_attr: "data-background-image"
+  banner_link_attr: "onclick"
   verified: true
   notes: >
     Confirmed against server-rendered HTML (nopCommerce-style storefront).
-    The homepage only shows a "latest products" rail; swap the URL for a
-    specific category page to track a focused product set. This site's
-    own search route did not resolve to real search results when probed,
-    so use category URLs rather than a search query template.
+    Category pages (e.g. /food-grocery, used here to get grocery items that
+    plausibly overlap with Shwapno/Cartup for the cross-platform comparison
+    feature) use a different card class
+    (.product.product-image-gap.product-simple) than the homepage's
+    carousel widgets — both are kept in card_selectors. This site's own
+    search route did not resolve to real search results when probed, so
+    use category URLs rather than a search query template. Category-page
+    cards reuse the "product-price" class on THREE unrelated elements per
+    card (a sold-count line, an empty display:none mobile stub, and the
+    real price) — first_text's "skip empty matches" behavior happens to
+    land on the right one, but this is fragile; re-check with `inspect` if
+    prices come back empty here. The banner
+    carousel (.intro-slide) lazy-loads its image via a data-background-image
+    attribute instead of a normal <img src>, and each slide navigates via
+    an inline onclick="window.open(...)" instead of a real <a href> — both
+    handled as special cases in scraper/banners.py, not the generic
+    product scraper.
 
 shwapno:
   name: Shwapno
@@ -93,6 +115,9 @@ shwapno:
     - ".active-price"
   original_price_selectors:
     - ".old-price"
+  banner_url: "https://www.shwapno.com/"
+  banner_selectors:
+    - ".single-banner"
   verified: true
   wait_seconds: 25
   notes: >
@@ -115,6 +140,13 @@ startech:
     - ".p-item-price"
   original_price_selectors:
     - ".p-item-price .price-old"
+  banner_url: "https://www.startech.com.bd/"
+  banner_selectors:
+    # A single comma-joined selector, not two fallback entries: card
+    # selectors only try the next one if the first matches nothing
+    # (see find_cards), but here both the hero slider and the two
+    # secondary offer banners should show up together.
+    - ".home-slider, .banner-item"
   verified: true
   notes: >
     Confirmed against real rendered search results, including a
@@ -134,6 +166,9 @@ bikroy:
   price_selectors:
     - ".qa-advert-price"
   original_price_selectors: []
+  banner_url: "https://bikroy.com/en"
+  banner_selectors:
+    - ".b-banner-list__block"
   verified: true
   notes: >
     Classifieds marketplace, not a retailer catalog. Each listing is an
@@ -152,6 +187,13 @@ cartup:
     - "span.text-sm.font-bold"
   original_price_selectors:
     - ".line-through"
+  banner_url: "https://cartup.com/"
+  banner_selectors:
+    # The hero swiper's root div has no distinguishing class of its own —
+    # only its pagination control does (.home-slider) — so scope via the
+    # parent-child relationship instead of a class that doesn't exist on
+    # the container.
+    - ".swiper:has(> .swiper-pagination.home-slider) .swiper-slide"
   verified: true
   wait_seconds: 30
   notes: >
