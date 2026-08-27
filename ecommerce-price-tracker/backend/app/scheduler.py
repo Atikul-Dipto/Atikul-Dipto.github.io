@@ -28,7 +28,7 @@ def _targets(only: list[str] | None) -> dict[str, SiteConfig]:
     return {key: cfg for key, cfg in sites.items() if only is None or key in only}
 
 
-def run_scrape_job(only: list[str] | None = None, headless: bool | None = None, limit: int = 24) -> None:
+def run_scrape_job(only: list[str] | None = None, headless: bool | None = None, limit: int = 150) -> None:
     """Scrape products (and banners) for the given sites, write to Postgres."""
     headless_flag = settings.headless if headless is None else headless
 

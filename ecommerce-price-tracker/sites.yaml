@@ -62,6 +62,8 @@ daraz:
     garbage/concatenated) prices, run
     `python run_pipeline.py inspect daraz`, open the saved HTML, and
     replace the hashed classes above with whatever Daraz is using now.
+    Renders ~40 cards per search page without scrolling (checked
+    2026-08-27) — --limit above ~40 won't collect more from this URL.
 
 othoba:
   name: Othoba
@@ -98,7 +100,10 @@ othoba:
     card (a sold-count line, an empty display:none mobile stub, and the
     real price) — first_text's "skip empty matches" behavior happens to
     land on the right one, but this is fragile; re-check with `inspect` if
-    prices come back empty here. The banner
+    prices come back empty here. Renders ~40 cards per category page
+    without scrolling (checked 2026-08-27) — --limit above ~40 won't
+    collect more from one URL; use ?page=2, ?page=3 for more (already
+    done — see the second urls: entry). The banner
     carousel (.intro-slide) lazy-loads its image via a data-background-image
     attribute instead of a normal <img src>, and each slide navigates via
     an inline onclick="window.open(...)" instead of a real <a href> — both
@@ -128,7 +133,10 @@ shwapno:
     skeleton, which is hydrated client-side using the same classes. Only
     lists featured products on the homepage; swap in a category URL for a
     specific product line. Its search route also returned the same
-    skeleton content when probed, so prefer category URLs.
+    skeleton content when probed, so prefer category URLs. The homepage
+    alone renders 110+ cards without scrolling (many stacked product
+    carousels, checked 2026-08-27) — by far the highest single-URL yield
+    of any configured site, worth a high --limit here specifically.
 
 startech:
   name: Star Tech
@@ -157,7 +165,10 @@ startech:
     discounted item (.p-item-price holds both .price-new and .price-old
     spans side by side, so the current-price selector must target
     .price-new specifically or it concatenates both numbers). Search
-    accepts ?search=<query> directly in the URL.
+    accepts ?search=<query> directly in the URL. Renders a fixed ~20
+    cards per page regardless of --limit or scrolling (checked
+    2026-08-27) — getting more per query needs real pagination
+    (&page=2 or similar), not just raising --limit.
 
 bikroy:
   name: Bikroy
@@ -179,6 +190,9 @@ bikroy:
     Classifieds marketplace, not a retailer catalog. Each listing is an
     individual seller's ad with a single price and no strike-through
     original price, so discount_percent will always be empty here.
+    Renders a fixed ~24 ads per page regardless of --limit or scrolling
+    (checked 2026-08-27) — getting more per query needs real pagination,
+    not just raising --limit.
 
 cartup:
   name: Cartup
@@ -248,7 +262,9 @@ pickaboo:
     href/onclick at all — not even a fake link — so banner link_url
     always falls back to the homepage itself (the generic fallback in
     scraper/banners.py already handles this; no special-casing needed
-    here, unlike Othoba).
+    here, unlike Othoba). Renders a fixed ~20 cards per category page
+    regardless of --limit or scrolling (checked 2026-08-27) — getting
+    more per query needs real pagination, not just raising --limit.
 
 # A second new site was wanted alongside Pickaboo but didn't pan out:
 # AjkerDeal's server doesn't respond at all (TCP connection times out on

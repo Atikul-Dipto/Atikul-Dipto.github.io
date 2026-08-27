@@ -42,7 +42,7 @@ def parse_only(value: str | None) -> list[str] | None:
 
 def add_common_run_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--only", help="Comma-separated site keys to scrape (default: all configured sites)")
-    parser.add_argument("--limit", type=int, default=24, help="Max products to collect per URL")
+    parser.add_argument("--limit", type=int, default=150, help="Max products to collect per URL")
     parser.add_argument("--headed", action="store_true", help="Show Chrome while scraping")
     parser.add_argument("--retries", type=int, default=2, help="Attempts per URL before giving up")
     parser.add_argument("--retry-delay", type=float, default=5.0, help="Seconds to wait between retries")

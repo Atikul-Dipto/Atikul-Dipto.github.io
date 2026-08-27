@@ -38,9 +38,19 @@ Add `--headed` to watch Chrome while tuning selectors, and `--log-level DEBUG` f
 
 Three independent levers, from cheapest to most work:
 
-1. **Raise `--limit`** (default 24) — caps items scraped per URL, e.g. `python run_pipeline.py run --limit 50`.
-2. **Add more URLs to a site already in `sites.yaml`** — each entry in that site's `urls:` list gets scraped in full and added to the feed; a site's selectors are usually stable across different search queries/category pages on the same storefront, so this is normally a one-line addition, not new selector work. E.g. Daraz currently scrapes both a `wireless+headphones` and a `rice` search — add another `?q=<term>` line for another category. Worth pointing overlapping-category sites (the grocery-carrying ones: Othoba, Shwapno, Cartup) at the *same* kind of item when you can — that's what gives the cross-platform comparison feature something to actually match on.
-3. **Add a new site entirely** — copy the `my_site:` template further down this file into `sites.yaml`, run `python run_pipeline.py inspect my_site` to check what actually matched, and iterate on the selectors from the saved HTML in `data/debug/`. This is the only lever that needs real verification work; see "Configured sites" below for which of the current 8 still need it.
+1. **Raise `--limit`** (default **150**, was 24) — caps items scraped per URL, e.g. `python run_pipeline.py run --limit 300`. **This has a real ceiling per site**, checked 2026-08-27 by scraping each site and counting cards in the DOM with and without scrolling — a site's single-page-load card count doesn't grow past what's actually rendered, `--limit` just stops being the bottleneck once it's above that:
+   | Site | Cards per page (no scroll) |
+   |---|---|
+   | Shwapno (homepage) | ~110-120 (many stacked carousels) |
+   | Daraz, Othoba | ~40 |
+   | Cartup (homepage) | ~60 |
+   | Star Tech, Bikroy, Pickaboo | ~20-24 (hard page-size cap) |
+
+   For the capped sites, getting more per query needs real pagination (following `?page=2`, `?page=3`, ...) — not built, since it's a meaningfully bigger job than a config change. `--limit` above a site's natural ceiling is harmless, just a no-op past that point.
+2. **Add more URLs to a site already in `sites.yaml`** — each entry in that site's `urls:` list gets scraped in full and added to the feed; a site's selectors are usually stable across different search queries/category pages on the same storefront, so this is normally a one-line addition, not new selector work. E.g. Daraz currently scrapes both a `wireless+headphones` and a `rice` search — add another `?q=<term>` line for another category. This *does* work around the per-page ceiling above (Othoba already gets a `?page=2` line for exactly this reason) — it's just a per-URL addition rather than the scraper following pagination on its own. Worth pointing overlapping-category sites (the grocery-carrying ones: Othoba, Shwapno, Cartup) at the *same* kind of item when you can — that's what gives the cross-platform comparison feature something to actually match on.
+3. **Add a new site entirely** — copy the `my_site:` template further down this file into `sites.yaml`, run `python run_pipeline.py inspect my_site` to check what actually matched, and iterate on the selectors from the saved HTML in `data/debug/`. This is the only lever that needs real verification work; see "Configured sites" below for which of the current sites still need it.
+
+**On freshness**: the live backend's scheduler (below) re-scrapes every `SCRAPE_INTERVAL_MINUTES` (default 60) — every scrape writes a new `price_history` row regardless of whether the price actually changed, so a price change on the source site is captured into Postgres within one interval. A shorter interval catches changes sooner but hits each site's servers more often; 60 minutes was chosen deliberately over something more aggressive to stay polite to sites that don't publish rate limits.
 
 ### Output
 
