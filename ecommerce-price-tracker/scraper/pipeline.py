@@ -44,8 +44,18 @@ def scrape_url(site: SiteConfig, url: str, limit: int, headless: bool) -> list[P
                 original_text = first_text(card, site.original_price_selectors, find_within)
                 discount_text = first_text(card, site.discount_selectors, find_within)
 
-                anchors = find_within(card, "a[href]")
-                source_url = urljoin(url, anchors[0].get_attribute("href")) if anchors else url
+                # A site's card_selectors sometimes matches the <a> itself
+                # (e.g. Cartup's `a[href^="/product/"]`), not a wrapper div
+                # around one — searching only for a *nested* anchor missed
+                # that case entirely and silently fell back to `url` (the
+                # listing page) for every card, collapsing every product on
+                # the page into one row via the (site, source_url) dedup.
+                own_href = card.get_attribute("href") if card.tag_name == "a" else None
+                if own_href:
+                    source_url = urljoin(url, own_href)
+                else:
+                    anchors = find_within(card, "a[href]")
+                    source_url = urljoin(url, anchors[0].get_attribute("href")) if anchors else url
                 card_text = element_text(card)
             except StaleElementReferenceException:
                 log.debug("%s: skipped a card that went stale mid-read", site.key)

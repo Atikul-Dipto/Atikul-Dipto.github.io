@@ -47,8 +47,19 @@ def element_text(element) -> str:
     (off-screen carousel slides, pre-hydration skeleton wrappers, etc.),
     which silently drops real product data on several of the tracked
     sites. `textContent` returns the text regardless of visibility.
+
+    Some compact card layouts (e.g. Cartup's secondary "trending" widget)
+    skip a visible name label entirely and rely on the product image's
+    alt text instead — textContent is empty for an <img> since alt is an
+    attribute, not a text node, so fall back to it specifically for img
+    elements rather than silently returning nothing.
     """
-    return (element.get_attribute("textContent") or "").strip()
+    text = (element.get_attribute("textContent") or "").strip()
+    if text:
+        return text
+    if element.tag_name == "img":
+        return (element.get_attribute("alt") or "").strip()
+    return ""
 
 
 def first_text(card, selectors: Iterable[str], by_css_selector) -> str:

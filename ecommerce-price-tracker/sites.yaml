@@ -202,8 +202,10 @@ cartup:
     - 'a[href^="/product/"]'
   name_selectors:
     - "p.line-clamp-2"
+    - "img"
   price_selectors:
     - "span.text-sm.font-bold"
+    - "p.text-lg.text-highlight"
   original_price_selectors:
     - ".line-through"
   banner_url: "https://cartup.com/"
@@ -223,12 +225,16 @@ cartup:
     Cartup's classes are plain Tailwind utility classes rather than
     build-hashed CSS modules, so they should be comparatively stable.
     Caveats: the homepage mixes this carousel with at least one other
-    "trending" section whose cards use different markup entirely, so
-    those get silently skipped (no name/price = no product, by design);
-    the carousel also loop-duplicates its first few slides in the DOM, so
+    "trending" section (2026-08-28: confirmed via a live DOM dump this is
+    a compact widget that has NO visible name text at all — only the
+    product <img alt="..."> — and uses p.text-lg.text-highlight for the
+    current price instead of span.text-sm.font-bold; both are now covered
+    as fallback selectors, and element_text() in scraper/parsing.py falls
+    back to an <img>'s alt attribute when textContent is empty). The
+    carousel also loop-duplicates its first few slides in the DOM, so
     duplicates collapse to one product via the source_url dedup in
     storage.py; and the homepage's product mix appears to rotate between
-    loads. Net effect: yield per run is small and inconsistent from this
+    loads. Net effect: yield per run is still small and inconsistent from this
     URL. For reliable results, point this at a real category/search page
     instead of the homepage and raise --limit.
 
