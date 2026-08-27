@@ -168,3 +168,7 @@ The result: it surfaces real matches when they exist and says nothing when they 
 ### Offers & banners
 
 Banners are grouped by store and rendered as a horizontally-scrollable strip per marketplace under "Current offers & banners, by store" — each image links out to the actual campaign page on that site. Source is `/api/banners` (live) or `public/banners.json` (static fallback), same pattern as products.
+
+### Price history chart
+
+Click any product row to open a detail panel with a stock-style line chart of its price over time (hand-rolled SVG, no charting library) — real crosshair-and-tooltip on hover, endpoint value label, line colored by net direction (green = price fell or held, red = rose). Needs the live backend: the static export only ever carries the current and previous price, not the full series, so in fallback mode the panel says so plainly instead of drawing a misleading 2-point "chart." With ~1 day of scrape history behind it right now, most products' lines are still flat — that's an honest reflection of the data, not a bug, and fills in as more scrapes accumulate over time. Colors and interaction follow this project's `dataviz` design conventions (2px line, hairline gridlines, no legend needed for a single series).

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
 const STORE_META = {
@@ -155,6 +155,154 @@ function normalize(raw) {
     .filter(Boolean)
 }
 
+// --- Price history line chart --------------------------------------------
+// Single-series "trend over time" (see dataviz skill: choosing-a-form.md).
+// One hue, chosen by net direction (green = price fell or held, warm = price
+// rose) rather than a fixed accent, since that's the one piece of identity
+// worth carrying here — no legend needed for a single series. Hand-rolled
+// SVG (no charting library in this project) with a real crosshair+tooltip
+// per the skill's interaction spec, not a static image.
+function PriceChart({ points }) {
+  const width = 560
+  const height = 200
+  const padding = { top: 18, right: 16, bottom: 26, left: 16 }
+  const [hoverIndex, setHoverIndex] = useState(null)
+  const svgRef = useRef(null)
+
+  if (points.length < 2) {
+    return (
+      <div className="chart-empty">
+        <strong>Only {points.length} price point recorded so far.</strong>
+        <small>Check back after the next scrape to see a trend line here.</small>
+      </div>
+    )
+  }
+
+  const prices = points.map((p) => Number(p.current_price))
+  const minPrice = Math.min(...prices)
+  const maxPrice = Math.max(...prices)
+  const flat = maxPrice === minPrice
+  const priceRange = flat ? 1 : maxPrice - minPrice
+  const times = points.map((p) => new Date(p.scraped_at).getTime())
+  const minTime = times[0]
+  const maxTime = times[times.length - 1]
+  const timeRange = maxTime - minTime || 1
+
+  const plotW = width - padding.left - padding.right
+  const plotH = height - padding.top - padding.bottom
+  const xFor = (t) => padding.left + ((t - minTime) / timeRange) * plotW
+  const yFor = (p) => (flat ? padding.top + plotH / 2 : padding.top + plotH - ((p - minPrice) / priceRange) * plotH)
+
+  const coords = points.map((p, i) => ({ x: xFor(times[i]), y: yFor(prices[i]), price: prices[i], at: p.scraped_at }))
+  const pathD = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ')
+  const trendColor = prices[prices.length - 1] > prices[0] ? '#ff9d9d' : 'var(--green)'
+  const last = coords[coords.length - 1]
+  const active = hoverIndex != null ? coords[hoverIndex] : last
+
+  const handleMove = (event) => {
+    const rect = svgRef.current.getBoundingClientRect()
+    const relX = ((event.clientX - rect.left) / rect.width) * width
+    let nearest = 0
+    let best = Infinity
+    coords.forEach((c, i) => {
+      const d = Math.abs(c.x - relX)
+      if (d < best) {
+        best = d
+        nearest = i
+      }
+    })
+    setHoverIndex(nearest)
+  }
+
+  const fmtDate = (iso) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+  return (
+    <div className="price-chart">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${width} ${height}`}
+        preserveAspectRatio="none"
+        onMouseMove={handleMove}
+        onMouseLeave={() => setHoverIndex(null)}
+        role="img"
+        aria-label={`Price history from ${money(minPrice)} to ${money(maxPrice)}`}
+      >
+        {[0, 0.5, 1].map((f) => {
+          const y = padding.top + plotH * (1 - f)
+          return <line key={f} x1={padding.left} x2={width - padding.right} y1={y} y2={y} className="chart-grid" />
+        })}
+        {!flat && (
+          <>
+            <text x={padding.left} y={padding.top - 6} className="chart-axis-value">{money(maxPrice)}</text>
+            <text x={padding.left} y={height - padding.bottom + 14} className="chart-axis-value">{money(minPrice)}</text>
+          </>
+        )}
+        <path d={pathD} fill="none" stroke={trendColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        {active && (
+          <line x1={active.x} x2={active.x} y1={padding.top} y2={height - padding.bottom} className="chart-crosshair" />
+        )}
+        <circle cx={last.x} cy={last.y} r="5" fill={trendColor} stroke="var(--panel)" strokeWidth="2" />
+        {hoverIndex != null && hoverIndex !== coords.length - 1 && (
+          <circle cx={active.x} cy={active.y} r="5" fill={trendColor} stroke="var(--panel)" strokeWidth="2" />
+        )}
+        <text x={last.x} y={last.y - 10} textAnchor="end" className="chart-end-label">{money(last.price)}</text>
+      </svg>
+      <div className="chart-axis-labels">
+        <span>{fmtDate(points[0].scraped_at)}</span>
+        {flat && <span className="chart-flat-note">No price change across {points.length} checks yet</span>}
+        <span>{fmtDate(points[points.length - 1].scraped_at)}</span>
+      </div>
+      {active && (
+        <div
+          className="chart-tooltip"
+          style={{ left: `${Math.min(Math.max((active.x / width) * 100, 12), 88)}%` }}
+        >
+          <strong>{money(active.price)}</strong>
+          <small>{fmtDate(active.at)}</small>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ProductDetail({ product, history, historyStatus, onClose }) {
+  useEffect(() => {
+    const onKey = (event) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  return (
+    <div className="detail-backdrop" onClick={onClose}>
+      <aside className="detail-panel" onClick={(event) => event.stopPropagation()} role="dialog" aria-label={product.name}>
+        <button type="button" className="detail-close" onClick={onClose} aria-label="Close">✕</button>
+        <span className="store-chip" style={{ '--product-color': product.color }}>{product.store}</span>
+        <h2>{product.name}</h2>
+        <div className="detail-price-row">
+          <strong>{money(product.price)}</strong>
+          {product.original && <del>{money(product.original)}</del>}
+          {product.discount && <b>{Math.round(product.discount)}% off</b>}
+        </div>
+
+        {historyStatus === 'loading' && <div className="chart-empty"><small>Loading price history…</small></div>}
+        {historyStatus === 'unavailable' && (
+          <div className="chart-empty">
+            <strong>Price history needs the live backend.</strong>
+            <small>This snapshot only carries the current and previous price — run the FastAPI backend for the full trend line.</small>
+          </div>
+        )}
+        {historyStatus === 'ready' && <PriceChart points={history} />}
+
+        <a className="buy-btn detail-buy" href={product.url} target="_blank" rel="noreferrer">
+          Visit on {product.store} ↗
+        </a>
+      </aside>
+    </div>
+  )
+}
+
 export default function App() {
   const [status, setStatus] = useState('loading')
   const [products, setProducts] = useState([])
@@ -166,6 +314,9 @@ export default function App() {
   const [lastChecked, setLastChecked] = useState(null)
   const [usingApi, setUsingApi] = useState(false)
   const [apiCompareGroups, setApiCompareGroups] = useState([])
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [history, setHistory] = useState([])
+  const [historyStatus, setHistoryStatus] = useState('idle')
 
   // Products + compare-groups: prefer the live backend when configured: it
   // has more data (the full Postgres history, not one committed snapshot)
@@ -287,6 +438,38 @@ export default function App() {
       // localStorage unavailable (private mode, etc.) — watchlist just won't persist
     }
   }, [watching])
+
+  // Price history is only available from the live API — the static export
+  // only ever carries current + previous price, not the full series.
+  useEffect(() => {
+    if (!selectedProduct) return
+    if (!usingApi || !API_BASE || !selectedProduct.productId) {
+      setHistory([])
+      setHistoryStatus('unavailable')
+      return
+    }
+    let cancelled = false
+    setHistoryStatus('loading')
+    fetch(`${API_BASE}/api/products/${selectedProduct.productId}/history?limit=500`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        setHistory(data.points || [])
+        setHistoryStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setHistoryStatus('unavailable')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedProduct, usingApi])
+
+  const openProduct = (product) => setSelectedProduct(product)
+  const closeProduct = () => setSelectedProduct(null)
 
   const stores = useMemo(() => [...new Set(products.map((p) => p.store))].sort(), [products])
 
@@ -518,7 +701,14 @@ export default function App() {
               </div>
               <div className="product-list">
                 {filtered.map((product) => (
-                  <article className="product" key={product.id}>
+                  <article
+                    className="product clickable"
+                    key={product.id}
+                    onClick={() => openProduct(product)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(event) => event.key === 'Enter' && openProduct(product)}
+                  >
                     <div className="product-icon" style={{ '--product-color': product.color }}>
                       {product.name.slice(0, 2)}
                     </div>
@@ -541,13 +731,22 @@ export default function App() {
                       {product.original && <del>{money(product.original)}</del>}
                       {product.discount && <b>{Math.round(product.discount)}% off</b>}
                     </div>
-                    <a className="buy-btn" href={product.url} target="_blank" rel="noreferrer">
+                    <a
+                      className="buy-btn"
+                      href={product.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
                       Visit ↗
                     </a>
                     <button
                       type="button"
                       className={`watch-btn${watching.includes(product.id) ? ' watching' : ''}`}
-                      onClick={() => toggleWatch(product.id)}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        toggleWatch(product.id)
+                      }}
                       aria-label={`Watch ${product.name}`}
                     >
                       {watching.includes(product.id) ? '◆' : '◇'}
@@ -639,6 +838,15 @@ export default function App() {
             </div>
           ))}
         </section>
+      )}
+
+      {selectedProduct && (
+        <ProductDetail
+          product={selectedProduct}
+          history={history}
+          historyStatus={historyStatus}
+          onClose={closeProduct}
+        />
       )}
 
       <footer id="sources">
