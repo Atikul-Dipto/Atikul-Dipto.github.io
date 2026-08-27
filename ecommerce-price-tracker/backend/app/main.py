@@ -8,6 +8,7 @@ Run from ecommerce-price-tracker/ so the sibling `scraper` package resolves:
 from __future__ import annotations
 
 import logging
+import threading
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -24,6 +25,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name
 
 from .config import settings
 from .db import engine
+from .narration import warm_up as warm_up_narration
 from .routers import banners, compare, health, products, scrape, sites
 from .scheduler import schedule_periodic_job, start_scheduler
 
@@ -33,6 +35,10 @@ async def lifespan(app: FastAPI):
     init_db(engine)
     start_scheduler()
     schedule_periodic_job()
+    # Load the narration model in the background so it's ready by the time
+    # someone opens a product detail panel, instead of the first request
+    # paying for a cold model load (which can take a while on CPU).
+    threading.Thread(target=warm_up_narration, daemon=True).start()
     yield
 
 

@@ -7,7 +7,9 @@ from sqlalchemy.orm import Session
 
 from .. import crud
 from ..db import get_db
-from ..schemas import ProductHistoryOut, ProductListOut, ProductOut
+from ..narration import generate_summary
+from ..schemas import ProductHistoryOut, ProductListOut, ProductOut, TrendOut
+from ..trends import compute_trend
 
 router = APIRouter()
 
@@ -72,4 +74,34 @@ def get_product_history(
             }
             for p in points
         ],
+    )
+
+
+@router.get("/products/{product_id}/trend", response_model=TrendOut)
+def get_product_trend(product_id: int, db: Session = Depends(get_db)) -> TrendOut:
+    """Real stats computed from price_history (no ML), plus a one-sentence
+    narration from a small local Hugging Face model. See trends.py and
+    narration.py for what each layer is actually allowed to say.
+    """
+    product, points = crud.product_history(db, product_id, limit=5000)
+    if product is None:
+        raise HTTPException(status_code=404, detail="Product not found")
+    trend = compute_trend(points)
+    if trend is None:
+        raise HTTPException(status_code=404, detail="No price data recorded yet for this product")
+
+    summary, source = generate_summary(product.product_name, trend)
+    return TrendOut(
+        checks=trend.checks,
+        window_days=trend.window_days,
+        change_pct=trend.change_pct,
+        direction=trend.direction,
+        lowest_price=trend.lowest_price,
+        lowest_at=trend.lowest_at,
+        highest_price=trend.highest_price,
+        highest_at=trend.highest_at,
+        streak_direction=trend.streak_direction,
+        streak_length=trend.streak_length,
+        summary=summary,
+        summary_source=source,
     )

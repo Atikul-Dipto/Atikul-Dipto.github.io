@@ -13,8 +13,14 @@ There are two ways this project runs, and both work at all times:
 
 Requirements: Python 3.10+, Google Chrome, and a matching Selenium-managed ChromeDriver.
 
+**Use a virtual environment.** `requirements.txt` now includes `transformers` + `tensorflow` (for the price-trend narration below), which is a multi-GB install — on a system drive with limited free space this can fail outright (`OSError: [Errno 28] No space left on device`) even installing globally would otherwise work, because pip's cache/temp and the interpreter's own `site-packages` both default to the system drive regardless. A project-local venv on whichever drive the project itself lives on sidesteps this and is the right call anyway:
+
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\python.exe -m pip install -r requirements.txt
+
+# Every command below assumes this venv's python — either activate it
+# (.venv\Scripts\activate) or call .venv\Scripts\python.exe directly.
 
 # Scrape every configured site once — products AND banners
 python run_pipeline.py run
@@ -118,7 +124,7 @@ docker compose up -d
 
 # 2. Start the API (run from ecommerce-price-tracker/ so the sibling
 #    `scraper` package resolves; -m is important, see note below)
-python -m uvicorn backend.app.main:app --reload --port 8000
+.venv\Scripts\python.exe -m uvicorn backend.app.main:app --reload --port 8000
 ```
 
 On startup it creates the schema if it doesn't exist yet (`scraper/storage_pg.py`, mirrors the SQLite schema plus a `banners` table) and — unless `SCRAPE_ON_STARTUP=false` — immediately scrapes every configured site once, then again every `SCRAPE_INTERVAL_MINUTES` (default 60). Copy `.env.example` to `.env` to override any of this locally; `.env` is gitignored.
@@ -130,12 +136,24 @@ On startup it creates the schema if it doesn't exist yet (`scraper/storage_pg.py
 - `GET /api/health` — readiness probe (checks the DB connection)
 - `GET /api/products?q=&site=&sort=discount|price_asc|price_desc|newest&limit=&offset=` — paginated, with `previous_price` for the price-drop indicator
 - `GET /api/products/{id}` / `GET /api/products/{id}/history` — one product's latest snapshot / full price-over-time series
+- `GET /api/products/{id}/trend` — real trend stats (% change, lowest/highest ever, streak) plus a one-sentence AI recap — see "Trend stats & AI recap" below
 - `GET /api/banners?site=`
 - `GET /api/compare-groups?min_stores=2` — server-computed cross-platform matches (see below)
 - `GET /api/sites` — per-site product/banner counts and last-scraped time, merged from Postgres + `sites.yaml`
 - `POST /api/scrape/run {only?, headless?}` / `POST /api/scrape/banners {only?}` — trigger a scrape on demand instead of waiting for the interval; returns immediately, runs on the scheduler's thread pool
 
 Full interactive docs at `http://localhost:8000/docs` once it's running.
+
+### Trend stats & AI recap
+
+Two separate layers, deliberately not blended into one "AI prediction":
+
+1. **`backend/app/trends.py`** — real arithmetic over a product's actual `price_history` rows: % change since first tracked, lowest/highest price ever seen, and the current up/down/flat streak. No model involved. This is *all* the "projection" this project does right now — with about a day of scrape history behind it, there isn't remotely enough depth for a time-series forecast to mean anything, and shipping one anyway would look like a prediction while really being noise.
+2. **`backend/app/narration.py`** — a small local Hugging Face model (`google/flan-t5-small`, TensorFlow backend, no paid API) turns those same real stats into one plain-English sentence. It is never asked to predict anything, only to restate facts it's handed. Small local models do sometimes invent a number anyway, so every number in its output is checked against the exact set of real values before being trusted (`_is_grounded()`); anything that doesn't match falls back to a deterministic template sentence built from the same facts. The API always reports which one actually produced it (`summary_source: "model" | "template"`), and the UI labels the model's output "AI recap" so it's never confused with the hard numbers next to it.
+
+Known limitation, not a bug: `flan-t5-small` is honestly weak at composing fluent prose from structured facts — output tends to be terse ("3 checks are flat.") or a near-verbatim recap rather than persuasive copy. A bigger model (`flan-t5-base`) was tried and didn't meaningfully improve fluency while costing 10-20s/request on CPU instead of a few seconds — not a good trade on a machine with no GPU. The stats block is the trustworthy part; the AI sentence is a bonus, not the point.
+
+The model downloads to `.hf_cache/` inside the project (gitignored) on first use, not the default `~/.cache/huggingface` — same system-drive-space reasoning as the venv above. `backend/app/main.py` warms the model up in a background thread at startup so the first real request isn't the one paying for the cold load.
 
 ### How it writes data
 
@@ -171,4 +189,4 @@ Banners are grouped by store and rendered as a horizontally-scrollable strip per
 
 ### Price history chart
 
-Click any product row to open a detail panel with a stock-style line chart of its price over time (hand-rolled SVG, no charting library) — real crosshair-and-tooltip on hover, endpoint value label, line colored by net direction (green = price fell or held, red = rose). Needs the live backend: the static export only ever carries the current and previous price, not the full series, so in fallback mode the panel says so plainly instead of drawing a misleading 2-point "chart." With ~1 day of scrape history behind it right now, most products' lines are still flat — that's an honest reflection of the data, not a bug, and fills in as more scrapes accumulate over time. Colors and interaction follow this project's `dataviz` design conventions (2px line, hairline gridlines, no legend needed for a single series).
+Click any product row to open a detail panel with a stock-style line chart of its price over time (hand-rolled SVG, no charting library) — real crosshair-and-tooltip on hover, endpoint value label, line colored by net direction (green = price fell or held, red = rose). Below the chart: the real trend stats and AI recap described above (backend-only, same fallback story). Needs the live backend: the static export only ever carries the current and previous price, not the full series, so in fallback mode the panel says so plainly instead of drawing a misleading 2-point "chart," and the trend/recap block doesn't render at all rather than showing stale or fabricated numbers. With ~1 day of scrape history behind it right now, most products' lines are still flat — that's an honest reflection of the data, not a bug, and fills in as more scrapes accumulate over time. Colors and interaction follow this project's `dataviz` design conventions (2px line, hairline gridlines, no legend needed for a single series).

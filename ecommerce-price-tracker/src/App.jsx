@@ -265,7 +265,7 @@ function PriceChart({ points }) {
   )
 }
 
-function ProductDetail({ product, history, historyStatus, onClose }) {
+function ProductDetail({ product, history, historyStatus, trend, trendStatus, onClose }) {
   useEffect(() => {
     const onKey = (event) => {
       if (event.key === 'Escape') onClose()
@@ -295,6 +295,40 @@ function ProductDetail({ product, history, historyStatus, onClose }) {
         )}
         {historyStatus === 'ready' && <PriceChart points={history} />}
 
+        {trendStatus === 'loading' && (
+          <div className="trend-loading">
+            <span className="spinner" /> Reading the trend…
+          </div>
+        )}
+        {trendStatus === 'ready' && trend && (
+          <div className="trend-block">
+            <div className="trend-stats">
+              <div>
+                <span>Since first tracked</span>
+                <strong className={trend.direction}>
+                  {trend.direction === 'flat' ? 'No change' : `${trend.direction === 'up' ? '↑' : '↓'} ${Math.abs(trend.change_pct)}%`}
+                </strong>
+              </div>
+              <div>
+                <span>Lowest seen</span>
+                <strong>{money(trend.lowest_price)}</strong>
+              </div>
+              <div>
+                <span>Highest seen</span>
+                <strong>{money(trend.highest_price)}</strong>
+              </div>
+              <div>
+                <span>Checks logged</span>
+                <strong>{trend.checks}</strong>
+              </div>
+            </div>
+            <div className="ai-recap">
+              <span className="ai-tag">{trend.summary_source === 'model' ? 'AI recap' : 'Recap'}</span>
+              <p>{trend.summary}</p>
+            </div>
+          </div>
+        )}
+
         <a className="buy-btn detail-buy" href={product.url} target="_blank" rel="noreferrer">
           Visit on {product.store} ↗
         </a>
@@ -317,6 +351,8 @@ export default function App() {
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [history, setHistory] = useState([])
   const [historyStatus, setHistoryStatus] = useState('idle')
+  const [trend, setTrend] = useState(null)
+  const [trendStatus, setTrendStatus] = useState('idle')
 
   // Products + compare-groups: prefer the live backend when configured: it
   // has more data (the full Postgres history, not one committed snapshot)
@@ -462,6 +498,36 @@ export default function App() {
       })
       .catch(() => {
         if (!cancelled) setHistoryStatus('unavailable')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [selectedProduct, usingApi])
+
+  // Trend stats + AI recap — separate, slower fetch (the narration model
+  // can take a few seconds on CPU), so it never blocks the chart from
+  // showing. Backend-only, same reasoning as history above.
+  useEffect(() => {
+    if (!selectedProduct) return
+    if (!usingApi || !API_BASE || !selectedProduct.productId) {
+      setTrend(null)
+      setTrendStatus('unavailable')
+      return
+    }
+    let cancelled = false
+    setTrendStatus('loading')
+    fetch(`${API_BASE}/api/products/${selectedProduct.productId}/trend`)
+      .then((response) => {
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (cancelled) return
+        setTrend(data)
+        setTrendStatus('ready')
+      })
+      .catch(() => {
+        if (!cancelled) setTrendStatus('unavailable')
       })
     return () => {
       cancelled = true
@@ -845,6 +911,8 @@ export default function App() {
           product={selectedProduct}
           history={history}
           historyStatus={historyStatus}
+          trend={trend}
+          trendStatus={trendStatus}
           onClose={closeProduct}
         />
       )}

@@ -8,3 +8,10 @@ sqlalchemy>=2.0,<3
 psycopg2-binary>=2.9,<3
 apscheduler>=3.10,<4
 pydantic-settings>=2.4,<3
+
+# Trend narration: a small local Hugging Face model (TensorFlow backend),
+# not a paid API — see backend/app/narration.py for the honesty/validation
+# guardrails around what it's allowed to say.
+transformers>=4.40,<5
+tensorflow>=2.16,<3
+tf-keras>=2.16,<3

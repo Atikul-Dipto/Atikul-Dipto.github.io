@@ -76,6 +76,21 @@ class CompareGroupsOut(BaseModel):
     results: list[CompareGroup]
 
 
+class TrendOut(BaseModel):
+    checks: int
+    window_days: float
+    change_pct: Decimal | None
+    direction: str
+    lowest_price: Decimal
+    lowest_at: datetime
+    highest_price: Decimal
+    highest_at: datetime
+    streak_direction: str
+    streak_length: int
+    summary: str
+    summary_source: str  # "model" (Hugging Face) or "template" (pure computed fallback)
+
+
 class ScrapeTriggerIn(BaseModel):
     only: list[str] | None = None
     headless: bool | None = None
