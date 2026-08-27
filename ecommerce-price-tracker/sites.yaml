@@ -1,0 +1,222 @@
+# Per-site scraping configuration for run_pipeline.py.
+#
+# `verified: true` means the selectors below were checked against that
+# site's actual rendered markup (see the notes on each site for how).
+# `verified: false` means the site is a client-rendered app whose product
+# grid never appears in a plain HTTP fetch, so the selectors are
+# best-effort guesses. Run `python run_pipeline.py inspect <key>` and look
+# at the saved page in data/debug/ before trusting an unverified site.
+#
+# card_selectors / name_selectors / price_selectors / original_price_selectors
+# are each tried in order; the first selector that matches something wins.
+# Add or reorder entries here as retailers change their markup.
+
+daraz:
+  name: Daraz
+  urls:
+    - "https://www.daraz.com.bd/catalog/?q=wireless+headphones"
+  card_selectors:
+    - '[data-qa-locator="product-item"]'
+    - ".product-item"
+    - ".product-card"
+    - "article[data-product-id]"
+  name_selectors:
+    - "[data-qa-locator='product-title']"
+    - ".RfADt a"
+    - ".title"
+    - ".name"
+    - "h2"
+    - "h3"
+    - "a"
+  price_selectors:
+    - "[data-qa-locator='product-price']"
+    - ".aBrP0 .ooOxS"
+    - ".price"
+    - ".current-price"
+    - ".sale-price"
+  original_price_selectors:
+    - "[data-qa-locator='product-original-price']"
+    - ".original-price"
+    - ".old-price"
+    - "del"
+    - "s"
+  discount_selectors:
+    - ".WNoq3 .IcOsH"
+    - ".discount"
+    - ".discount-rate"
+    - ".sale-tag"
+  verified: true
+  wait_seconds: 25
+  notes: >
+    Client-rendered SPA. The card container keeps a stable
+    data-qa-locator="product-item" attribute, but Daraz renders the title
+    and price with hashed CSS-module class names (e.g. .RfADt, .aBrP0
+    .ooOxS) that WILL change on Daraz's next frontend deploy — the
+    data-qa-locator sub-attributes this project's original scraper relied
+    on (product-title/product-price) no longer exist on those inner
+    elements as of the last check. If this site starts returning 0 (or
+    garbage/concatenated) prices, run
+    `python run_pipeline.py inspect daraz`, open the saved HTML, and
+    replace the hashed classes above with whatever Daraz is using now.
+
+othoba:
+  name: Othoba
+  urls:
+    - "https://www.othoba.com/"
+  card_selectors:
+    - ".product.product-widget"
+    - ".product.product-list"
+  name_selectors:
+    - ".product-name"
+  price_selectors:
+    - ".product-price .new-price"
+    - ".product-price"
+  original_price_selectors:
+    - ".product-price .old-price"
+  verified: true
+  notes: >
+    Confirmed against server-rendered HTML (nopCommerce-style storefront).
+    The homepage only shows a "latest products" rail; swap the URL for a
+    specific category page to track a focused product set. This site's
+    own search route did not resolve to real search results when probed,
+    so use category URLs rather than a search query template.
+
+shwapno:
+  name: Shwapno
+  urls:
+    - "https://www.shwapno.com/"
+  card_selectors:
+    - ".product-box-info"
+  name_selectors:
+    - ".product-box-title"
+  price_selectors:
+    - ".active-price"
+  original_price_selectors:
+    - ".old-price"
+  verified: true
+  wait_seconds: 25
+  notes: >
+    Tailwind class names confirmed from the page's server-rendered loading
+    skeleton, which is hydrated client-side using the same classes. Only
+    lists featured products on the homepage; swap in a category URL for a
+    specific product line. Its search route also returned the same
+    skeleton content when probed, so prefer category URLs.
+
+startech:
+  name: Star Tech
+  urls:
+    - "https://www.startech.com.bd/product/search?search=headphone"
+  card_selectors:
+    - ".p-item"
+  name_selectors:
+    - ".p-item-name"
+  price_selectors:
+    - ".p-item-price .price-new"
+    - ".p-item-price"
+  original_price_selectors:
+    - ".p-item-price .price-old"
+  verified: true
+  notes: >
+    Confirmed against real rendered search results, including a
+    discounted item (.p-item-price holds both .price-new and .price-old
+    spans side by side, so the current-price selector must target
+    .price-new specifically or it concatenates both numbers). Search
+    accepts ?search=<query> directly in the URL.
+
+bikroy:
+  name: Bikroy
+  urls:
+    - "https://bikroy.com/en/ads/bangladesh?q=headphone"
+  card_selectors:
+    - ".js-advert-list-item"
+  name_selectors:
+    - ".qa-advert-title"
+  price_selectors:
+    - ".qa-advert-price"
+  original_price_selectors: []
+  verified: true
+  notes: >
+    Classifieds marketplace, not a retailer catalog. Each listing is an
+    individual seller's ad with a single price and no strike-through
+    original price, so discount_percent will always be empty here.
+
+cartup:
+  name: Cartup
+  urls:
+    - "https://cartup.com/"
+  card_selectors:
+    - 'a[href^="/product/"]'
+  name_selectors:
+    - "p.line-clamp-2"
+  price_selectors:
+    - "span.text-sm.font-bold"
+  original_price_selectors:
+    - ".line-through"
+  verified: true
+  wait_seconds: 30
+  notes: >
+    Next.js app; the product grid only appears after client-side
+    hydration, so it never showed up in a plain HTTP fetch. Rendered it
+    with Selenium directly and confirmed these selectors are correct
+    against the homepage's featured-products carousel — unlike Daraz,
+    Cartup's classes are plain Tailwind utility classes rather than
+    build-hashed CSS modules, so they should be comparatively stable.
+    Caveats: the homepage mixes this carousel with at least one other
+    "trending" section whose cards use different markup entirely, so
+    those get silently skipped (no name/price = no product, by design);
+    the carousel also loop-duplicates its first few slides in the DOM, so
+    duplicates collapse to one product via the source_url dedup in
+    storage.py; and the homepage's product mix appears to rotate between
+    loads. Net effect: yield per run is small and inconsistent from this
+    URL. For reliable results, point this at a real category/search page
+    instead of the homepage and raise --limit.
+
+packly:
+  name: Packly
+  urls:
+    - "https://www.packly.com/"
+  card_selectors:
+    - '[class*="product-card" i]'
+    - '[class*="ProductCard" i]'
+    - 'a[href*="/product/"]'
+  name_selectors:
+    - "h2"
+    - "h3"
+    - '[class*="title" i]'
+    - '[class*="name" i]'
+  price_selectors:
+    - '[class*="price" i]'
+  original_price_selectors: []
+  verified: false
+  wait_seconds: 30
+  notes: >
+    Next.js app, same situation as cartup: no product markup in a plain
+    HTTP fetch. Selectors are unverified guesses — run
+    `python run_pipeline.py inspect packly` and fix them from the saved
+    HTML before trusting this site's output. Note: packly.com appears to
+    be a custom-packaging storefront rather than a general e-commerce
+    catalog, so "products" here may need a different query URL entirely
+    (e.g. a specific catalog/category page) to return anything useful.
+
+chaldal:
+  name: Chaldal
+  urls:
+    - "https://chaldal.com/"
+  card_selectors:
+    - '[class*="product" i]'
+    - '[class*="Product" i]'
+  name_selectors:
+    - "h2"
+    - "h3"
+    - '[class*="name" i]'
+  price_selectors:
+    - '[class*="price" i]'
+  original_price_selectors: []
+  verified: false
+  wait_seconds: 30
+  notes: >
+    React SPA that fetches its catalog via internal APIs after load; the
+    homepage is not a product listing at all (no grid, just navigation).
+    Replace the URL with a real category or search results page (e.g.
+    https://chaldal.com/search/<query>) and verify selectors with
+    `python run_pipeline.py inspect chaldal` before relying on this site.

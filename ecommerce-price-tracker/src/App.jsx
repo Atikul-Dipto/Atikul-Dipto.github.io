@@ -1,0 +1,31 @@
+import { useMemo, useState } from 'react'
+import './App.css'
+
+const products = [
+  { id: 1, name: 'Sony WH-1000XM5', store: 'TechLand BD', category: 'Audio', price: 32990, previous: 35990, rating: 4.8, stock: 'In stock', color: '#ffb347' },
+  { id: 2, name: 'Logitech MX Master 3S', store: 'Gadget Hub', category: 'Accessories', price: 8950, previous: 9990, rating: 4.7, stock: 'In stock', color: '#64d4ff' },
+  { id: 3, name: 'Apple iPhone 15 128GB', store: 'Gadget Hub', category: 'Mobiles', price: 104990, previous: 109000, rating: 4.6, stock: 'Low stock', color: '#cf9cff' },
+  { id: 4, name: 'Anker 737 Power Bank', store: 'Pickaboo', category: 'Accessories', price: 11200, previous: 12500, rating: 4.5, stock: 'In stock', color: '#82e6b5' },
+  { id: 5, name: 'Dell UltraSharp 27 Monitor', store: 'Star Tech', category: 'Displays', price: 43800, previous: 46500, rating: 4.4, stock: 'In stock', color: '#ff8e8e' },
+  { id: 6, name: 'Kindle Paperwhite 16GB', store: 'Book Market', category: 'Devices', price: 18900, previous: 20900, rating: 4.8, stock: 'Low stock', color: '#f2dc71' },
+]
+const money = (value) => `৳${new Intl.NumberFormat('en-US').format(value)}`
+const discount = (product) => Math.round((1 - product.price / product.previous) * 100)
+
+export default function App() {
+  const [query, setQuery] = useState('')
+  const [category, setCategory] = useState('All categories')
+  const [sort, setSort] = useState('Biggest discount')
+  const [watching, setWatching] = useState([])
+  const filtered = useMemo(() => products.filter((product) => product.name.toLowerCase().includes(query.toLowerCase()) && (category === 'All categories' || product.category === category)).sort((a, b) => sort === 'Lowest price' ? a.price - b.price : discount(b) - discount(a)), [category, query, sort])
+  const toggleWatch = (id) => setWatching((items) => items.includes(id) ? items.filter((item) => item !== id) : [...items, id])
+
+  return <main className="app-shell">
+    <header className="topbar"><a className="brand" href="/">price<span>pulse</span></a><nav><a className="active" href="#overview">Overview</a><a href="#watchlist">Watchlist <b>{watching.length}</b></a><a href="#sources">Sources</a></nav><div className="sync"><i /> Syncing every 15 min <span>Last checked 2 min ago</span></div></header>
+    <section className="intro" id="overview"><div><p className="eyebrow">Bangladesh marketplace monitor</p><h1>Find the moment<br /><em>before</em> the price moves.</h1><p className="intro-copy">A clear, live-style view of product prices, discounts, and stock across trusted local stores.</p></div><div className="intro-note"><span>Tracked today</span><strong>1,248</strong><small>products across 8 sources</small><div className="sparkline">{[30, 48, 42, 75, 57, 90, 76].map((height) => <i style={{ height: `${height}%` }} key={height} />)}</div></div></section>
+    <section className="control-bar" aria-label="Product filters"><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" /></label><label><span>Category</span><select value={category} onChange={(event) => setCategory(event.target.value)}><option>All categories</option><option>Audio</option><option>Accessories</option><option>Mobiles</option><option>Displays</option><option>Devices</option></select></label><label><span>Sort by</span><select value={sort} onChange={(event) => setSort(event.target.value)}><option>Biggest discount</option><option>Lowest price</option></select></label><span className="result-count">{filtered.length} of {products.length} shown</span></section>
+    <section className="metric-row"><div><span>Average discount</span><strong>11.6%</strong><small className="up">↗ 2.4% this week</small></div><div><span>Lowest tracked price</span><strong>{money(Math.min(...products.map((product) => product.price)))}</strong><small>Across all categories</small></div><div><span>Price drops today</span><strong>37</strong><small className="up">↗ 8 since yesterday</small></div><div><span>Stores monitored</span><strong>08</strong><small>Public sources</small></div></section>
+    <section className="content-grid"><div className="product-panel"><div className="panel-head"><div><p className="eyebrow">Live product feed</p><h2>Best current deals</h2></div><button type="button" className="outline-btn">Export CSV ↓</button></div><div className="product-list">{filtered.map((product) => <article className="product" key={product.id}><div className="product-icon" style={{ '--product-color': product.color }}>{product.name.slice(0, 2)}</div><div className="product-info"><h3>{product.name}</h3><p>{product.store} <span>·</span> {product.category}</p><div className="rating">★ {product.rating} <span>{product.stock}</span></div></div><div className="product-price"><strong>{money(product.price)}</strong><del>{money(product.previous)}</del><b>{discount(product)}% off</b></div><button type="button" className={`watch-btn${watching.includes(product.id) ? ' watching' : ''}`} onClick={() => toggleWatch(product.id)} aria-label={`Watch ${product.name}`}>{watching.includes(product.id) ? '◆' : '◇'}</button></article>)}</div></div><aside className="side-panel" id="watchlist"><div className="panel-head"><div><p className="eyebrow">Your signal</p><h2>Price movement</h2></div><span className="period">30 days</span></div><div className="big-number">-8.4% <span>average</span></div><div className="chart"><div className="chart-lines" /><svg viewBox="0 0 360 150" preserveAspectRatio="none"><polyline points="0,105 30,110 60,98 90,104 120,78 150,88 180,72 210,80 240,55 270,68 300,44 330,50 360,28" fill="none" stroke="#ffb347" strokeWidth="3" strokeLinecap="round" /></svg></div><div className="chart-labels"><span>01 Aug</span><span>15 Aug</span><span>31 Aug</span></div><div className="alert-box"><span>⌁</span><div><strong>3 products hit a new low</strong><small>Check your watchlist for details</small></div></div></aside></section>
+    <footer id="sources"><span>Data refreshes from public product pages</span><span>Built for price-aware shopping · <a href="https://github.com/Atikul-Dipto" target="_blank" rel="noreferrer">GitHub</a></span></footer>
+  </main>
+}
