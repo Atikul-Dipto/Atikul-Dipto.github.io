@@ -23,7 +23,10 @@ from scraper.storage import connect
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_DB = ROOT / "data" / "pricetracker.db"
-DEFAULT_EXPORT = ROOT / "data" / "products.json"
+# The React app is a static site with no backend, so the snapshot it fetches
+# at runtime has to be a real file inside public/ that gets built and
+# deployed with everything else — not the gitignored data/ directory.
+DEFAULT_EXPORT = ROOT / "public" / "products.json"
 DEFAULT_DEBUG_DIR = ROOT / "data" / "debug"
 
 

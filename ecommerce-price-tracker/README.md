@@ -1,10 +1,10 @@
 # Price Pulse
 
-A React dashboard for monitoring public e-commerce prices in Bangladesh, plus a Selenium scraping pipeline that produces the data feed.
+A React dashboard for browsing and comparing public e-commerce prices in Bangladesh, plus a Selenium scraping pipeline that produces the data feed.
 
 ## Scraping pipeline
 
-`run_pipeline.py` scrapes every site configured in [`sites.yaml`](sites.yaml), stores every observation in a SQLite history database, and exports the latest snapshot to JSON.
+`run_pipeline.py` scrapes every site configured in [`sites.yaml`](sites.yaml), stores every observation in a SQLite history database, and exports the latest snapshot to JSON — straight into `public/products.json`, which is what the frontend actually loads at runtime.
 
 Requirements: Python 3.10+, Google Chrome, and a matching Selenium-managed ChromeDriver.
 
@@ -25,22 +25,20 @@ Add `--headed` to watch Chrome while tuning selectors, and `--log-level DEBUG` f
 
 ### Output
 
-- `data/pricetracker.db` — SQLite history: every price observation ever recorded, per product per site (`products` + `price_history` tables). This is what lets the dashboard show price movement over time instead of just a snapshot.
-- `data/products.json` — the latest known price per product, plus the price recorded just before it (`previous_price`), regenerated on every run.
-
-Both are gitignored since they're regenerated output, not source.
+- `data/pricetracker.db` — SQLite history: every price observation ever recorded, per product per site (`products` + `price_history` tables). This is what lets the dashboard show a "was ৳X" price-drop indicator instead of just a snapshot. Gitignored — regenerated, not source.
+- `public/products.json` — the latest known price per product, plus the price recorded just before it (`previous_price`). **This one is committed**, not gitignored: it's a static site with no backend, so this file has to physically exist in the deployed build for the dashboard to have anything to show. Re-run the pipeline and commit the refreshed file whenever you want the live site to reflect newer prices.
 
 ### Configured sites
 
 | Site | Status | Notes |
 |---|---|---|
-| Daraz | ✅ verified | Carried over from the project's original scraper; known-good selectors. |
+| Daraz | ✅ verified | Card container has a stable `data-qa-locator`, but title/price use hashed CSS-module classes that drift on redeploy — see `sites.yaml` notes. |
 | Othoba | ✅ verified | Selectors confirmed against real server-rendered HTML. |
 | Shwapno | ✅ verified | Selectors confirmed against real class names (Tailwind, hydrated client-side). |
 | Star Tech | ✅ verified | Selectors confirmed against real rendered search results. |
 | Bikroy | ✅ verified | Classifieds site — one price per ad, no discount field. |
-| Cartup | ⚠️ unverified | Next.js app; product grid only exists after client-side hydration, so selectors are best-effort guesses. |
-| Packly | ⚠️ unverified | Same situation as Cartup. Also worth double-checking this is the storefront you meant — packly.com reads as a custom-packaging site, not a general retailer. |
+| Cartup | ✅ verified, low yield | Real selectors confirmed, but the homepage mixes multiple card layouts and its content rotates between loads — point it at a category/search page for reliable results. |
+| Packly | ⚠️ unverified | No product markup found at all — the URL may need to be a specific catalog page, or this may not be the storefront you meant (packly.com reads as a custom-packaging site). |
 | Chaldal | ⚠️ unverified | Its homepage isn't a product listing at all; you'll need to point it at a real search/category URL. |
 
 For any ⚠️ site, run the inspector before trusting its output:
@@ -79,4 +77,6 @@ npm install
 npm run dev
 ```
 
-The dashboard currently uses sample records in `src/App.jsx`. The next integration step is having it fetch `data/products.json` (or serve it from a small backend) instead of the hardcoded sample array.
+The dashboard fetches `public/products.json` on load — no backend, no fake sample data. It reflects whatever the pipeline last exported: search by name, filter by store, sort by discount/price/recency, click "Visit" to go straight to the listing on the source site, and star a product to add it to a localStorage-backed watchlist (persists across visits, per browser). Metrics (average discount, lowest price, price drops, stores monitored) are computed live from the loaded data — none of it is hardcoded.
+
+If `public/products.json` doesn't exist yet or is empty, the dashboard shows an empty state with the exact command to run instead of silently showing nothing.
