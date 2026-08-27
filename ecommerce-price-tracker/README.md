@@ -29,6 +29,14 @@ python run_pipeline.py loop --interval-minutes 15
 
 Add `--headed` to watch Chrome while tuning selectors, and `--log-level DEBUG` for more detail.
 
+### Tracking more products
+
+Three independent levers, from cheapest to most work:
+
+1. **Raise `--limit`** (default 24) — caps items scraped per URL, e.g. `python run_pipeline.py run --limit 50`.
+2. **Add more URLs to a site already in `sites.yaml`** — each entry in that site's `urls:` list gets scraped in full and added to the feed; a site's selectors are usually stable across different search queries/category pages on the same storefront, so this is normally a one-line addition, not new selector work. E.g. Daraz currently scrapes both a `wireless+headphones` and a `rice` search — add another `?q=<term>` line for another category. Worth pointing overlapping-category sites (the grocery-carrying ones: Othoba, Shwapno, Cartup) at the *same* kind of item when you can — that's what gives the cross-platform comparison feature something to actually match on.
+3. **Add a new site entirely** — copy the `my_site:` template further down this file into `sites.yaml`, run `python run_pipeline.py inspect my_site` to check what actually matched, and iterate on the selectors from the saved HTML in `data/debug/`. This is the only lever that needs real verification work; see "Configured sites" below for which of the current 8 still need it.
+
 ### Output
 
 - `data/pricetracker.db` — SQLite history: every price observation ever recorded, per product per site (`products` + `price_history` tables). This is what lets the dashboard show a "was ৳X" price-drop indicator instead of just a snapshot. Gitignored — regenerated, not source.

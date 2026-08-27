@@ -15,6 +15,7 @@ daraz:
   name: Daraz
   urls:
     - "https://www.daraz.com.bd/catalog/?q=wireless+headphones"
+    - "https://www.daraz.com.bd/catalog/?q=rice"
   card_selectors:
     - '[data-qa-locator="product-item"]'
     - ".product-item"
@@ -66,6 +67,7 @@ othoba:
   name: Othoba
   urls:
     - "https://othoba.com/food-grocery"
+    - "https://othoba.com/food-grocery?page=2"
   card_selectors:
     - ".product.product-image-gap.product-simple"
     - ".product.product-widget"
@@ -107,6 +109,7 @@ shwapno:
   name: Shwapno
   urls:
     - "https://www.shwapno.com/"
+    - "https://www.shwapno.com/rice"
   card_selectors:
     - ".product-box-info"
   name_selectors:
@@ -131,6 +134,7 @@ startech:
   name: Star Tech
   urls:
     - "https://www.startech.com.bd/product/search?search=headphone"
+    - "https://www.startech.com.bd/product/search?search=laptop"
   card_selectors:
     - ".p-item"
   name_selectors:
@@ -159,6 +163,7 @@ bikroy:
   name: Bikroy
   urls:
     - "https://bikroy.com/en/ads/bangladesh?q=headphone"
+    - "https://bikroy.com/en/ads/bangladesh?q=mobile+phone"
   card_selectors:
     - ".js-advert-list-item"
   name_selectors:
@@ -259,6 +264,10 @@ chaldal:
   notes: >
     React SPA that fetches its catalog via internal APIs after load; the
     homepage is not a product listing at all (no grid, just navigation).
-    Replace the URL with a real category or search results page (e.g.
-    https://chaldal.com/search/<query>) and verify selectors with
-    `python run_pipeline.py inspect chaldal` before relying on this site.
+    /search/<query> is NOT a real route (returns the app shell, checked
+    2026-08-27) — the homepage's search box is a live JS autocomplete
+    dropdown, not a link to a results page, so there's no plain URL to
+    point this at without first finding the category pages (visible in
+    the nav) or reverse-engineering the autocomplete's XHR endpoint.
+    Verify with `python run_pipeline.py inspect chaldal` before relying
+    on this site either way.
