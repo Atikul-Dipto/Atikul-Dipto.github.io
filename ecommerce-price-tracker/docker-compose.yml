@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: pricetracker_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pricetracker
+      POSTGRES_PASSWORD: pricetracker
+      POSTGRES_DB: pricetracker
+    ports:
+      # Host 5433, not 5432 — an unrelated project's Postgres container
+      # (ltw_postgres) is already bound to 5432 on this machine.
+      - "5433:5432"
+    volumes:
+      - pricetracker_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pricetracker -d pricetracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pricetracker_pgdata:

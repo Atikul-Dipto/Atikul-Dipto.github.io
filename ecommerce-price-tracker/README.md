@@ -1,6 +1,11 @@
 # Price Pulse
 
-A React dashboard for browsing and comparing public e-commerce prices in Bangladesh, plus a Selenium scraping pipeline that produces the data feed.
+A React dashboard for browsing and comparing public e-commerce prices in Bangladesh, backed by a Selenium scraping pipeline and (optionally) a live FastAPI + PostgreSQL backend that keeps a running price-history "storehouse" instead of a one-off snapshot.
+
+There are two ways this project runs, and both work at all times:
+
+- **Static** — `run_pipeline.py` scrapes into a local SQLite file and exports JSON snapshots straight into `public/`, which the deployed static site (this repo's GitHub Pages) reads directly. No backend involved. This is what's live today.
+- **Live** — a Postgres database + FastAPI backend (`backend/`) accumulate every scrape into real history, and the frontend calls its API instead of the static files whenever `VITE_API_BASE_URL` is set and reachable. Falls back to the static files automatically otherwise (see "Frontend" below) — the live backend is additive, not a replacement.
 
 ## Scraping pipeline
 
@@ -55,8 +60,11 @@ Three independent levers, from cheapest to most work:
 | Star Tech | ✅ verified | ✅ | Selectors confirmed against real rendered search results. |
 | Bikroy | ✅ verified | ✅ | Classifieds site — one price per ad, no discount field. |
 | Cartup | ✅ verified, low yield | ✅ | Real selectors confirmed, but the homepage mixes multiple card layouts and its content rotates between loads — point it at a category/search page for reliable results. |
+| Pickaboo | ✅ verified | ✅ | Selectors confirmed against a real rendered category page. Discounted cards hold current + strikethrough price in the same `.product-price` element with no separator — same concatenation trap as Star Tech/Othoba, scoped selectors avoid it. Homepage hero slides have no link at all (not even `onclick`), so banners fall back to linking the homepage. |
 | Packly | ⚠️ unverified | — | No product markup found at all — the URL may need to be a specific catalog page, or this may not be the storefront you meant (packly.com reads as a custom-packaging site). |
-| Chaldal | ⚠️ unverified | — | Its homepage isn't a product listing at all; you'll need to point it at a real search/category URL. |
+| Chaldal | ⚠️ unverified | — | Its homepage isn't a product listing at all; its search box is a live JS autocomplete with no real results-page URL behind it, so you'd need a real category URL or the autocomplete's XHR endpoint. |
+
+Two more sites were tried and dropped rather than shipped half-working: **AjkerDeal** — its server doesn't respond at all (TCP connection times out on port 443, not a bot-block) as of 2026-08-27, likely defunct. **Ryans Computers** — sits behind a Cloudflare bot challenge ("Just a moment..." interstitial); circumventing that is a materially different, more ToS-sensitive activity than the plain scraping every other site here uses, so it wasn't pursued.
 
 Banner scraping is a separate, simpler pass than product scraping — one image, one link, no price to parse — configured per site via `banner_url` / `banner_selectors` (see `sites.yaml`). Packly and Chaldal don't have it configured since their product selectors aren't trustworthy yet either.
 
@@ -85,9 +93,43 @@ my_site:
   notes: "Optional freeform notes for future you."
 ```
 
-No code changes needed — `run_pipeline.py run` picks up new entries automatically.
+No code changes needed — `run_pipeline.py run` picks up new entries automatically, on both the static pipeline and the live backend below (they share `sites.yaml` and the same scraping code in `scraper/`).
 
 Use only on sites that permit automated access, and respect terms, robots rules, rate limits, and copyright restrictions.
+
+## Backend (Postgres + FastAPI) — the "storehouse"
+
+This is what turns "a JSON snapshot I re-export by hand" into a real, continuously-updated price history. It's local-only for now — no hosting has been set up, that's a deliberate, separate decision for later.
+
+```bash
+# 1. Start Postgres (isolated on host port 5433 — some machines already
+#    run Postgres for other projects on the default 5432)
+docker compose up -d
+
+# 2. Start the API (run from ecommerce-price-tracker/ so the sibling
+#    `scraper` package resolves; -m is important, see note below)
+python -m uvicorn backend.app.main:app --reload --port 8000
+```
+
+On startup it creates the schema if it doesn't exist yet (`scraper/storage_pg.py`, mirrors the SQLite schema plus a `banners` table) and — unless `SCRAPE_ON_STARTUP=false` — immediately scrapes every configured site once, then again every `SCRAPE_INTERVAL_MINUTES` (default 60). Copy `.env.example` to `.env` to override any of this locally; `.env` is gitignored.
+
+**Why `python -m uvicorn` and not the bare `uvicorn` command:** `-m` puts the current directory on `sys.path`, which is how `backend/` finds the sibling `scraper` package without any packaging setup. The bare console-script entry point doesn't reliably do this.
+
+### API
+
+- `GET /api/health` — readiness probe (checks the DB connection)
+- `GET /api/products?q=&site=&sort=discount|price_asc|price_desc|newest&limit=&offset=` — paginated, with `previous_price` for the price-drop indicator
+- `GET /api/products/{id}` / `GET /api/products/{id}/history` — one product's latest snapshot / full price-over-time series
+- `GET /api/banners?site=`
+- `GET /api/compare-groups?min_stores=2` — server-computed cross-platform matches (see below)
+- `GET /api/sites` — per-site product/banner counts and last-scraped time, merged from Postgres + `sites.yaml`
+- `POST /api/scrape/run {only?, headless?}` / `POST /api/scrape/banners {only?}` — trigger a scrape on demand instead of waiting for the interval; returns immediately, runs on the scheduler's thread pool
+
+Full interactive docs at `http://localhost:8000/docs` once it's running.
+
+### How it writes data
+
+`scraper/pipeline.py`'s `scrape_url_with_retries()` and `scraper/banners.py`'s `scrape_banners()` — the same functions the static CLI pipeline uses — return plain dataclasses and know nothing about storage. `backend/app/scheduler.py::run_scrape_job()` calls them directly and writes into Postgres via `scraper/storage_pg.py`. `scraper/storage.py` (SQLite) and `run_pipeline.py` are untouched by any of this — `python run_pipeline.py inspect <site>` still works exactly as before for verifying a new site's selectors before adding it.
 
 ## Frontend
 
@@ -96,21 +138,23 @@ npm install
 npm run dev
 ```
 
-The dashboard fetches `public/products.json` and `public/banners.json` on load (and re-fetches every 5 minutes while open) — no backend, no fake sample data. It reflects whatever the pipeline last exported: search by name, filter by store, sort by discount/price/recency, click "Visit" to go straight to the listing on the source site, and star a product to add it to a localStorage-backed watchlist (persists across visits, per browser). Metrics (average discount, lowest price, price drops, stores monitored) are computed live from the loaded data — none of it is hardcoded.
+On load, the dashboard tries the backend first (`VITE_API_BASE_URL`, defaulted to `http://localhost:8000` in dev via the committed `.env.development`) and falls back to the static `public/products.json`/`banners.json` export if that env var is unset or the request fails — which is exactly the case for the deployed static site today, since no backend is hosted anywhere yet. Either way: search by name, filter by store, sort by discount/price/recency, click "Visit" to go straight to the listing on the source site, and star a product to add it to a localStorage-backed watchlist (persists across visits, per browser). Metrics are computed live from whichever data source is active — none of it is hardcoded. The header shows which source is active ("Live" vs "Static snapshot").
 
-If `public/products.json` doesn't exist yet or is empty, the dashboard shows an empty state with the exact command to run instead of silently showing nothing.
+If there's no data at all yet, the dashboard shows an empty state with the exact command to run instead of silently showing nothing.
 
 ### Cross-platform comparison
 
-There's no shared product ID across 6 unrelated storefronts — "the same product on two sites" can only be inferred from listing-name text, and getting that wrong actively misleads a shopper (a false "it's cheaper elsewhere" is worse than not showing a comparison at all). So the matching in `src/App.jsx` (`groupAcrossStores`) is deliberately conservative, with hard gates rather than one similarity score:
+There's no shared product ID across unrelated storefronts — "the same product on two sites" can only be inferred from listing-name text, and getting that wrong actively misleads a shopper (a false "it's cheaper elsewhere" is worse than not showing a comparison at all). So the matching — **`backend/app/matching.py`** when the live API is active, source of truth — is deliberately conservative, with hard gates rather than one similarity score:
 
 1. Quantity notation is normalized (`"500 gm"` / `"500gm"` → the same token) so real matches aren't missed on formatting alone.
 2. **Brand gate**: the first word of a listing title is almost always the brand in these catalogs — two listings must share it, or they never group, no matter how similar the rest of the words look. This is what stops "PRAN Full Cream Milk Powder 1kg" from being shown next to "AMA Full Cream Milk Powder 1kg" as if they were the same product.
 3. **Quantity gate**: if both names carry a detected size/weight, it must match too, so a 500g pack and a 1kg pack of the same brand are never shown as directly comparable.
 4. Only past both gates does word-overlap get a vote (Jaccard similarity ≥ 0.6).
 
-The result: it surfaces real matches when they exist and says nothing when they don't, rather than guessing. With the currently configured sites/URLs, genuine overlap is rare (each site is pointed at a different product category) — mostly it will fire when two grocery-carrying sites (Othoba, Shwapno, Cartup) happen to stock the same branded item. The dashboard also labels the section "Matched by listing name similarity — double-check before buying" so it's never presented as more certain than it is.
+`src/App.jsx`'s `groupAcrossStores` is the same algorithm, kept as the offline fallback for when there's no live API — it was ported to Python and the two were verified to produce identical output on the same data before either was trusted. If you change the matching rules, change both and re-verify (run each against the same snapshot, diff the groups) — they're meant to stay in lockstep, not drift.
+
+The result: it surfaces real matches when they exist and says nothing when they don't, rather than guessing. With the currently configured sites/URLs, genuine overlap is rare (each site is pointed at a different product category) — mostly it fires when two grocery-carrying sites (Othoba, Shwapno, Cartup) happen to stock the same branded item. The dashboard also labels the section "Matched by listing name similarity — double-check before buying" so it's never presented as more certain than it is.
 
 ### Offers & banners
 
-`public/banners.json` (from `python run_pipeline.py banners`) is grouped by store and rendered as a horizontally-scrollable strip per marketplace under "Current offers & banners, by store" — each image links out to the actual campaign page on that site.
+Banners are grouped by store and rendered as a horizontally-scrollable strip per marketplace under "Current offers & banners, by store" — each image links out to the actual campaign page on that site. Source is `/api/banners` (live) or `public/banners.json` (static fallback), same pattern as products.

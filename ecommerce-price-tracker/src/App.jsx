@@ -41,7 +41,16 @@ function loadWatchlist() {
   }
 }
 
-// --- Cross-platform product matching -----------------------------------
+const API_BASE = import.meta.env.VITE_API_BASE_URL
+
+// --- Cross-platform product matching (offline fallback) -----------------
+// The backend (backend/app/matching.py) computes this server-side now —
+// this copy only runs when there's no live API to call (VITE_API_BASE_URL
+// unset, or the API request fails), so the static-export build of this
+// site keeps the comparison feature instead of silently losing it. Keep
+// this in lockstep with matching.py if either one changes; it was ported
+// there and verified to produce identical output on the same data.
+//
 // There's no shared product ID across 6 unrelated storefronts, so "the same
 // product on two sites" can only be inferred from name text. Getting this
 // wrong actively misleads a shopper (a false "cheaper elsewhere" is worse
@@ -130,6 +139,7 @@ function normalize(raw) {
       const discount = Number(row.discount_percent)
       return {
         id: row.source_url,
+        productId: row.id ?? null,
         site: row.site,
         store: storeMeta(row.site).label,
         color: storeMeta(row.site).color,
@@ -154,10 +164,54 @@ export default function App() {
   const [sort, setSort] = useState('Biggest discount')
   const [watching, setWatching] = useState(loadWatchlist)
   const [lastChecked, setLastChecked] = useState(null)
+  const [usingApi, setUsingApi] = useState(false)
+  const [apiCompareGroups, setApiCompareGroups] = useState([])
 
+  // Products + compare-groups: prefer the live backend when configured: it
+  // has more data (the full Postgres history, not one committed snapshot)
+  // and its /api/compare-groups is the canonical version of the matching
+  // logic below. Fall back to the static public/products.json export —
+  // and the local groupAcrossStores() — when there's no API_BASE or the
+  // request fails, so the deployed static site (which has no backend)
+  // keeps working exactly as it does today.
   useEffect(() => {
     let cancelled = false
-    const loadProducts = () => {
+
+    const loadFromApi = async () => {
+      const response = await fetch(`${API_BASE}/api/products?limit=1000&sort=discount`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+      if (cancelled) return true
+      setProducts(normalize(data.results))
+      setUsingApi(true)
+      setLastChecked(new Date())
+      setStatus('ready')
+
+      fetch(`${API_BASE}/api/compare-groups`)
+        .then((r) => (r.ok ? r.json() : { results: [] }))
+        .then((groupsData) => {
+          if (cancelled) return
+          setApiCompareGroups(
+            (groupsData.results || []).map((group) => ({
+              items: group.items.map((item) => ({
+                id: item.source_url,
+                site: item.site,
+                store: storeMeta(item.site).label,
+                color: storeMeta(item.site).color,
+                name: item.product_name,
+                price: Number(item.current_price),
+                url: item.source_url,
+              })),
+            })),
+          )
+        })
+        .catch(() => {
+          if (!cancelled) setApiCompareGroups([])
+        })
+      return true
+    }
+
+    const loadFromStaticExport = () =>
       fetch(`${import.meta.env.BASE_URL}products.json?t=${Date.now()}`, { cache: 'no-store' })
         .then((response) => {
           if (!response.ok) throw new Error(`HTTP ${response.status}`)
@@ -166,12 +220,22 @@ export default function App() {
         .then((raw) => {
           if (cancelled) return
           setProducts(normalize(raw))
+          setUsingApi(false)
           setLastChecked(new Date())
           setStatus('ready')
         })
-        .catch(() => {
-          if (!cancelled) setStatus('error')
-        })
+
+    const loadProducts = async () => {
+      try {
+        if (API_BASE && (await loadFromApi())) return
+      } catch {
+        // API unavailable — fall through to the static export below
+      }
+      try {
+        await loadFromStaticExport()
+      } catch {
+        if (!cancelled) setStatus('error')
+      }
     }
 
     loadProducts()
@@ -184,15 +248,28 @@ export default function App() {
 
   useEffect(() => {
     let cancelled = false
-    const loadBanners = () => {
-      fetch(`${import.meta.env.BASE_URL}banners.json?t=${Date.now()}`, { cache: 'no-store' })
-        .then((response) => (response.ok ? response.json() : []))
-        .then((raw) => {
-          if (!cancelled) setBanners(Array.isArray(raw) ? raw : [])
-        })
-        .catch(() => {
-          if (!cancelled) setBanners([])
-        })
+
+    const loadFromApi = async () => {
+      const response = await fetch(`${API_BASE}/api/banners`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const data = await response.json()
+      if (!cancelled) setBanners(Array.isArray(data.results) ? data.results : [])
+      return true
+    }
+
+    const loadBanners = async () => {
+      try {
+        if (API_BASE && (await loadFromApi())) return
+      } catch {
+        // API unavailable — fall through to the static export below
+      }
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}banners.json?t=${Date.now()}`, { cache: 'no-store' })
+        const raw = response.ok ? await response.json() : []
+        if (!cancelled) setBanners(Array.isArray(raw) ? raw : [])
+      } catch {
+        if (!cancelled) setBanners([])
+      }
     }
 
     loadBanners()
@@ -264,7 +341,8 @@ export default function App() {
     return [...grouped.values()].sort((a, b) => a.store.localeCompare(b.store))
   }, [banners])
 
-  const crossStoreGroups = useMemo(() => groupAcrossStores(products), [products])
+  const localCompareGroups = useMemo(() => groupAcrossStores(products), [products])
+  const crossStoreGroups = usingApi ? apiCompareGroups : localCompareGroups
 
   return (
     <main className="app-shell">
@@ -287,7 +365,11 @@ export default function App() {
         </nav>
         <div className="sync">
           <i />
-          {status === 'ready' ? `Data as of ${timeAgo(lastSync)} · checked ${lastChecked ? lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}` : status === 'error' ? 'Data unavailable' : 'Loading data…'}
+          {status === 'ready'
+            ? `${usingApi ? 'Live' : 'Static snapshot'} · data as of ${timeAgo(lastSync)} · checked ${lastChecked ? lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}`
+            : status === 'error'
+              ? 'Data unavailable'
+              : 'Loading data…'}
         </div>
       </header>
 

@@ -298,5 +298,53 @@
     "image_url": "https://cartup.com/_next/image?url=https%3A%2F%2Fimrs.cartup.com%2Fapi%2Fv1%2Fimage-resize%3FimageUrl%3Dhttps%3A%2F%2Fsl-dev-s3.s3.amazonaws.com%2Fadmin%2Fresources%2F658f370a-9281-4d6f-aacf-fc6d7655b65e.jpg%26width%3D1476&w=3840&q=75",
     "link_url": "https://cartup.com/sl-dpb/mega/mega-july-picks",
     "scraped_at": "2026-08-27T16:29:03+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/Air_Fryer_Big_Banner_1__7.png",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/AC_Banners.jpg_1__2.jpeg",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/KA_Big_Banner_1__2.png",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/Haier_Big_Banner_Final_1__1.png",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/TCL-Big-Banner_3_1_.png",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/Smartphones_Common_Big_Banner_1__3.jpg",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/EBL_Big_banner.jpg_1_.jpeg",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
+  },
+  {
+    "site": "pickaboo",
+    "image_url": "https://storage.googleapis.com/pickaboo-prod/media/dcastalia_hybridslider/image/Washing_Machine_Big_Banner.jpg_1__4.jpeg",
+    "link_url": "https://www.pickaboo.com/",
+    "scraped_at": "2026-08-27T17:22:07+00:00"
   }
 ]

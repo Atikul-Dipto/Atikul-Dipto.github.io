@@ -218,6 +218,46 @@ cartup:
     URL. For reliable results, point this at a real category/search page
     instead of the homepage and raise --limit.
 
+pickaboo:
+  name: Pickaboo
+  urls:
+    - "https://www.pickaboo.com/product/laptop-notebook"
+  card_selectors:
+    - ".product-one"
+  name_selectors:
+    - ".product-title"
+  price_selectors:
+    - ".product-price span"
+  original_price_selectors:
+    - ".product-price s"
+  banner_url: "https://www.pickaboo.com/"
+  banner_selectors:
+    - ".home-banner__slider__single"
+  verified: true
+  wait_seconds: 25
+  notes: >
+    Next.js app; confirmed against real rendered category-page output
+    (readable class names, not build-hashed, so comparatively stable).
+    A discounted card's .product-price holds both the current price in a
+    <span> and the strikethrough original in an <s> with no separator
+    between them ("194,500195,000" if you select the whole .product-price
+    text) — same concatenation trap as Star Tech and Othoba, selectors
+    scoped to the specific child tag to avoid it. "Out of stock" cards
+    have no .product-price element at all and are silently skipped (no
+    price = no product, by design). The homepage's hero slides have no
+    href/onclick at all — not even a fake link — so banner link_url
+    always falls back to the homepage itself (the generic fallback in
+    scraper/banners.py already handles this; no special-casing needed
+    here, unlike Othoba).
+
+# A second new site was wanted alongside Pickaboo but didn't pan out:
+# AjkerDeal's server doesn't respond at all (TCP connection times out on
+# port 443, not a bot-block) as of 2026-08-27 — likely defunct. Ryans
+# Computers was tried as a replacement and also dropped: it's behind a
+# Cloudflare bot challenge ("Just a moment..." interstitial) —
+# circumventing that is a different, more ToS-sensitive activity than the
+# plain scraping used for every other site here, so it wasn't pursued.
+
 packly:
   name: Packly
   urls:
