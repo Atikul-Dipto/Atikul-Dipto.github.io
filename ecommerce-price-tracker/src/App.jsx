@@ -6,8 +6,8 @@ const STORE_META = {
   othoba: { label: 'Othoba', color: '#64d4ff' },
   shwapno: { label: 'Shwapno', color: '#82e6b5' },
   startech: { label: 'Star Tech', color: '#cf9cff' },
-  bikroy: { label: 'Bikroy', color: '#ff8e8e' },
   cartup: { label: 'Cartup', color: '#f2dc71' },
+  pickaboo: { label: 'Pickaboo', color: '#ff8e8e' },
   packly: { label: 'Packly', color: '#9fd3c7' },
   chaldal: { label: 'Chaldal', color: '#f4a6c6' },
 }
@@ -19,7 +19,16 @@ const storeMeta = (site) =>
   }
 
 const WATCHLIST_KEY = 'pricepulse:watchlist'
+const PAGE_SIZE = 24
 const money = (value) => `৳${new Intl.NumberFormat('en-US').format(value)}`
+
+// Windowed page numbers (first two, last two, current ± 1) so the control
+// stays a fixed width instead of listing every page once there are dozens.
+function pageNumbers(current, total) {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages = new Set([1, 2, current - 1, current, current + 1, total - 1, total])
+  return [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b)
+}
 
 function timeAgo(iso) {
   if (!iso) return 'unknown'
@@ -344,6 +353,7 @@ export default function App() {
   const [query, setQuery] = useState('')
   const [store, setStore] = useState('All stores')
   const [sort, setSort] = useState('Biggest discount')
+  const [page, setPage] = useState(1)
   const [watching, setWatching] = useState(loadWatchlist)
   const [lastChecked, setLastChecked] = useState(null)
   const [usingApi, setUsingApi] = useState(false)
@@ -556,6 +566,16 @@ export default function App() {
     [products, query, store, sort],
   )
 
+  // A new search/filter/sort invalidates whatever page the user was on.
+  useEffect(() => {
+    setPage(1)
+  }, [query, store, sort])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const safePage = Math.min(page, pageCount)
+  const pageStart = (safePage - 1) * PAGE_SIZE
+  const pageItems = filtered.slice(pageStart, pageStart + PAGE_SIZE)
+
   const toggleWatch = (id) =>
     setWatching((items) => (items.includes(id) ? items.filter((item) => item !== id) : [...items, id]))
 
@@ -666,10 +686,25 @@ export default function App() {
       {status === 'ready' && products.length > 0 && (
         <>
           <section className="control-bar" aria-label="Product filters">
-            <label className="search">
-              <span>⌕</span>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search products" />
-            </label>
+            <form className="search" role="search" onSubmit={(event) => event.preventDefault()}>
+              <button type="submit" className="search-btn" aria-label="Search">⌕</button>
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search products"
+                aria-label="Search products"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="search-clear"
+                  aria-label="Clear search"
+                  onClick={() => setQuery('')}
+                >
+                  ✕
+                </button>
+              )}
+            </form>
             <label>
               <span>Store</span>
               <select value={store} onChange={(event) => setStore(event.target.value)}>
@@ -766,7 +801,7 @@ export default function App() {
                 </div>
               </div>
               <div className="product-list">
-                {filtered.map((product) => (
+                {pageItems.map((product) => (
                   <article
                     className="product clickable"
                     key={product.id}
@@ -821,6 +856,43 @@ export default function App() {
                 ))}
                 {filtered.length === 0 && <p className="no-results">No products match your filters.</p>}
               </div>
+
+              {pageCount > 1 && (
+                <nav className="pagination" aria-label="Product pages">
+                  <span className="page-range">
+                    {pageStart + 1}–{Math.min(pageStart + PAGE_SIZE, filtered.length)} of {filtered.length}
+                  </span>
+                  <div className="page-buttons">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={safePage === 1}
+                    >
+                      ‹ Prev
+                    </button>
+                    {pageNumbers(safePage, pageCount).map((num, index, arr) => (
+                      <span key={num} className="page-number-group">
+                        {index > 0 && num - arr[index - 1] > 1 && <span className="page-ellipsis">…</span>}
+                        <button
+                          type="button"
+                          className={num === safePage ? 'active' : ''}
+                          onClick={() => setPage(num)}
+                          aria-current={num === safePage ? 'page' : undefined}
+                        >
+                          {num}
+                        </button>
+                      </span>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                      disabled={safePage === pageCount}
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </nav>
+              )}
             </div>
 
             <aside className="side-panel" id="watchlist">

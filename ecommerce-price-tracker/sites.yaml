@@ -16,6 +16,9 @@ daraz:
   urls:
     - "https://www.daraz.com.bd/catalog/?q=wireless+headphones"
     - "https://www.daraz.com.bd/catalog/?q=rice"
+    - "https://www.daraz.com.bd/catalog/?q=mobile+phone"
+    - "https://www.daraz.com.bd/catalog/?q=shoes"
+    - "https://www.daraz.com.bd/catalog/?q=laptop"
   card_selectors:
     - '[data-qa-locator="product-item"]'
     - ".product-item"
@@ -64,12 +67,19 @@ daraz:
     replace the hashed classes above with whatever Daraz is using now.
     Renders ~40 cards per search page without scrolling (checked
     2026-08-27) — --limit above ~40 won't collect more from this URL.
+    mobile+phone / shoes / laptop queries each independently verified via
+    `inspect` on 2026-08-28 (40 cards apiece) — added for broader category
+    coverage now that bikroy (a classifieds site, not a retailer catalog)
+    has been dropped from this pipeline.
 
 othoba:
   name: Othoba
   urls:
     - "https://othoba.com/food-grocery"
     - "https://othoba.com/food-grocery?page=2"
+    - "https://othoba.com/home-kitchen"
+    - "https://othoba.com/fashion"
+    - "https://othoba.com/health-beauty"
   card_selectors:
     - ".product.product-image-gap.product-simple"
     - ".product.product-widget"
@@ -103,7 +113,12 @@ othoba:
     prices come back empty here. Renders ~40 cards per category page
     without scrolling (checked 2026-08-27) — --limit above ~40 won't
     collect more from one URL; use ?page=2, ?page=3 for more (already
-    done — see the second urls: entry). The banner
+    done — see the second urls: entry). home-kitchen (60 cards), fashion
+    (60 cards) and health-beauty (40 cards) were each verified via
+    `inspect` on 2026-08-28 and added for category breadth; other top-nav
+    slugs tried the same day (electronics, personal-care-beauty,
+    mother-baby) turned out to be near-empty landing tiles (5-8 cards) and
+    were left out. The banner
     carousel (.intro-slide) lazy-loads its image via a data-background-image
     attribute instead of a normal <img src>, and each slide navigates via
     an inline onclick="window.open(...)" instead of a real <a href> — both
@@ -115,6 +130,7 @@ shwapno:
   urls:
     - "https://www.shwapno.com/"
     - "https://www.shwapno.com/rice"
+    - "https://www.shwapno.com/personal-care"
   card_selectors:
     - ".product-box-info"
   name_selectors:
@@ -137,12 +153,20 @@ shwapno:
     alone renders 110+ cards without scrolling (many stacked product
     carousels, checked 2026-08-27) — by far the highest single-URL yield
     of any configured site, worth a high --limit here specifically.
+    /personal-care verified via `inspect` on 2026-08-28 (50 cards) and
+    added for coverage; most other top-nav category slugs (snacks,
+    beverages, dairy, food, fruits-and-vegetables, meat-and-fish) are
+    thin landing tiles with only ~5 featured cards each and weren't worth
+    adding.
 
 startech:
   name: Star Tech
   urls:
     - "https://www.startech.com.bd/product/search?search=headphone"
     - "https://www.startech.com.bd/product/search?search=laptop"
+    - "https://www.startech.com.bd/product/search?search=monitor"
+    - "https://www.startech.com.bd/product/search?search=keyboard"
+    - "https://www.startech.com.bd/product/search?search=smart+watch"
   card_selectors:
     - ".p-item"
   name_selectors:
@@ -168,31 +192,33 @@ startech:
     accepts ?search=<query> directly in the URL. Renders a fixed ~20
     cards per page regardless of --limit or scrolling (checked
     2026-08-27) — getting more per query needs real pagination
-    (&page=2 or similar), not just raising --limit.
+    (&page=2 or similar), not just raising --limit. monitor / keyboard /
+    smart+watch queries each independently verified via `inspect` on
+    2026-08-28 (20 cards apiece, same as the original two) and added for
+    coverage.
 
-bikroy:
-  name: Bikroy
-  urls:
-    - "https://bikroy.com/en/ads/bangladesh?q=headphone"
-    - "https://bikroy.com/en/ads/bangladesh?q=mobile+phone"
-  card_selectors:
-    - ".js-advert-list-item"
-  name_selectors:
-    - ".qa-advert-title"
-  price_selectors:
-    - ".qa-advert-price"
-  original_price_selectors: []
-  banner_url: "https://bikroy.com/en"
-  banner_selectors:
-    - ".b-banner-list__block"
-  verified: true
-  notes: >
-    Classifieds marketplace, not a retailer catalog. Each listing is an
-    individual seller's ad with a single price and no strike-through
-    original price, so discount_percent will always be empty here.
-    Renders a fixed ~24 ads per page regardless of --limit or scrolling
-    (checked 2026-08-27) — getting more per query needs real pagination,
-    not just raising --limit.
+# Bikroy was removed 2026-08-28: it's a classifieds marketplace (individual
+# sellers' ads), not a retailer catalog, and its listings never carried a
+# meaningful original/current price pair anyway (discount_percent was
+# always empty for it). Coverage lost from dropping it (~200 ads/run) was
+# made up by adding more verified query/category URLs above and below
+# instead (daraz, othoba, shwapno, startech, pickaboo).
+#
+# The block used to live here, for reference:
+# bikroy:
+#   name: Bikroy
+#   urls:
+#     - "https://bikroy.com/en/ads/bangladesh?q=headphone"
+#     - "https://bikroy.com/en/ads/bangladesh?q=mobile+phone"
+#   card_selectors:
+#     - ".js-advert-list-item"
+#   name_selectors:
+#     - ".qa-advert-title"
+#   price_selectors:
+#     - ".qa-advert-price"
+#   banner_url: "https://bikroy.com/en"
+#   banner_selectors:
+#     - ".b-banner-list__block"
 
 cartup:
   name: Cartup
@@ -242,6 +268,9 @@ pickaboo:
   name: Pickaboo
   urls:
     - "https://www.pickaboo.com/product/laptop-notebook"
+    - "https://www.pickaboo.com/product/smartphone"
+    - "https://www.pickaboo.com/product/television"
+    - "https://www.pickaboo.com/product/refrigerator"
   card_selectors:
     - ".product-one"
   name_selectors:
@@ -271,6 +300,10 @@ pickaboo:
     here, unlike Othoba). Renders a fixed ~20 cards per category page
     regardless of --limit or scrolling (checked 2026-08-27) — getting
     more per query needs real pagination, not just raising --limit.
+    smartphone / television / refrigerator categories each independently
+    verified via `inspect` on 2026-08-28 (20 cards apiece) — real slugs
+    were confirmed off the homepage's nav links (mobile-phone and
+    home-appliances, guessed first, both 404'd to 0 cards).
 
 # A second new site was wanted alongside Pickaboo but didn't pan out:
 # AjkerDeal's server doesn't respond at all (TCP connection times out on

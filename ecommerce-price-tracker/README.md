@@ -50,7 +50,7 @@ Three independent levers, from cheapest to most work:
    | Shwapno (homepage) | ~110-120 (many stacked carousels) |
    | Daraz, Othoba | ~40 |
    | Cartup (homepage) | ~60 |
-   | Star Tech, Bikroy, Pickaboo | ~20-24 (hard page-size cap) |
+   | Star Tech, Pickaboo | ~20-24 (hard page-size cap) |
 
    For the capped sites, getting more per query needs real pagination (following `?page=2`, `?page=3`, ...) — not built, since it's a meaningfully bigger job than a config change. `--limit` above a site's natural ceiling is harmless, just a no-op past that point.
 2. **Add more URLs to a site already in `sites.yaml`** — each entry in that site's `urls:` list gets scraped in full and added to the feed; a site's selectors are usually stable across different search queries/category pages on the same storefront, so this is normally a one-line addition, not new selector work. E.g. Daraz currently scrapes both a `wireless+headphones` and a `rice` search — add another `?q=<term>` line for another category. This *does* work around the per-page ceiling above (Othoba already gets a `?page=2` line for exactly this reason) — it's just a per-URL addition rather than the scraper following pagination on its own. Worth pointing overlapping-category sites (the grocery-carrying ones: Othoba, Shwapno, Cartup) at the *same* kind of item when you can — that's what gives the cross-platform comparison feature something to actually match on.
@@ -73,12 +73,13 @@ Three independent levers, from cheapest to most work:
 | Daraz | ✅ verified | ✅ | Card container has a stable `data-qa-locator`, but title/price use hashed CSS-module classes that drift on redeploy — see `sites.yaml` notes. |
 | Othoba | ✅ verified | ✅ | Points at the `/food-grocery` category (not the homepage) so its listings plausibly overlap with Shwapno/Cartup for cross-platform comparison. Banner carousel lazy-loads via `data-background-image` and links via an inline `onclick`, not a normal `<img src>`/`<a href>` — handled as special cases in `scraper/banners.py`. |
 | Shwapno | ✅ verified | ✅ | Selectors confirmed against real class names (Tailwind, hydrated client-side). |
-| Star Tech | ✅ verified | ✅ | Selectors confirmed against real rendered search results. |
-| Bikroy | ✅ verified | ✅ | Classifieds site — one price per ad, no discount field. |
+| Star Tech | ✅ verified | ✅ | Selectors confirmed against real rendered search results. 5 search queries configured (headphone, laptop, monitor, keyboard, smart+watch), each independently verified via `inspect`. |
 | Cartup | ✅ verified | ✅ | Was stuck at 1 product/run until 2026-08-28: its card selector matches an `<a>` directly (not a wrapper div), and the URL-extraction code only checked for a *nested* anchor — every card silently fell back to the homepage URL, so every product collapsed into one row via the dedup key. Fixed generically in `scraper/pipeline.py` (checks the card's own `href` first). Also fixed: the homepage's secondary "trending" widget has no visible name text at all, only an `<img alt="...">` — `element_text()` in `scraper/parsing.py` now falls back to `alt` for `<img>` elements. Yield went from 1 to ~55-60 real products per run. Content still rotates between loads, so exact yield varies run to run. |
-| Pickaboo | ✅ verified | ✅ | Selectors confirmed against a real rendered category page. Discounted cards hold current + strikethrough price in the same `.product-price` element with no separator — same concatenation trap as Star Tech/Othoba, scoped selectors avoid it. Homepage hero slides have no link at all (not even `onclick`), so banners fall back to linking the homepage. |
+| Pickaboo | ✅ verified | ✅ | Selectors confirmed against a real rendered category page. Discounted cards hold current + strikethrough price in the same `.product-price` element with no separator — same concatenation trap as Star Tech/Othoba, scoped selectors avoid it. Homepage hero slides have no link at all (not even `onclick`), so banners fall back to linking the homepage. 4 categories configured (laptop-notebook, smartphone, television, refrigerator). |
 | Packly | ⚠️ unverified | — | No product markup found at all — the URL may need to be a specific catalog page, or this may not be the storefront you meant (packly.com reads as a custom-packaging site). |
 | Chaldal | ⚠️ unverified | — | Its homepage isn't a product listing at all; its search box is a live JS autocomplete with no real results-page URL behind it, so you'd need a real category URL or the autocomplete's XHR endpoint. |
+
+**Bikroy was removed from the pipeline on 2026-08-28.** It's a classifieds marketplace (individual sellers' ads), not a retailer catalog — every listing carried a single price with no strikethrough original, so it never contributed to the discount or cross-store comparison features this project is built around, and it also dominated the feed (~200+ of ~600 listings on some runs) despite that. The ~200 listings/run it contributed were replaced by adding more verified query/category URLs to Daraz, Othoba, Shwapno, Star Tech, and Pickaboo instead (see the per-site notes above and in `sites.yaml`).
 
 Two more sites were tried and dropped rather than shipped half-working: **AjkerDeal** — its server doesn't respond at all (TCP connection times out on port 443, not a bot-block) as of 2026-08-27, likely defunct. **Ryans Computers** — sits behind a Cloudflare bot challenge ("Just a moment..." interstitial); circumventing that is a materially different, more ToS-sensitive activity than the plain scraping every other site here uses, so it wasn't pursued.
 
@@ -166,9 +167,13 @@ npm install
 npm run dev
 ```
 
-On load, the dashboard tries the backend first (`VITE_API_BASE_URL`, defaulted to `http://localhost:8000` in dev via the committed `.env.development`) and falls back to the static `public/products.json`/`banners.json` export if that env var is unset or the request fails — which is exactly the case for the deployed static site today, since no backend is hosted anywhere yet. Either way: search by name, filter by store, sort by discount/price/recency, click "Visit" to go straight to the listing on the source site, and star a product to add it to a localStorage-backed watchlist (persists across visits, per browser). Metrics are computed live from whichever data source is active — none of it is hardcoded. The header shows which source is active ("Live" vs "Static snapshot").
+On load, the dashboard tries the backend first (`VITE_API_BASE_URL`, defaulted to `http://localhost:8000` in dev via the committed `.env.development`) and falls back to the static `public/products.json`/`banners.json` export if that env var is unset or the request fails — which is exactly the case for the deployed static site today, since no backend is hosted anywhere yet. Either way: search by name (via the search box's button/Enter or live as you type, with a clear (✕) button once there's a query), filter by store, sort by discount/price/recency, click "Visit" to go straight to the listing on the source site, and star a product to add it to a localStorage-backed watchlist (persists across visits, per browser). Metrics are computed live from whichever data source is active — none of it is hardcoded. The header shows which source is active ("Live" vs "Static snapshot").
 
 If there's no data at all yet, the dashboard shows an empty state with the exact command to run instead of silently showing nothing.
+
+### Pagination
+
+The live product feed is paginated (24 per page) instead of dumping the entire filtered result set into one long scroll — a Prev/Next + windowed page-number control (first two, last two, current ± 1, with `…` for the gap) sits under the list, along with a "showing X–Y of Z" range. Changing the search, store filter, or sort jumps back to page 1 so the page number always matches what's actually being viewed.
 
 ### Cross-platform comparison
 
