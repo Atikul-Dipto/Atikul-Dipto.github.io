@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 500">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#06131f"/><stop offset="1" stop-color="#0d3a3a"/></linearGradient>
+<linearGradient id="road" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#689D4B"/><stop offset="1" stop-color="#91AE6E"/></linearGradient>
+<radialGradient id="glow"><stop stop-color="#91AE6E" stop-opacity=".55"/><stop offset="1" stop-color="#91AE6E" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="900" height="500" rx="20" fill="url(#bg)"/>
+<!-- sidebar -->
+<rect x="0" y="0" width="150" height="500" rx="20" fill="#0a1a26"/><rect x="130" y="0" width="20" height="500" fill="#0a1a26"/>
+<g fill="#3f5a6a" font-family="Arial" font-size="12"><text x="22" y="86">Command Center</text><text x="22" y="118">Control Tower</text><text x="22" y="150">Shipments</text><text x="22" y="182">Dispatch</text><text x="22" y="214">Hubs</text><text x="22" y="246">Fleet</text><text x="22" y="278">Riders</text><text x="22" y="310">Exceptions</text><text x="22" y="342">COD Finance</text><text x="22" y="374">Forecasting</text></g>
+<rect x="12" y="100" width="126" height="26" rx="6" fill="#689D4B" opacity=".25"/><text x="22" y="118" fill="#cfe8bc" font-family="Arial" font-size="12" font-weight="700">Control Tower</text>
+<circle cx="30" cy="42" r="9" fill="#689D4B"/><text x="46" y="47" fill="#e8f3df" font-family="Arial" font-size="15" font-weight="700">NeerVibe</text>
+<!-- header -->
+<text x="176" y="48" fill="#eef7e8" font-family="Arial" font-size="22" font-weight="700">Live network</text>
+<rect x="770" y="28" width="104" height="28" rx="14" fill="#123526"/><circle cx="786" cy="42" r="4" fill="#7be07b"/><text x="796" y="46" fill="#a9e7a9" font-family="Arial" font-size="11" font-weight="700">LIVE FEED</text>
+<!-- kpis -->
+<g font-family="Arial">
+<rect x="176" y="70" width="160" height="72" rx="10" fill="#0f2431"/><text x="192" y="94" fill="#7fa3b2" font-size="11">IN TRANSIT</text><text x="192" y="128" fill="#f2fbe8" font-size="28" font-weight="700">1,284</text>
+<rect x="348" y="70" width="160" height="72" rx="10" fill="#0f2431"/><text x="364" y="94" fill="#7fa3b2" font-size="11">ON-TIME SLA</text><text x="364" y="128" fill="#a9e7a9" font-size="28" font-weight="700">96.2%</text>
+<rect x="520" y="70" width="160" height="72" rx="10" fill="#0f2431"/><text x="536" y="94" fill="#7fa3b2" font-size="11">ACTIVE VEHICLES</text><text x="536" y="128" fill="#f2fbe8" font-size="28" font-weight="700">40</text>
+<rect x="692" y="70" width="182" height="72" rx="10" fill="#2e1a1a"/><text x="708" y="94" fill="#d9a3a3" font-size="11">EXCEPTIONS</text><text x="708" y="128" fill="#f0b0b0" font-size="28" font-weight="700">7</text>
+</g>
+<!-- map panel -->
+<rect x="176" y="158" width="470" height="312" rx="12" fill="#0b1e2a"/>
+<path d="M300 200 C280 240 260 300 300 340 S380 420 430 430 S560 380 590 330 S600 260 560 220 S470 180 430 200 S330 180 300 200Z" fill="#12313d" stroke="#1f5561" stroke-width="2"/>
+<circle cx="330" cy="280" r="60" fill="url(#glow)"/>
+<path d="M330 280 L420 250 L500 300 L560 260" fill="none" stroke="url(#road)" stroke-width="4" stroke-linecap="round"/>
+<path d="M330 280 L360 360 L470 390" fill="none" stroke="url(#road)" stroke-width="4" stroke-linecap="round" opacity=".8"/>
+<path d="M420 250 L470 200 L540 230" fill="none" stroke="url(#road)" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+<g fill="#e8f3df"><circle cx="330" cy="280" r="8"/><circle cx="420" cy="250" r="6"/><circle cx="500" cy="300" r="6"/><circle cx="560" cy="260" r="6"/><circle cx="360" cy="360" r="5"/><circle cx="470" cy="390" r="6"/><circle cx="540" cy="230" r="5"/></g>
+<g fill="#D96868"><circle cx="500" cy="300" r="11" opacity=".35"/><circle cx="500" cy="300" r="5"/></g>
+<g fill="#ffd27a"><rect x="372" y="262" width="10" height="6" rx="1" transform="rotate(-18 377 265)"/><rect x="460" y="272" width="10" height="6" rx="1" transform="rotate(30 465 275)"/><rect x="340" y="318" width="10" height="6" rx="1" transform="rotate(68 345 321)"/></g>
+<text x="192" y="184" fill="#7fa3b2" font-family="Arial" font-size="11">DHAKA · CHATTOGRAM · SYLHET CORRIDORS</text>
+<!-- right panels -->
+<rect x="662" y="158" width="212" height="150" rx="12" fill="#0f2431"/>
+<text x="678" y="184" fill="#7fa3b2" font-family="Arial" font-size="11">HUB PRESSURE</text>
+<g font-family="Arial" font-size="11" fill="#cfe0ea">
+<text x="678" y="212">Dhaka Central</text><rect x="678" y="218" width="180" height="6" rx="3" fill="#163a47"/><rect x="678" y="218" width="150" height="6" rx="3" fill="#D96868"/>
+<text x="678" y="246">Chattogram</text><rect x="678" y="252" width="180" height="6" rx="3" fill="#163a47"/><rect x="678" y="252" width="98" height="6" rx="3" fill="#91AE6E"/>
+<text x="678" y="280">Sylhet</text><rect x="678" y="286" width="180" height="6" rx="3" fill="#163a47"/><rect x="678" y="286" width="60" height="6" rx="3" fill="#689D4B"/>
+</g>
+<rect x="662" y="322" width="212" height="148" rx="12" fill="#0f2431"/>
+<text x="678" y="348" fill="#7fa3b2" font-family="Arial" font-size="11">ETA MODEL · TENSORFLOW</text>
+<path d="M678 440 L700 425 722 430 744 400 766 410 788 385 810 392 832 370 854 378" fill="none" stroke="#91AE6E" stroke-width="3" stroke-linecap="round"/>
+<path d="M678 440 L700 425 722 430 744 400 766 410 788 385 810 392 832 370 854 378 L854 455 L678 455Z" fill="#91AE6E" opacity=".12"/>
+<text x="678" y="372" fill="#e8f3df" font-family="Arial" font-size="13" font-weight="700">Predicted vs. actual</text>
+</svg>

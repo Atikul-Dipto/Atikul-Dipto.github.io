@@ -96,13 +96,23 @@ export const certifications = [
 
 export const projects = [
   {
-    title: 'Logistics Operations Portal',
-    summary: 'Operational control center for shipment, inventory, and courier performance.',
-    description: 'A multi-page Streamlit dashboard for a synthetic Bangladesh e-commerce logistics network — shipment tracking, inventory, and delivery analytics across 5 warehouses and 5 couriers.',
-    screenshot: '/project-logistics-portal.svg',
-    tags: ['Python', 'Streamlit', 'Pandas', 'Plotly'],
-    href: 'https://github.com/Atikul-Dipto/logistics-portal',
-    demoHref: null,
+    title: 'NeerVibe — Logistics Control Tower',
+    summary: 'A real-time operating picture for a courier network, end to end.',
+    description: 'AI-native control tower for a synthetic Bangladesh logistics network — 16 modules (dispatch, hubs, fleet, riders, COD finance, exceptions, forecasting) over a FastAPI + PostGIS backend, live vehicle telemetry over WebSockets, and a TensorFlow ETA model. Vehicles move along real OSRM road geometry.',
+    screenshot: '/project-neervibe.svg',
+    tags: ['Next.js', 'FastAPI', 'PostGIS', 'TensorFlow'],
+    href: 'https://github.com/Atikul-Dipto/neervibe',
+    demoHref: 'https://neervibe.vercel.app',
+    placeholder: false,
+  },
+  {
+    title: 'Price Pulse',
+    summary: 'A price-history storehouse for Bangladesh e-commerce, not a one-off snapshot.',
+    description: 'Selenium pipeline scraping 8 marketplaces (Daraz, Startech, Pickaboo, Chaldal…) into a Postgres price-history store, with a FastAPI backend, cross-store comparison of the same product, a click-through price chart, and a grounded local-LLM recap of each trend.',
+    screenshot: '/project-price-pulse.svg',
+    tags: ['Selenium', 'PostgreSQL', 'FastAPI', 'React'],
+    href: 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/ecommerce-price-tracker',
+    demoHref: '/price-pulse/',
     placeholder: false,
   },
   {
@@ -124,5 +134,194 @@ export const projects = [
     href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
     demoHref: 'https://atikul-dipto.github.io/ats-resume-scanner/',
     placeholder: false,
+  },
+  {
+    title: 'Logistics Operations Portal',
+    summary: 'Operational control center for shipment, inventory, and courier performance.',
+    description: 'A multi-page Streamlit dashboard for a synthetic Bangladesh e-commerce logistics network — shipment tracking, inventory, and delivery analytics across 5 warehouses and 5 couriers.',
+    screenshot: '/project-logistics-portal.svg',
+    tags: ['Python', 'Streamlit', 'Pandas', 'Plotly'],
+    href: 'https://github.com/Atikul-Dipto/logistics-portal',
+    demoHref: null,
+    placeholder: false,
+  },
+  {
+    title: 'Work Signal',
+    summary: 'Where the Bangladesh job market is moving, as a filterable signal.',
+    description: 'A job-market dashboard prototype — latest roles with work mode and estimated salary, skill-demand and hiring-company rankings, filterable by skill and industry — fed by a Selenium scraper for permitted public career pages. Ships with illustrative records until a source is verified.',
+    screenshot: '/project-work-signal.svg',
+    tags: ['React', 'Selenium', 'Python'],
+    href: 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/job-market-dashboard',
+    demoHref: '/work-signal/',
+    placeholder: false,
+  },
+]
+
+export const writing = [
+  {
+    title: "Why Bangladesh's logistics sector needs shared data",
+    publication: 'Daily Times of Bangladesh',
+    date: '2026-09-14',
+    dateLabel: '14 Sep 2026',
+    kind: 'Op-ed',
+    summary:
+      "Bangladesh's logistics inefficiency is a fragmented-information problem more than an infrastructure one. Shared shipment data across couriers could cut costs by over a third, lift exports by ~20%, and rebuild consumer trust in e-commerce delivery.",
+    href: 'https://tob.news/why-bangladeshs-logistics-sector-needs-shared-data/',
+    tags: ['Logistics', 'Data policy', 'E-commerce'],
+  },
+]
+
+// Queries written for my own projects' databases (NeerVibe on Postgres/PostGIS,
+// Price Pulse on Postgres). Nothing here comes from an employer's schema.
+export const sqlQueries = [
+  {
+    id: 'hub-dwell',
+    title: 'Hub dwell time from an event log',
+    question: 'How long does a parcel sit in a hub before it is dispatched?',
+    project: 'NeerVibe',
+    dialect: 'PostgreSQL',
+    techniques: ['Window functions', 'LAG', 'Percentiles'],
+    note: 'Pair every scan event with the one before it, then keep only ARRIVED_AT_HUB → DISPATCHED transitions. Powers the "avg hub processing" KPI on the control tower.',
+    sql: `-- Pair each event with the previous one for the same parcel,
+-- then keep only the hub-arrival -> dispatch transitions.
+WITH ordered AS (
+  SELECT
+    package_id,
+    new_status,
+    "timestamp",
+    LAG(new_status)  OVER w AS prev_status,
+    LAG("timestamp") OVER w AS prev_timestamp
+  FROM package_events
+  WINDOW w AS (PARTITION BY package_id ORDER BY "timestamp")
+)
+SELECT
+  round(avg(extract(epoch FROM ("timestamp" - prev_timestamp)) / 60), 1) AS avg_hub_minutes,
+  percentile_cont(0.9) WITHIN GROUP (
+    ORDER BY extract(epoch FROM ("timestamp" - prev_timestamp)) / 60
+  )                                                                     AS p90_hub_minutes
+FROM ordered
+WHERE new_status  = 'DISPATCHED'
+  AND prev_status = 'ARRIVED_AT_HUB';`,
+  },
+  {
+    id: 'hub-load',
+    title: 'Live hub load vs. rated capacity',
+    question: 'Which hubs are under the most pressure right now?',
+    project: 'NeerVibe',
+    dialect: 'PostgreSQL',
+    techniques: ['CTE', 'LEFT JOIN', 'NULLIF'],
+    note: 'The stored current_load column drifted, so load is derived from the parcels actually sitting at each node. LEFT JOIN + COALESCE keeps empty hubs in the ranking instead of silently dropping them.',
+    sql: `-- Derive load from the parcels physically at each node
+-- rather than trusting a counter nothing maintains.
+WITH node_loads AS (
+  SELECT current_node_id AS node_id, count(*) AS load
+  FROM packages
+  WHERE current_node_id IS NOT NULL
+    AND current_status NOT IN ('DELIVERED', 'CANCELLED', 'RETURNED', 'LOST', 'DAMAGED')
+  GROUP BY current_node_id
+)
+SELECT
+  n.node_code,
+  n.node_name,
+  coalesce(nl.load, 0)                                                  AS current_load,
+  n.capacity,
+  round(coalesce(nl.load, 0)::numeric / nullif(n.capacity, 0) * 100, 2) AS utilisation_pct
+FROM logistics_nodes n
+LEFT JOIN node_loads nl ON nl.node_id = n.id
+WHERE n.operating_status = 'OPERATIONAL'
+ORDER BY current_load DESC
+LIMIT 5;`,
+  },
+  {
+    id: 'delivery-kpis',
+    title: 'Delivery quality KPIs in one pass',
+    question: 'First-attempt success, return rate, and 24h throughput — without a CASE WHEN in sight.',
+    project: 'NeerVibe',
+    dialect: 'PostgreSQL',
+    techniques: ['FILTER clause', 'Conditional aggregates', 'Intervals'],
+    note: "Postgres' aggregate FILTER reads like the KPI definition itself. Each statement scans its table exactly once, however many metrics you add.",
+    sql: `-- First-attempt success rate: only the first attempt per parcel counts.
+SELECT
+  round(
+    count(*) FILTER (WHERE attempt_number = 1 AND result = 'SUCCESS')::numeric
+    / nullif(count(*) FILTER (WHERE attempt_number = 1), 0) * 100, 1
+  ) AS first_attempt_success_pct
+FROM delivery_attempts;
+
+-- Parcel outcomes and last-24h throughput from a single scan of packages.
+SELECT
+  count(*)                                                        AS total_parcels,
+  count(*) FILTER (WHERE current_status IN
+                   ('RETURN_REQUESTED', 'RETURN_IN_TRANSIT', 'RETURNED')) AS returns,
+  count(*) FILTER (WHERE current_status = 'CANCELLED')            AS cancelled,
+  count(*) FILTER (WHERE current_status = 'DELIVERED'
+                     AND actual_delivery_at >= now() - interval '24 hours') AS delivered_24h
+FROM packages;`,
+  },
+  {
+    id: 'price-moves',
+    title: 'Biggest price moves since the last scrape',
+    question: 'For every product, what is the latest price and how much did it move?',
+    project: 'Price Pulse',
+    dialect: 'PostgreSQL',
+    techniques: ['ROW_NUMBER', 'LAG', 'Ranked subquery'],
+    note: 'One window pass over price_history replaces two correlated subqueries per product. This is what the /api/products endpoint runs (via SQLAlchemy) to show "was ৳X, now ৳Y".',
+    sql: `-- Rank each product's history newest-first and look one row back
+-- for the previous price, in a single pass.
+WITH ranked AS (
+  SELECT
+    p.site,
+    p.product_name,
+    h.current_price,
+    h.scraped_at,
+    LAG(h.current_price) OVER (PARTITION BY h.product_id ORDER BY h.scraped_at)      AS previous_price,
+    ROW_NUMBER()         OVER (PARTITION BY h.product_id ORDER BY h.scraped_at DESC) AS rn
+  FROM price_history h
+  JOIN products p ON p.id = h.product_id
+)
+SELECT
+  site,
+  product_name,
+  current_price,
+  previous_price,
+  round((current_price - previous_price) / nullif(previous_price, 0) * 100, 1) AS change_pct
+FROM ranked
+WHERE rn = 1
+  AND previous_price IS NOT NULL
+ORDER BY change_pct
+LIMIT 20;`,
+  },
+  {
+    id: 'daily-throughput',
+    title: 'Daily deliveries with a 7-day rolling average',
+    question: 'What does throughput look like day by day — including the quiet days?',
+    project: 'NeerVibe',
+    dialect: 'PostgreSQL',
+    techniques: ['generate_series', 'Gap filling', 'Rolling window'],
+    note: 'A GROUP BY alone drops days with zero deliveries, which bends every trend line. Generating the calendar first and LEFT JOINing onto it keeps the x-axis honest.',
+    sql: `-- Build the calendar first so zero-delivery days stay on the chart.
+WITH days AS (
+  SELECT generate_series(
+    date_trunc('day', now() - interval '29 days'),
+    date_trunc('day', now()),
+    interval '1 day'
+  )::date AS day
+),
+delivered AS (
+  SELECT actual_delivery_at::date AS day, count(*) AS n
+  FROM packages
+  WHERE current_status = 'DELIVERED'
+    AND actual_delivery_at >= now() - interval '30 days'
+  GROUP BY 1
+)
+SELECT
+  d.day,
+  coalesce(x.n, 0) AS delivered,
+  round(avg(coalesce(x.n, 0)) OVER (
+    ORDER BY d.day ROWS BETWEEN 6 PRECEDING AND CURRENT ROW
+  ), 1)            AS rolling_7d
+FROM days d
+LEFT JOIN delivered x USING (day)
+ORDER BY d.day;`,
   },
 ]

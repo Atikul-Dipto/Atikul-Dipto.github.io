@@ -1,20 +1,36 @@
 :root {
-  --bg: #ffffff;
-  --bg-alt: rgba(246, 247, 249, 0.75);
-  --surface: rgba(255, 255, 255, 0.72);
-  --border: #e4e6eb;
-  --text: #3b3f47;
-  --text-strong: #14161a;
-  --text-muted: #6b7280;
+  --bg: #f5f7fc;
+  --bg-alt: rgba(255, 255, 255, 0.55);
+  --band: linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(124, 58, 237, 0.07));
+  --band-edge: rgba(37, 99, 235, 0.12);
+  --surface: rgba(255, 255, 255, 0.88);
+  --surface-strong: #ffffff;
+  --border: rgba(37, 99, 235, 0.16);
+  --text: #334155;
+  --text-strong: #0f172a;
+  --text-muted: #5b6b82;
   --accent: #2563eb;
   --accent-strong: #1d4ed8;
-  --accent-bg: rgba(37, 99, 235, 0.08);
-  --accent-border: rgba(37, 99, 235, 0.35);
-  --shadow: 0 10px 30px -12px rgba(20, 22, 26, 0.15);
+  --accent-2: #7c3aed;
+  --accent-3: #0891b2;
+  --accent-bg: rgba(37, 99, 235, 0.09);
+  --accent-border: rgba(37, 99, 235, 0.38);
+  --grad: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+  --grad-wide: linear-gradient(120deg, #2563eb 0%, #7c3aed 55%, #0891b2 100%);
+  --btn-grad: linear-gradient(135deg, #2563eb 0%, #6d3ff0 100%);
+  --btn-grad-hover: linear-gradient(135deg, #1d4ed8 0%, #5b21b6 100%);
+  --btn-text: #ffffff;
+  --btn-shadow: 0 14px 28px -12px rgba(79, 70, 229, 0.55);
+  --shadow: 0 18px 40px -20px rgba(37, 99, 235, 0.28), 0 2px 8px -3px rgba(15, 23, 42, 0.1);
+  --shadow-lift: 0 28px 50px -22px rgba(37, 99, 235, 0.4), 0 6px 14px -6px rgba(15, 23, 42, 0.12);
+  --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --code-bg: #0b1526;
+  --code-border: rgba(94, 199, 255, 0.22);
   --radius: 12px;
   --glass-blur: blur(16px);
 
   --sans: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', Consolas, 'Courier New', monospace;
 
   font: 16px/1.6 var(--sans);
   color-scheme: light dark;
@@ -28,16 +44,31 @@
   :root {
     --bg: #020d1b;
     --bg-alt: rgba(10, 18, 28, 0.82);
-    --surface: rgba(28, 37, 47, 0.75);
-    --border: rgba(126, 162, 198, 0.28);
+    --band: linear-gradient(180deg, rgba(94, 199, 255, 0.06), rgba(167, 139, 250, 0.07));
+    --band-edge: rgba(126, 162, 198, 0.2);
+    --surface: rgba(28, 37, 47, 0.78);
+    --surface-strong: #101b29;
+    --border: rgba(126, 162, 198, 0.3);
     --text: #dfeaf5;
     --text-strong: #f4f9ff;
     --text-muted: #8ca7bf;
     --accent: #5ec7ff;
     --accent-strong: #9edfff;
+    --accent-2: #a78bfa;
+    --accent-3: #22d3ee;
     --accent-bg: rgba(94, 199, 255, 0.12);
     --accent-border: rgba(94, 199, 255, 0.5);
+    --grad: linear-gradient(135deg, #5ec7ff 0%, #a78bfa 100%);
+    --grad-wide: linear-gradient(120deg, #5ec7ff 0%, #a78bfa 55%, #22d3ee 100%);
+    --btn-grad: linear-gradient(135deg, #6bbdff 0%, #4d9ef7 100%);
+    --btn-grad-hover: linear-gradient(135deg, #87d5ff 0%, #67aefb 100%);
+    --btn-text: #08131d;
+    --btn-shadow: 0 12px 24px -12px rgba(94, 199, 255, 0.9);
     --shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.7);
+    --shadow-lift: 0 26px 48px -20px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(94, 199, 255, 0.12);
+    --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    --code-bg: #071120;
+    --code-border: rgba(94, 199, 255, 0.28);
   }
 }
 
