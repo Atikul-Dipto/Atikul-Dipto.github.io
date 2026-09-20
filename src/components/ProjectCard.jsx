@@ -18,7 +18,6 @@ export default function ProjectCard({ project, index }) {
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
     >
-      <span className="project-card__border" aria-hidden="true" />
       <span className="project-card__spotlight" aria-hidden="true" />
       <div className="project-card__body">
         <div className="project-card__screenshot">
