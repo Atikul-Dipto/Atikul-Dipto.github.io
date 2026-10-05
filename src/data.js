@@ -126,9 +126,9 @@ export const projects = [
     placeholder: false,
   },
   {
-    title: 'ATS Resume Scanner + Builder',
+    title: 'ATS Resume Scanner + Job Match',
     summary: 'Scan a resume, fix it against a live ATS score, export a version that passes.',
-    description: 'A React + FastAPI product that scans resumes for ATS risks — layout problems, missing sections, keyword gaps against a target job — then opens them in a structured builder with a live score, inline bullet coaching and ATS-safe PDF/DOCX export. Optional accounts, Postgres, and a stateless API built to scale out; also matches candidates to live job-board roles.',
+    description: 'A React + FastAPI product that scans resumes for ATS risks — layout problems, missing sections, keyword gaps against a target job — then opens them in a structured builder with a live score, inline bullet coaching and ATS-safe PDF/DOCX export. Includes an engineering & data job board that ranks every listing by how well your resume fits, with the exact skills gap. Optional accounts, Postgres, and a stateless API built to scale out.',
     screenshot: '/project-ats-resume-scanner.svg',
     tags: ['React', 'FastAPI', 'PostgreSQL', 'NLP'],
     href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
