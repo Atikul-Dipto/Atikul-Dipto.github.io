@@ -1,5 +1,10 @@
 # Work Signal
 
+> **Moved:** Work Signal is now part of [Prottoy](https://atikul-dipto.github.io/ats-resume-scanner/#/market)
+> ([source](https://github.com/Atikul-Dipto/ats-resume-scanner)). It's computed from real open job listings,
+> links every signal to the postings behind it, and shows official Bangladesh labour statistics from the
+> World Bank. This folder now only redirects `/work-signal/` there; the original prototype below used sample data.
+
 A separate Bangladesh job-market dashboard with a Selenium scraper for permitted public career and job-listing pages.
 
 ## Dashboard signals

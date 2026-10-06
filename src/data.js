@@ -147,12 +147,12 @@ export const projects = [
   },
   {
     title: 'Work Signal',
-    summary: 'Where the Bangladesh job market is moving, as a filterable signal.',
-    description: 'A job-market dashboard prototype — latest roles with work mode and estimated salary, skill-demand and hiring-company rankings, filterable by skill and industry — fed by a Selenium scraper for permitted public career pages. Ships with illustrative records until a source is verified.',
+    summary: 'Where the job market is moving, from real listings and official statistics, now part of Prottoy.',
+    description: 'A job-market dashboard inside Prottoy: most-demanded skills with two-week trends, companies hiring, locations, work modes, weekly momentum and posted salaries, all computed from real open listings, with every signal linking to the postings behind it. Alongside official Bangladesh labour statistics from the World Bank API.',
     screenshot: '/project-work-signal.svg',
-    tags: ['React', 'Selenium', 'Python'],
-    href: 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/job-market-dashboard',
-    demoHref: '/work-signal/',
+    tags: ['React', 'FastAPI', 'PostgreSQL'],
+    href: 'https://github.com/Atikul-Dipto/ats-resume-scanner',
+    demoHref: 'https://atikul-dipto.github.io/ats-resume-scanner/#/market',
     placeholder: false,
   },
 ]
