@@ -13,28 +13,37 @@
   --my: 0.5;
 }
 
+.bg-canvas-wrap {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+.bg-scene--webgl .bg-canvas-wrap {
+  opacity: 1;
+}
+
+/* --bg-fade is driven by scroll in AnimatedBackground: full strength across the
+   hero, gone by the time the first section of body copy is in view. No
+   transition here — it is set every frame and must track the scroll exactly. */
 .bg-canvas {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  opacity: 0;
-  transition: opacity 1.2s ease;
+  opacity: var(--bg-fade, 1);
 }
 
-.bg-scene--webgl .bg-canvas {
-  opacity: 1;
-}
-
-/* Hand over from the CSS fallback once the scene is actually rendering. The
-   blobs stay (dimmed) — they supply the colour wash the WebGL layer doesn't. */
+/* Hand over from the CSS fallback once the scene is actually rendering. */
 .bg-scene--webgl .bg-particles {
   opacity: 0;
 }
 
+/* The blobs are the inverse: held back while the field is on screen, brought
+   back up as it fades, so the lower page keeps its colour wash. */
 .bg-scene--webgl .bg-blob {
-  opacity: 0.18;
-  transition: opacity 1.2s ease;
+  opacity: calc(0.16 + (1 - var(--bg-fade, 1)) * 0.24);
 }
 
 .bg-particles {

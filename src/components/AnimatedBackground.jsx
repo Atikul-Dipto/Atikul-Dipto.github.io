@@ -12,7 +12,7 @@ export default function AnimatedBackground() {
 
   const factory = useCallback(
     (THREE, canvas, opts) =>
-      createConstellation(THREE, canvas, { ...opts, count: window.innerWidth < 1100 ? 280 : 520 }),
+      createConstellation(THREE, canvas, { ...opts, count: window.innerWidth < 1100 ? 240 : 420 }),
     [],
   )
   const { canvasRef, active, themeKey } = useWebGLScene(factory, { enabled: webglAllowed, trackScroll: true })
@@ -36,6 +36,35 @@ export default function AnimatedBackground() {
       }),
     [],
   )
+
+  // The field belongs to the hero. Past it the page is body copy, tables and
+  // code — all of which are harder to read over moving lines — so the layer
+  // fades out over the first screen and the colour wash takes back over.
+  useEffect(() => {
+    const el = sceneRef.current
+    if (!el) return
+
+    let raf = 0
+    const applyFade = () => {
+      raf = 0
+      const span = window.innerHeight * 0.85
+      const t = Math.min(1, Math.max(0, window.scrollY / span))
+      // easeOutCubic, so it thins out quickly rather than lingering over About.
+      el.style.setProperty('--bg-fade', (1 - (1 - (1 - t) ** 3)).toFixed(3))
+    }
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(applyFade)
+    }
+
+    applyFade()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [])
 
   useEffect(() => {
     const el = sceneRef.current
@@ -61,7 +90,12 @@ export default function AnimatedBackground() {
 
   return (
     <div className={`bg-scene${active ? ' bg-scene--webgl' : ''}`} ref={sceneRef} aria-hidden="true">
-      <canvas key={themeKey} className="bg-canvas" ref={canvasRef} />
+      {/* Wrapper owns the one-off fade-in when the scene starts; the canvas
+          itself owns the scroll fade, which must not be transitioned or it
+          lags behind the scroll position. */}
+      <div className="bg-canvas-wrap">
+        <canvas key={themeKey} className="bg-canvas" ref={canvasRef} />
+      </div>
 
       <div className="bg-particles">
         {particles.map((particle) => (

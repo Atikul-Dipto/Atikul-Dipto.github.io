@@ -5,10 +5,12 @@
 // own mount/unmount, and so three.js can be dynamically imported by the caller.
 import { makeDotTexture, cappedDpr } from './env'
 
-const EDGE_RADIUS = 2.0
+const EDGE_RADIUS = 1.45
 // Fraction of the field's half-width kept clear in the centre, behind the text.
-const QUIET_RADIUS = 0.46
-const MAX_EDGES_PER_POINT = 2
+const QUIET_RADIUS = 0.54
+// One edge per point. At two the field became a mesh, and a mesh behind body
+// copy is the thing that made the page hard to read.
+const MAX_EDGES_PER_POINT = 1
 
 /** Precompute the network once, from the starting layout. Recomputing nearest
  *  neighbours per frame would be O(n^2) and is invisible at this drift speed. */
@@ -36,7 +38,7 @@ function buildEdges(positions, count) {
   return new Uint32Array(edges)
 }
 
-export function createConstellation(THREE, canvas, { palette, count = 520 }) {
+export function createConstellation(THREE, canvas, { palette, count = 420 }) {
   const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: 'low-power' })
   renderer.setPixelRatio(cappedDpr())
 
@@ -93,7 +95,7 @@ export function createConstellation(THREE, canvas, { palette, count = 520 }) {
       map: makeDotTexture(THREE),
       vertexColors: true,
       transparent: true,
-      opacity: palette.dark ? 0.7 : 0.55,
+      opacity: palette.dark ? 0.6 : 0.42,
       depthWrite: false,
       blending: palette.dark ? THREE.AdditiveBlending : THREE.NormalBlending,
       sizeAttenuation: true,
@@ -121,7 +123,7 @@ export function createConstellation(THREE, canvas, { palette, count = 520 }) {
     new THREE.LineBasicMaterial({
       vertexColors: true,
       transparent: true,
-      opacity: palette.dark ? 0.17 : 0.13,
+      opacity: palette.dark ? 0.1 : 0.08,
       depthWrite: false,
       blending: palette.dark ? THREE.AdditiveBlending : THREE.NormalBlending,
     }),
