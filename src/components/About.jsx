@@ -20,10 +20,6 @@ export default function About() {
         </div>
 
         <div className="about__side">
-          <figure className="about__portrait">
-            <img src={profile.photo} alt={profile.photoAlt} loading="lazy" width="320" height="320" />
-          </figure>
-
           <div className="card">
             <h3>Education</h3>
             <p className="card__title">{education.degree}</p>
