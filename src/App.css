@@ -13,11 +13,36 @@
   --my: 0.5;
 }
 
+.bg-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+}
+
+.bg-scene--webgl .bg-canvas {
+  opacity: 1;
+}
+
+/* Hand over from the CSS fallback once the scene is actually rendering. The
+   blobs stay (dimmed) — they supply the colour wash the WebGL layer doesn't. */
+.bg-scene--webgl .bg-particles {
+  opacity: 0;
+}
+
+.bg-scene--webgl .bg-blob {
+  opacity: 0.18;
+  transition: opacity 1.2s ease;
+}
+
 .bg-particles {
   position: absolute;
   inset: 0;
   overflow: hidden;
   pointer-events: none;
+  transition: opacity 0.9s ease;
 }
 
 .bg-particle {
@@ -820,6 +845,98 @@ main {
   }
 }
 
+/* ---------- hero globe (WebGL) ---------- */
+.hero-globe {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(420px, 86vw);
+  aspect-ratio: 1 / 1;
+}
+
+/* The camera sits close enough that the sphere overflows its frame, so the
+   canvas itself is masked to a circle: the globe reads as a porthole onto the
+   region rather than a rectangle of dark pixels. */
+.hero-globe__canvas {
+  grid-area: 1 / 1;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 70px -18px rgba(0, 0, 0, 0.95),
+    0 0 90px -20px color-mix(in srgb, var(--accent) 75%, transparent);
+  opacity: 0;
+  transform: scale(0.94);
+  transition: opacity 1s ease, transform 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.hero-globe.is-live .hero-globe__canvas {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* Dashed orbit, carried over from the old portrait frame so the hero keeps a
+   recognisable silhouette while the scene loads (or if it never does). */
+.hero-globe__ring {
+  grid-area: 1 / 1;
+  width: 108%;
+  height: 108%;
+  border-radius: 50%;
+  border: 1px dashed color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: 0 0 60px -12px color-mix(in srgb, var(--accent) 50%, transparent);
+  animation: portrait-spin 34s linear infinite;
+  pointer-events: none;
+}
+
+.hero-globe__caption {
+  grid-area: 1 / 1;
+  align-self: end;
+  justify-self: center;
+  transform: translateY(42%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow), var(--card-highlight);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0;
+  transition: opacity 0.8s ease 0.5s;
+}
+
+.hero-globe.is-live .hero-globe__caption {
+  opacity: 1;
+}
+
+.hero-globe__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent-3);
+  box-shadow: 0 0 10px var(--accent-3);
+  animation: globe-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes globe-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.85); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-globe__ring,
+  .hero-globe__dot {
+    animation: none;
+  }
+}
+
 /* ---------- about ---------- */
 .about {
   display: grid;
@@ -846,6 +963,55 @@ main {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.about__portrait {
+  position: relative;
+  margin: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow), var(--card-highlight);
+  transition: transform 0.3s cubic-bezier(0.34, 1.4, 0.64, 1), box-shadow 0.3s ease,
+    border-color 0.2s ease;
+}
+
+.about__portrait::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, transparent 55%, color-mix(in srgb, var(--accent) 22%, transparent));
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+
+.about__portrait img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.about__portrait:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-lift), var(--card-highlight);
+}
+
+.about__portrait:hover img {
+  transform: scale(1.05);
+}
+
+.about__portrait:hover::after {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .about__portrait:hover,
+  .about__portrait:hover img {
+    transform: none;
+  }
 }
 
 .about__side .card {

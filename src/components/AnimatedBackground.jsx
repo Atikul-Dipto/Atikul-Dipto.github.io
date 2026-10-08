@@ -1,13 +1,28 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useWebGLScene } from '../hooks/useWebGLScene'
+import { createConstellation } from '../webgl/constellation'
+import { isLowPower } from '../webgl/env'
 
 export default function AnimatedBackground() {
   const sceneRef = useRef(null)
+  // Decided once on mount: `isLowPower` touches window, so it must not run
+  // during render if this is ever server-rendered.
+  const [webglAllowed, setWebglAllowed] = useState(false)
+  useEffect(() => setWebglAllowed(!isLowPower()), [])
 
+  const factory = useCallback(
+    (THREE, canvas, opts) =>
+      createConstellation(THREE, canvas, { ...opts, count: window.innerWidth < 1100 ? 280 : 520 }),
+    [],
+  )
+  const { canvasRef, active, themeKey } = useWebGLScene(factory, { enabled: webglAllowed, trackScroll: true })
+
+  // CSS fallback particles, used until (or instead of) WebGL.
   const particles = useMemo(
     () =>
       Array.from({ length: 68 }, (_, index) => {
-        const layer = index % 3 // 3 depth layers
-        const speed = 6 + layer * 3 // slower = deeper
+        const layer = index % 3
+        const speed = 6 + layer * 3
         return {
           id: index,
           size: 2 + ((index * 11) % 9) * 0.8,
@@ -15,7 +30,7 @@ export default function AnimatedBackground() {
           top: `${(index * 31 + 13) % 100}%`,
           duration: `${speed + (index % 5) * 0.9}s`,
           delay: `${(index % 9) * 0.4}s`,
-          opacity: 0.35 + (layer * 0.15),
+          opacity: 0.35 + layer * 0.15,
           layer,
         }
       }),
@@ -45,7 +60,9 @@ export default function AnimatedBackground() {
   }, [])
 
   return (
-    <div className="bg-scene" ref={sceneRef} aria-hidden="true">
+    <div className={`bg-scene${active ? ' bg-scene--webgl' : ''}`} ref={sceneRef} aria-hidden="true">
+      <canvas key={themeKey} className="bg-canvas" ref={canvasRef} />
+
       <div className="bg-particles">
         {particles.map((particle) => (
           <span
