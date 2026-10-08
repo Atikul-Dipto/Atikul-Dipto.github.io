@@ -29,25 +29,118 @@ export const profile = {
   ],
 }
 
-export const skills = [
-  {
-    group: 'Technical',
-    items: ['SQL', 'Python (Pandas, NumPy)', 'PostgreSQL', 'Power BI', 'Tableau', 'Metabase', 'Apache Superset', 'SPSS', 'STATA', 'Excel'],
-  },
-  {
-    group: 'Analytics',
-    items: ['Data Cleaning & Validation', 'Dashboard Development', 'Customer Behavior Analysis', 'KPI Reporting', 'Market Research', 'Business Analysis'],
-  },
-  {
-    group: 'Tools & Other',
-    items: ['Git / GitHub', 'Jupyter Notebook', 'SurveyCTO', 'Kobo Toolbox'],
-  },
-]
+export const skills = {
+  // Logo tiles. `icon` is a slug in src/data/toolIcons.js; anything without one
+  // falls back to a monogram tile, so adding a tool here never breaks the grid.
+  software: [
+    {
+      group: 'BI & Dashboards',
+      items: [
+        { name: 'Power BI', icon: 'powerbi' },
+        { name: 'Tableau', icon: 'tableau' },
+        { name: 'Metabase', icon: 'metabase' },
+        { name: 'Apache Superset', icon: 'superset' },
+        { name: 'Streamlit', icon: 'streamlit' },
+        { name: 'Plotly', icon: 'plotly' },
+        { name: 'D3.js', icon: 'd3' },
+      ],
+    },
+    {
+      group: 'Databases & Storage',
+      items: [
+        { name: 'SQL', icon: 'sql' },
+        { name: 'PostgreSQL', icon: 'postgresql' },
+        { name: 'PostGIS', icon: 'postgis' },
+        { name: 'SQLite', icon: 'sqlite' },
+        { name: 'Supabase', icon: 'supabase' },
+        { name: 'Redis', icon: 'redis' },
+        { name: 'SQLAlchemy', icon: 'sqlalchemy' },
+      ],
+    },
+    {
+      group: 'Languages & Libraries',
+      items: [
+        { name: 'Python', icon: 'python' },
+        { name: 'pandas', icon: 'pandas' },
+        { name: 'NumPy', icon: 'numpy' },
+        { name: 'scikit-learn', icon: 'scikitlearn' },
+        { name: 'TensorFlow', icon: 'tensorflow' },
+        { name: 'Selenium', icon: 'selenium' },
+      ],
+    },
+    {
+      group: 'Statistics & Spreadsheets',
+      items: [
+        { name: 'SPSS', icon: 'spss' },
+        { name: 'STATA', icon: 'stata' },
+        { name: 'Excel', icon: 'excel' },
+        { name: 'Google Sheets', icon: 'googlesheets' },
+      ],
+    },
+    {
+      group: 'Engineering & Workflow',
+      items: [
+        { name: 'Git', icon: 'git' },
+        { name: 'GitHub', icon: 'github' },
+        { name: 'Jupyter', icon: 'jupyter' },
+        { name: 'Docker', icon: 'docker' },
+        { name: 'FastAPI', icon: 'fastapi' },
+        { name: 'React', icon: 'react' },
+        { name: 'Next.js', icon: 'nextjs' },
+        { name: 'MapLibre', icon: 'maplibre' },
+        { name: 'Vercel', icon: 'vercel' },
+        { name: 'Render', icon: 'render' },
+      ],
+    },
+    {
+      group: 'Field Research & Collection',
+      items: [
+        { name: 'SurveyCTO', icon: 'surveycto' },
+        { name: 'Kobo Toolbox', icon: 'kobo' },
+      ],
+    },
+  ],
+
+  analytics: [
+    {
+      group: 'Data Preparation',
+      items: ['Data Cleaning & Validation', 'Data Quality Audits', 'ETL & Data Pipelines', 'Web Scraping', 'Data Transformation', 'Schema Design'],
+    },
+    {
+      group: 'Analysis & Modelling',
+      items: ['Exploratory Data Analysis', 'Customer Behaviour Analysis', 'Cohort & Retention Analysis', 'Time-Series & Trend Analysis', 'Applied Econometrics', 'Statistical Testing', 'Forecasting'],
+    },
+    {
+      group: 'Reporting & Research',
+      items: ['KPI Design & Reporting', 'Dashboard Development', 'Data Storytelling', 'Market Research', 'Survey Design & Sampling', 'Business Analysis', 'Requirement Gathering'],
+    },
+  ],
+
+  soft: [
+    {
+      group: 'Communication',
+      items: ['Competitive Debating', 'Public Speaking', 'Data Storytelling', 'Client Reporting & Presentations', 'Technical Writing'],
+    },
+    {
+      group: 'Collaboration',
+      items: ['Cross-functional Teamwork', 'Stakeholder Management', 'Mentoring & Training', 'Negotiation'],
+    },
+    {
+      group: 'Working Style',
+      items: ['Analytical Problem Solving', 'Critical Thinking', 'Attention to Detail', 'Ownership & Follow-through', 'Time Management'],
+    },
+  ],
+}
 
 export const experience = [
   {
     role: 'Data Analyst',
-    org: 'US Bangla Group',
+    org: 'Cartup',
+    orgNote: 'a concern of US Bangla Group',
+    orgUrl: 'https://cartup.com/',
+    logo: '/logos/cartup.svg',
+    logoDark: '/logos/cartup.svg',
+    logoAlt: 'Cartup logo',
     location: 'Dhaka, Bangladesh',
     period: 'Jul 2025 — Present',
     points: [
@@ -58,7 +151,11 @@ export const experience = [
   },
   {
     role: 'Associate',
-    org: 'Inspira Advisory and Consulting Limited',
+    org: 'Inspira Advisory and Consulting',
+    orgUrl: 'https://inspira-bd.com/',
+    logo: '/logos/inspira.png',
+    logoDark: '/logos/inspira-white.png',
+    logoAlt: 'Inspira Advisory and Consulting logo',
     location: 'Dhaka, Bangladesh',
     period: 'Jan 2025 — Jul 2025',
     points: [
@@ -70,6 +167,11 @@ export const experience = [
   {
     role: 'R&D Intern',
     org: 'ARCED Foundation',
+    orgNote: 'Aureolin Research, Consultancy & Expertise Development',
+    orgUrl: 'https://arced.foundation/',
+    logo: '/logos/arced.png',
+    logoDark: '/logos/arced-white.png',
+    logoAlt: 'ARCED Foundation logo',
     location: 'Dhaka, Bangladesh',
     period: 'Apr 2024 — Jul 2024',
     points: [
