@@ -31,6 +31,14 @@ export interface Pose {
   lookRadius: number
 }
 
+/**
+ * GSAP assumes a frame longer than half a second is a lag spike and holds the
+ * playhead rather than jumping. On a slow device that means a ride that never
+ * finishes and a visitor stuck between floors, because arrival is driven by the
+ * timeline completing. Advance by real time instead.
+ */
+gsap.ticker.lagSmoothing(0)
+
 /** The opening shot: high over the plain, square on to the cutaway. */
 const EXTERIOR_START: Pose = {
   y: levelY(1) + 14,
@@ -57,6 +65,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
    *  two never fight for the same value. */
   const parallax = useRef({ yaw: 0, pitch: 0 })
   const tl = useRef<gsap.core.Timeline | null>(null)
+  const guards = useRef<number[]>([])
 
   /** Radians per pixel. A full-width drag turns you most of the way around. */
   const MOUSE_SENS = 0.004
@@ -158,6 +167,8 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   // Drive the rig from phase changes.
   useEffect(() => {
     tl.current?.kill()
+    guards.current.forEach(window.clearTimeout)
+    guards.current = []
     const p = pose.current
 
     if (phase === 'exterior') {
@@ -194,6 +205,15 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
       // read as a ride rather than a cut.
       const ride = reduced ? 0.2 : Math.min(5.5, 1.1 + distance * 0.045)
       const t = gsap.timeline({ onComplete: () => arrive() })
+      // Belt and braces: arrival drives the whole UI, so it must not be able to
+      // hang on the timeline alone.
+      const guard = window.setTimeout(
+        () => {
+          if (useSilo.getState().phase === 'riding') arrive()
+        },
+        (ride + 2.5) * 1000,
+      )
+      guards.current.push(guard)
       // Pull into the car first, then descend, then step out on arrival.
       t.to(
         p,

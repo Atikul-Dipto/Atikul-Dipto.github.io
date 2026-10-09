@@ -65,29 +65,30 @@ export function Dust({ count = 900 }: { count?: number }) {
  * only is a floor with nothing to turn towards.
  */
 export function TravellingLights({ carY }: { carY: React.RefObject<number> }) {
-  const refs = [
-    useRef<THREE.PointLight>(null),
-    useRef<THREE.PointLight>(null),
-    useRef<THREE.PointLight>(null),
-  ]
+  const a = useRef<THREE.PointLight>(null)
+  const b = useRef<THREE.PointLight>(null)
+  const c = useRef<THREE.PointLight>(null)
 
   useFrame(() => {
     const y = carY.current ?? 0
     const base = contentAngle(useSilo.getState().level)
     const r = SHAFT_RADIUS - 3.4
-    refs.forEach((ref, i) => {
-      if (!ref.current) return
-      const a = base + (i * Math.PI * 2) / 3
+    const place = (light: THREE.PointLight | null, i: number) => {
+      if (!light) return
+      const ang = base + (i * Math.PI * 2) / 3
       // Stagger the heights so the three do not read as one flat ring.
-      ref.current.position.set(Math.cos(a) * r, y + 1.8 - i * 2.2, Math.sin(a) * r)
-    })
+      light.position.set(Math.cos(ang) * r, y + 1.8 - i * 2.2, Math.sin(ang) * r)
+    }
+    place(a.current, 0)
+    place(b.current, 1)
+    place(c.current, 2)
   })
 
   return (
     <>
-      <pointLight ref={refs[0]} color={PALETTE.brassHot} intensity={58} distance={30} decay={2} />
-      <pointLight ref={refs[1]} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
-      <pointLight ref={refs[2]} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
+      <pointLight ref={a} color={PALETTE.brassHot} intensity={58} distance={30} decay={2} />
+      <pointLight ref={b} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
+      <pointLight ref={c} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
     </>
   )
 }

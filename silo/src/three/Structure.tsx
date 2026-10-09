@@ -26,6 +26,7 @@ import {
   inCut,
   levelY,
 } from '../content/floors'
+import { concreteSurface, plateSurface, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
 function makeRandom(seed: number) {
@@ -88,8 +89,10 @@ function ConcreteWall() {
     // seam on a cylinder, and it holds up at every distance.
     const mottle = (geo: THREE.BufferGeometry, seed: number, light: number) => {
       const rand = makeRandom(seed)
-      const base = new THREE.Color(PALETTE.concrete)
-      const dark = new THREE.Color(PALETTE.concreteDark)
+      // Near-white: these multiply the colour map, so a wide range here would
+      // just crush the texture back into flat brown.
+      const base = new THREE.Color('#ffffff')
+      const dark = new THREE.Color('#9d9289')
       const pos = geo.attributes.position
       const colors = new Float32Array(pos.count * 3)
       for (let i = 0; i < pos.count; i++) {
@@ -106,11 +109,18 @@ function ConcreteWall() {
       return geo
     }
 
+    // Arc length is about 69 units and the wall is 157 tall, so this tiles the
+    // concrete at roughly four units a side.
+    const concrete = tiled(concreteSurface(), 17, 39)
     const shell = new THREE.MeshStandardMaterial({
       vertexColors: true,
-      roughness: 0.97,
+      roughness: 1,
       metalness: 0,
       side: THREE.DoubleSide,
+      map: concrete.map,
+      normalMap: concrete.normalMap,
+      roughnessMap: concrete.roughnessMap,
+      normalScale: new THREE.Vector2(0.8, 0.8),
     })
 
     const inner = new THREE.Mesh(
@@ -228,7 +238,16 @@ function Ribs() {
     const height = FLOOR_HEIGHT - 0.4
     const mesh = new THREE.InstancedMesh(
       new THREE.BoxGeometry(0.8, height, 0.6),
-      new THREE.MeshStandardMaterial({ color: PALETTE.concreteDark, roughness: 0.93 }),
+      (() => {
+        const c = tiled(concreteSurface(), 1, 10)
+        return new THREE.MeshStandardMaterial({
+          color: PALETTE.concreteDark,
+          roughness: 0.95,
+          map: c.map,
+          normalMap: c.normalMap,
+          roughnessMap: c.roughnessMap,
+        })
+      })(),
       FLOORS.length * perFloor,
     )
 
@@ -261,16 +280,32 @@ function Decks() {
   const nodes = useMemo(() => {
     const group = new THREE.Group()
     const deckGeo = new THREE.RingGeometry(DECK_INNER, SHAFT_RADIUS - 0.06, 80, 1)
+    const plate = tiled(plateSurface(), 18, 18)
     const deckMat = new THREE.MeshStandardMaterial({
-      color: PALETTE.deck,
-      roughness: 0.88,
-      metalness: 0.18,
-      side: THREE.DoubleSide,
+      roughness: 0.9,
+      metalness: 0.12,
+      // Top face only. The underside of a deck is always seen at a grazing
+      // angle from the level below, which is the worst case for a tiled normal
+      // map — it shimmers into vertical streaks. The soffit below handles it.
+      side: THREE.FrontSide,
+      map: plate.map,
+      normalMap: plate.normalMap,
+      roughnessMap: plate.roughnessMap,
+      normalScale: new THREE.Vector2(0.35, 0.35),
     })
+    const soffitMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.concreteDark,
+      roughness: 1,
+      metalness: 0,
+      side: THREE.FrontSide,
+    })
+    const brushed = tiled(steelSurface(), 6, 6)
     const steel = new THREE.MeshStandardMaterial({
-      color: PALETTE.steelDark,
-      roughness: 0.45,
-      metalness: 0.78,
+      roughness: 0.6,
+      metalness: 0.35,
+      map: brushed.map,
+      normalMap: brushed.normalMap,
+      roughnessMap: brushed.roughnessMap,
     })
     const edgeMat = new THREE.MeshStandardMaterial({
       color: PALETTE.brass,
@@ -287,6 +322,12 @@ function Decks() {
       deck.rotation.x = -Math.PI / 2
       deck.position.y = y
       group.add(deck)
+
+      // Ceiling for the level below: plain, so nothing shimmers overhead.
+      const soffit = new THREE.Mesh(deckGeo, soffitMat)
+      soffit.rotation.x = Math.PI / 2
+      soffit.position.y = y - 0.26
+      group.add(soffit)
 
       // Lip and handrail around the stairwell opening.
       const lip = new THREE.Mesh(new THREE.TorusGeometry(DECK_INNER, 0.1, 8, 80), steel)
@@ -351,15 +392,23 @@ function Corridors() {
     const max = FLOORS.length * BAYS
     const span = SHAFT_RADIUS - DECK_INNER
 
+    const brushed = tiled(steelSurface(), 6, 1)
     const steel = new THREE.MeshStandardMaterial({
-      color: PALETTE.steelDark,
-      roughness: 0.52,
-      metalness: 0.74,
+      roughness: 0.62,
+      metalness: 0.3,
+      map: brushed.map,
+      normalMap: brushed.normalMap,
+      roughnessMap: brushed.roughnessMap,
     })
+    // Tiling must follow the proportions of the thing it is on. Stretching a
+    // patterned texture across a long, short face turns it into stripes.
+    const panelSteel = tiled(steelSurface(), 6, 1.5)
     const panel = new THREE.MeshStandardMaterial({
-      color: PALETTE.deck,
-      roughness: 0.84,
-      metalness: 0.2,
+      roughness: 0.78,
+      metalness: 0.18,
+      map: panelSteel.map,
+      normalMap: panelSteel.normalMap,
+      roughnessMap: panelSteel.roughnessMap,
     })
 
     const joists = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.34, 0.46), steel, max)
@@ -406,7 +455,16 @@ function Stairs() {
     const steps = Math.floor((TOP_MARGIN - BOTTOM) / STEP_RISE)
     const treads = new THREE.InstancedMesh(
       new THREE.BoxGeometry(STAIR_WIDTH, 0.14, 1.0),
-      new THREE.MeshStandardMaterial({ color: PALETTE.steel, roughness: 0.55, metalness: 0.66 }),
+      (() => {
+        const t = tiled(plateSurface(), 2, 1)
+        return new THREE.MeshStandardMaterial({
+          roughness: 0.7,
+          metalness: 0.25,
+          map: t.map,
+          normalMap: t.normalMap,
+          roughnessMap: t.roughnessMap,
+        })
+      })(),
       steps,
     )
 

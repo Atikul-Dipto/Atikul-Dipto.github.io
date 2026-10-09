@@ -8,6 +8,7 @@ import Structure from './Structure'
 import Elevator from './Elevator'
 import Exterior from './Exterior'
 import Rig from './Rig'
+import Effects from './Effects'
 import Level01 from './floors/Level01'
 import { Dust, LevelSigns, SkyShaft, TravellingLights } from './Atmosphere'
 
@@ -31,7 +32,7 @@ function Interior({ carY }: { carY: React.RefObject<number> }) {
   return (
     <>
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
-      <ambientLight color="#6d5f55" intensity={0.34} />
+      <ambientLight color="#44525e" intensity={0.55} />
       <directionalLight color={PALETTE.brassHot} intensity={0.22} position={[0, 60, 10]} />
       <TravellingLights carY={carY} />
       <Structure />
@@ -122,6 +123,7 @@ export default function SiloScene() {
         <Preload all />
       </Suspense>
       <Rig carY={carY} />
+      <Effects />
     </Canvas>
   )
 }

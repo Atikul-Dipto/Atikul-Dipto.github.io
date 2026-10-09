@@ -12,6 +12,7 @@ import {
   contentAngle,
   levelY,
 } from '../content/floors'
+import { plateSurface, steelSurface, tiled } from './materials'
 import { useSilo } from '../state/useSilo'
 
 const dummy = new THREE.Object3D()
@@ -31,10 +32,13 @@ function shortestTurn(a: number, b: number) {
 function ShaftCage() {
   const nodes = useMemo(() => {
     const group = new THREE.Group()
+    const brushed = tiled(steelSurface(), 2, 1)
     const steel = new THREE.MeshStandardMaterial({
-      color: PALETTE.steelDark,
-      roughness: 0.48,
-      metalness: 0.82,
+      roughness: 0.62,
+      metalness: 0.32,
+      map: brushed.map,
+      normalMap: brushed.normalMap,
+      roughnessMap: brushed.roughnessMap,
     })
     const brace = new THREE.MeshStandardMaterial({
       color: PALETTE.steel,
@@ -202,19 +206,26 @@ export default function Elevator({ carY }: { carY: React.RefObject<number> }) {
   const doorsOpen = useSilo((s) => s.doorsOpen)
   const reduced = useSilo((s) => s.reducedMotion)
 
-  const steel = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: PALETTE.steel, roughness: 0.5, metalness: 0.7 }),
-    [],
-  )
-  const grate = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        color: PALETTE.steelDark,
-        roughness: 0.6,
-        metalness: 0.75,
-      }),
-    [],
-  )
+  const steel = useMemo(() => {
+    const t = tiled(steelSurface(), 3, 4)
+    return new THREE.MeshStandardMaterial({
+      roughness: 0.6,
+      metalness: 0.3,
+      map: t.map,
+      normalMap: t.normalMap,
+      roughnessMap: t.roughnessMap,
+    })
+  }, [])
+  const grate = useMemo(() => {
+    const t = tiled(plateSurface(), 6, 5)
+    return new THREE.MeshStandardMaterial({
+      roughness: 0.82,
+      metalness: 0.14,
+      map: t.map,
+      normalMap: t.normalMap,
+      roughnessMap: t.roughnessMap,
+    })
+  }, [])
 
   useFrame((_, dt) => {
     if (car.current) {

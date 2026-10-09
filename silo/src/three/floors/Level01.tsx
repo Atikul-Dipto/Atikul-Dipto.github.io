@@ -179,7 +179,7 @@ function PortraitWindow({ angle }: { angle: number }) {
           map={texture}
           emissive="#ffffff"
           emissiveMap={texture}
-          emissiveIntensity={1.25}
+          emissiveIntensity={0.78}
           roughness={0.9}
         />
       </mesh>
@@ -212,7 +212,7 @@ function PortraitWindow({ angle }: { angle: number }) {
 
       <pointLight
         color={PALETTE.brassHot}
-        intensity={30}
+        intensity={18}
         distance={13}
         decay={2}
         position={[0, 0.4, 1.9]}

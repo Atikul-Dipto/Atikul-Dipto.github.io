@@ -28,9 +28,10 @@ builds the root site plus each sub-app and copies `silo/dist` to `/silo/`.
 
 ## Stack
 
-React 19 · TypeScript · Vite · three.js · React Three Fiber · Drei · GSAP ·
-Zustand. All geometry is procedural — the only downloaded asset is the portrait
-image, so there are no models or textures to fetch.
+React 19 · TypeScript · Vite · three.js · React Three Fiber · Drei ·
+@react-three/postprocessing · GSAP · Zustand. All geometry *and* every texture
+is procedural — the only downloaded asset is the portrait image, so there are
+no models or texture files to fetch.
 
 ## Layout
 
@@ -40,6 +41,8 @@ src/
                 floors.ts      the geometry contract + the twelve level definitions
   state/        useSilo.ts     Zustand store: phase, level, overlays, preferences
   three/        SiloScene.tsx  the Canvas, fog, load gate, active-floor mounting
+                Effects.tsx    ambient occlusion, bloom, vignette
+                materials.ts   procedural concrete, tread plate and brushed steel
                 Structure.tsx  wall, ribs, decks, radial corridors, stair, lamps
                 Elevator.tsx   shaft cage, landings, and the car
                 Rig.tsx        owns the camera; GSAP tweens a pose object
@@ -54,6 +57,30 @@ src/
 height, shaft radius, deck geometry, the camera standing radius and the angular
 slots a level's fit-out may occupy are all derived from it, so the stair,
 decks, signage and camera stay aligned when any one changes.
+
+## Why it looks the way it does
+
+Reference WebGL portfolios usually *bake* their lighting: shading and occlusion
+are rendered offline into textures and displayed with `MeshBasicMaterial`, which
+is why they read so crisply. This project lights in real time instead, because
+the content is data-driven and the camera goes everywhere, so three things stand
+in for baking:
+
+1. **Procedural surfaces** (`materials.ts`). Concrete, tread plate and brushed
+   steel are generated at boot as colour, normal and roughness maps from
+   deterministic value noise. Untextured `MeshStandardMaterial` under a couple
+   of warm point lights has nothing to catch the light and collapses into flat
+   brown.
+2. **Ambient occlusion** (`Effects.tsx`). Real-time point lights produce no
+   contact shading at all, so every surface melts into the next. AO is what
+   separates a deck from the wall it meets.
+3. **Warm key against cool fill.** The lamps are warm and the ambient is cool,
+   so shadows go blue rather than browner. Value and hue separation is most of
+   what "crisp" actually means.
+
+Bloom then lets the lamps, signage and void-edge strips behave like light
+sources. The whole post stack is dropped on the low quality tier and on devices
+`isLowPower()` flags.
 
 ## Things worth knowing before you change the geometry
 
@@ -73,12 +100,24 @@ geometry large enough to fill the screen, which looks exactly like a lighting or
 culling failure and is neither. Any loop that writes instances must be counted
 against the capacity passed to the constructor.
 
+**Texture tiling must follow the proportions of the surface.** Repeating a
+patterned map 4x across a long, short panel stretches the pattern into stripes,
+and minifying a high-frequency map on a small face aliases into what looks like
+a rendering fault. Both happened here and both cost real debugging time.
+
+**Metalness plus a normal map at a grazing angle shimmers.** Most of this
+structure is seen edge-on most of the time, so the roughness floors are kept
+high and metalness low; they are architectural surfaces, not mirrors.
+
 **Fit-out parts belong on +Z.** Level components are positioned on the wall and
 then `lookAt` the axis, so local +Z points into the shaft. Anything on -Z is
 behind the wall and invisible. A solid box spanning an aperture occludes
 whatever is behind it — window casings are built from four slabs, never one box.
 
 ## Performance
+
+The three.js chunk is 349 kB gzipped, of which about 100 kB is the
+post-processing stack; it is lazy-loaded, so it does not affect first paint.
 
 Instanced ribs, treads, posts, corridor members and lamps. Only the current
 level and its immediate neighbours mount their fit-out. Two pooled point lights
