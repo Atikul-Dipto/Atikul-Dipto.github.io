@@ -1,0 +1,370 @@
+/* UI chrome sits over the WebGL shaft. Everything here is dark-only on purpose:
+   you are underground, so there is no light theme to honour. */
+:root {
+  --bone: #ede9e6;
+  --camel: #c9996b;
+  --camel-hot: #f0c493;
+  --umber: #5c4f4a;
+  --sage: #5c766d;
+  --void: #17120f;
+  --panel: rgba(28, 22, 19, 0.82);
+  --edge: rgba(201, 153, 107, 0.28);
+  --sans: 'Segoe UI', system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  --mono: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace;
+
+  color-scheme: dark;
+  font: 16px/1.6 var(--sans);
+  color: var(--bone);
+  background: var(--void);
+  -webkit-font-smoothing: antialiased;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--void); }
+h1, h2 { margin: 0; font-weight: 650; }
+p { margin: 0; }
+button { font: inherit; }
+
+.silo__canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 0;
+}
+
+/* The scroll track. The canvas is fixed behind it; this element exists purely
+   to give the page something to scroll, which is what drives the descent. */
+.silo__scroll {
+  position: relative;
+  width: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* ---------- boot ---------- */
+.silo__boot {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  background: var(--void);
+  transition: opacity 0.9s ease, visibility 0.9s;
+}
+
+.silo__boot.is-done {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.silo__boot-inner {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+  color: var(--camel);
+  font: 700 11px/1 var(--sans);
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+}
+
+.silo__boot-ring {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid rgba(201, 153, 107, 0.22);
+  border-top-color: var(--camel);
+  animation: silo-spin 1s linear infinite;
+}
+
+@keyframes silo-spin { to { transform: rotate(360deg); } }
+
+/* ---------- top bar ---------- */
+.silo__top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  pointer-events: none;
+}
+
+.silo__back,
+.silo__depth {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  background: var(--panel);
+  backdrop-filter: blur(10px);
+  color: var(--bone);
+  font: 700 11px/1 var(--sans);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+
+.silo__back:hover {
+  border-color: var(--camel);
+  color: var(--camel-hot);
+  transform: translateY(-1px);
+}
+
+.silo__depth { color: rgba(237, 233, 230, 0.62); }
+.silo__depth strong { color: var(--camel-hot); font-family: var(--mono); }
+.silo__depth i { font-style: normal; opacity: 0.5; }
+
+/* ---------- level index ---------- */
+.silo__levels {
+  position: fixed;
+  right: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 30;
+  display: grid;
+  gap: 2px;
+}
+
+.silo__level {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px 6px 12px;
+  border: 0;
+  border-right: 2px solid rgba(201, 153, 107, 0.2);
+  background: none;
+  color: rgba(237, 233, 230, 0.4);
+  cursor: pointer;
+  text-align: right;
+  transition: color 0.2s ease, border-color 0.2s ease, gap 0.2s ease;
+}
+
+.silo__level:hover { color: var(--bone); gap: 14px; }
+
+.silo__level.is-active {
+  color: var(--camel-hot);
+  border-right-color: var(--camel-hot);
+}
+
+.silo__level-num {
+  font: 700 10px/1 var(--mono);
+  letter-spacing: 0.1em;
+}
+
+.silo__level-name {
+  font: 600 11px/1 var(--sans);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  transition: opacity 0.25s ease, max-width 0.3s ease;
+}
+
+.silo__level:hover .silo__level-name,
+.silo__level.is-active .silo__level-name {
+  opacity: 1;
+  max-width: 140px;
+}
+
+/* ---------- content panels ---------- */
+.silo__panels {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.silo-panel {
+  grid-area: 1 / 1;
+  width: min(560px, calc(100vw - 48px));
+  padding: 30px 32px;
+  border: 1px solid var(--edge);
+  border-radius: 4px;
+  background: var(--panel);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 30px 70px -30px rgba(0, 0, 0, 0.9), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  opacity: 0;
+  visibility: hidden;
+  translate: 0 16px;
+  transition: opacity 0.5s ease, translate 0.5s ease, visibility 0.5s;
+  /* Sits left of centre so it never covers the window on floor 1. */
+  justify-self: start;
+  margin-left: clamp(24px, 7vw, 110px);
+}
+
+.silo-panel.is-active {
+  opacity: 1;
+  visibility: visible;
+  translate: 0 0;
+  pointer-events: auto;
+}
+
+.silo-panel__level {
+  color: var(--camel);
+  font: 700 10px/1 var(--mono);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+.silo-panel h1 {
+  font-size: clamp(32px, 5vw, 46px);
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.silo-panel h2 {
+  font-size: clamp(26px, 4vw, 34px);
+  letter-spacing: -0.01em;
+}
+
+.silo-panel__role {
+  margin-top: 6px;
+  color: var(--camel-hot);
+  font-size: 17px;
+  font-weight: 650;
+}
+
+.silo-panel__tagline {
+  margin-top: 14px;
+  color: rgba(237, 233, 230, 0.78);
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.silo-panel__meta {
+  margin-top: 18px;
+  color: rgba(237, 233, 230, 0.45);
+  font: 700 10px/1 var(--sans);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.silo-panel__hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 26px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(201, 153, 107, 0.18);
+  color: rgba(237, 233, 230, 0.5);
+  font: 700 10px/1 var(--sans);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.silo-panel__chev {
+  width: 9px;
+  height: 9px;
+  border-right: 2px solid var(--camel);
+  border-bottom: 2px solid var(--camel);
+  rotate: 45deg;
+  animation: silo-chev 1.8s ease-in-out infinite;
+}
+
+@keyframes silo-chev {
+  0%, 100% { transform: translateY(-2px); opacity: 0.45; }
+  50% { transform: translateY(3px); opacity: 1; }
+}
+
+.silo-panel--stub .silo-panel__stub-note {
+  margin-top: 20px;
+  padding: 7px 12px;
+  display: inline-block;
+  border: 1px dashed rgba(201, 153, 107, 0.4);
+  border-radius: 3px;
+  color: var(--camel);
+  font: 700 10px/1 var(--sans);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* ---------- entry hint ---------- */
+.silo__hint {
+  position: fixed;
+  left: 50%;
+  bottom: 28px;
+  translate: -50% 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  transition: opacity 0.5s ease, visibility 0.5s;
+}
+
+.silo__hint.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.silo__hint button {
+  padding: 11px 24px;
+  border: 1px solid var(--camel);
+  border-radius: 999px;
+  background: rgba(201, 153, 107, 0.14);
+  color: var(--camel-hot);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.silo__hint button:hover {
+  background: rgba(201, 153, 107, 0.26);
+  transform: translateY(-2px);
+}
+
+.silo__hint span {
+  color: rgba(237, 233, 230, 0.4);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 860px) {
+  /* Drop the panel to the bottom so it never sits over whatever the floor is
+     actually showing, and keep it clear of the level rail on the right. */
+  .silo__panels { place-items: end center; }
+
+  .silo-panel {
+    justify-self: stretch;
+    align-self: end;
+    width: auto;
+    margin: 0 54px 86px 16px;
+    padding: 20px 22px;
+  }
+
+  .silo-panel h1 { font-size: clamp(26px, 8vw, 34px); }
+  .silo-panel__tagline { font-size: 14px; margin-top: 10px; }
+  .silo-panel__hint { margin-top: 16px; padding-top: 12px; }
+
+  .silo__levels { right: 6px; }
+  .silo__level { padding: 5px 6px; }
+  .silo__level-name { display: none; }
+  .silo__hint { bottom: 18px; }
+  .silo__hint span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .silo__boot-ring,
+  .silo-panel__chev {
+    animation: none;
+  }
+}

@@ -27,6 +27,7 @@ jobs:
             package-lock.json
             ecommerce-price-tracker/package-lock.json
             job-market-dashboard/package-lock.json
+            silo/package-lock.json
 
       # Portfolio (site root)
       - run: npm ci
@@ -49,6 +50,14 @@ jobs:
           npm run build
           mkdir -p ../dist/work-signal
           cp -r dist/. ../dist/work-signal/
+
+      - name: Build The Silo -> /silo/
+        working-directory: silo
+        run: |
+          npm ci
+          npm run build
+          mkdir -p ../dist/silo
+          cp -r dist/. ../dist/silo/
 
       - uses: actions/upload-pages-artifact@v3
         with:

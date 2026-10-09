@@ -51,6 +51,19 @@ export default function Hero() {
             </span>
           </div>
 
+          <a className="silo-link" href="/silo/">
+            <span className="silo-link__icon" aria-hidden="true">
+              <i />
+              <i />
+              <i />
+            </span>
+            <span className="silo-link__text">
+              <strong>Enter the Silo</strong>
+              <small>An eight-floor descent through the work</small>
+            </span>
+            <span className="silo-link__go" aria-hidden="true">↓</span>
+          </a>
+
           <div className="hero__stats" aria-label="Quick profile stats">
             {profile.stats.map((stat) => (
               <div className="hero__stat" key={stat.label}>
