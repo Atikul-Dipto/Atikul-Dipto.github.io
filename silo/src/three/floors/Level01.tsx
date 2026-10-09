@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
-import { PALETTE, SHAFT_RADIUS, SLOT, contentAngle, levelY } from '../../content/floors'
+import {
+  DECK_INNER,
+  PALETTE,
+  SHAFT_RADIUS,
+  SLOT,
+  contentAngle,
+  deckY,
+  levelY,
+} from '../../content/floors'
 import { identity } from '../../content/portfolio'
 import { useSilo } from '../../state/useSilo'
 
@@ -23,11 +31,18 @@ function makePanel(width: number, height: number) {
 
 function IdentityConsole({ angle }: { angle: number }) {
   const y = levelY(1)
+  const deck = deckY(1)
   const panel = useMemo(() => makePanel(512, 320), [])
   const trace = useRef(0)
+  const nextDraw = useRef(0)
 
   useFrame((_, dt) => {
     trace.current += dt
+    // Repainting a 512x320 canvas every frame is pure waste on a decorative
+    // trace; twelve times a second reads identically.
+    if (trace.current < nextDraw.current) return
+    nextDraw.current = trace.current + 1 / 12
+
     const { ctx, canvas, texture } = panel
     const t = trace.current
 
@@ -79,8 +94,12 @@ function IdentityConsole({ angle }: { angle: number }) {
 
   const r = SHAFT_RADIUS - 0.3
   const a = angle + SLOT.console
+  const localDeck = deck - (y + 0.5)
   return (
-    <group position={[Math.cos(a) * r, y + 0.5, Math.sin(a) * r]} onUpdate={(g) => g.lookAt(0, y + 0.5, 0)}>
+    <group
+      position={[Math.cos(a) * r, y + 0.5, Math.sin(a) * r]}
+      onUpdate={(g) => g.lookAt(0, y + 0.5, 0)}
+    >
       <mesh position={[0, 0, 0.06]}>
         <planeGeometry args={[2.6, 1.63]} />
         <meshBasicMaterial map={panel.texture} toneMapped={false} />
@@ -89,6 +108,23 @@ function IdentityConsole({ angle }: { angle: number }) {
         <boxGeometry args={[2.9, 1.95, 0.22]} />
         <meshStandardMaterial color={PALETTE.steelDark} roughness={0.55} metalness={0.7} />
       </mesh>
+
+      {/* Desk below the screen, with a canted control surface. The group sits
+          at world y + 0.5, so deck level is this far down in local space. */}
+      <mesh position={[0, localDeck + 1.5, 0.52]}>
+        <boxGeometry args={[3.2, 0.14, 1.1]} />
+        <meshStandardMaterial color={PALETTE.steel} roughness={0.46} metalness={0.78} />
+      </mesh>
+      <mesh position={[0, localDeck + 1.62, 0.84]} rotation={[-0.42, 0, 0]}>
+        <boxGeometry args={[2.6, 0.5, 0.08]} />
+        <meshStandardMaterial color={PALETTE.steelDark} roughness={0.5} metalness={0.74} />
+      </mesh>
+      {/* Plinth, standing on the deck. */}
+      <mesh position={[0, localDeck + 0.72, 0.4]}>
+        <boxGeometry args={[3.0, 1.44, 0.76]} />
+        <meshStandardMaterial color={PALETTE.deck} roughness={0.85} metalness={0.2} />
+      </mesh>
+
       <pointLight color={PALETTE.brass} intensity={7} distance={6} decay={2} position={[0, 0, 1.1]} />
     </group>
   )
@@ -111,14 +147,19 @@ function PortraitWindow({ angle }: { angle: number }) {
   // Anything on -Z is behind the wall cylinder and invisible, and any solid box
   // spanning the aperture occludes the pane — both cost real debugging time.
   return (
-    <group position={[Math.cos(angle) * r, y + 0.35, Math.sin(angle) * r]} onUpdate={(g) => g.lookAt(0, y + 0.35, 0)}>
+    <group
+      position={[Math.cos(angle) * r, y + 0.35, Math.sin(angle) * r]}
+      onUpdate={(g) => g.lookAt(0, y + 0.35, 0)}
+    >
       {/* Hollow casing: four slabs, never one box across the opening. */}
-      {([
-        [W + 1.15, jamb, 0, H / 2 + jamb / 2],
-        [W + 1.15, jamb, 0, -H / 2 - jamb / 2],
-        [jamb, H, -W / 2 - jamb / 2, 0],
-        [jamb, H, W / 2 + jamb / 2, 0],
-      ] as const).map(([w, h, x, yy], i) => (
+      {(
+        [
+          [W + 1.15, jamb, 0, H / 2 + jamb / 2],
+          [W + 1.15, jamb, 0, -H / 2 - jamb / 2],
+          [jamb, H, -W / 2 - jamb / 2, 0],
+          [jamb, H, W / 2 + jamb / 2, 0],
+        ] as const
+      ).map(([w, h, x, yy], i) => (
         <mesh key={i} position={[x, yy, 0.18]}>
           <boxGeometry args={[w, h, 0.5]} />
           <meshStandardMaterial color={PALETTE.concreteDark} roughness={0.96} />
@@ -144,42 +185,62 @@ function PortraitWindow({ angle }: { angle: number }) {
 
       <mesh position={[0, 0, 0.44]}>
         <planeGeometry args={[W, H]} />
-        <meshPhysicalMaterial color="#bccbc4" transparent opacity={0.1} roughness={0.05} depthWrite={false} />
+        <meshPhysicalMaterial
+          color="#bccbc4"
+          transparent
+          opacity={0.1}
+          roughness={0.05}
+          depthWrite={false}
+        />
       </mesh>
 
-      {([
-        [W + 0.46, 0.23, 0, H / 2 + 0.115, 0.5],
-        [W + 0.46, 0.23, 0, -H / 2 - 0.115, 0.5],
-        [0.23, H + 0.46, -W / 2 - 0.115, 0, 0.5],
-        [0.23, H + 0.46, W / 2 + 0.115, 0, 0.5],
-        [W, 0.1, 0, -H / 2 + 0.62, 0.47],
-      ] as const).map(([w, h, x, yy, z], i) => (
+      {(
+        [
+          [W + 0.46, 0.23, 0, H / 2 + 0.115, 0.5],
+          [W + 0.46, 0.23, 0, -H / 2 - 0.115, 0.5],
+          [0.23, H + 0.46, -W / 2 - 0.115, 0, 0.5],
+          [0.23, H + 0.46, W / 2 + 0.115, 0, 0.5],
+          [W, 0.1, 0, -H / 2 + 0.16, 0.47],
+        ] as const
+      ).map(([w, h, x, yy, z], i) => (
         <mesh key={i} position={[x, yy, z]}>
           <boxGeometry args={[w, h, 0.22]} />
           <meshStandardMaterial color={PALETTE.steel} roughness={0.4} metalness={0.82} />
         </mesh>
       ))}
 
-      <pointLight color={PALETTE.brassHot} intensity={30} distance={13} decay={2} position={[0, 0.4, 1.9]} />
+      <pointLight
+        color={PALETTE.brassHot}
+        intensity={30}
+        distance={13}
+        decay={2}
+        position={[0, 0.4, 1.9]}
+      />
     </group>
   )
 }
 
-/** Personnel-records airlock. Clicking it opens the CV viewer. */
+/**
+ * Personnel-records airlock. Hovering cracks the doors; clicking walks the
+ * camera in, and the record opens when it arrives (see Rig, phase 'airlock').
+ */
 function Airlock({ angle }: { angle: number }) {
   const y = levelY(1)
-  const setCvOpen = useSilo((s) => s.setCvOpen)
+  const enterAirlock = useSilo((s) => s.enterAirlock)
+  const phase = useSilo((s) => s.phase)
   const hovered = useRef(false)
   const light = useRef<THREE.PointLight>(null)
   const doorL = useRef<THREE.Mesh>(null)
   const doorR = useRef<THREE.Mesh>(null)
 
   useFrame((_, dt) => {
-    const open = hovered.current ? 0.78 : 0
-    if (doorL.current) doorL.current.position.x += (-0.8 - open - doorL.current.position.x) * Math.min(1, dt * 4)
-    if (doorR.current) doorR.current.position.x += (0.8 + open - doorR.current.position.x) * Math.min(1, dt * 4)
+    // Fully open once you have stepped in; merely ajar on hover.
+    const open = phase === 'airlock' ? 1.5 : hovered.current ? 0.78 : 0
+    const speed = Math.min(1, dt * 4)
+    if (doorL.current) doorL.current.position.x += (-0.8 - open - doorL.current.position.x) * speed
+    if (doorR.current) doorR.current.position.x += (0.8 + open - doorR.current.position.x) * speed
     if (light.current) {
-      const want = hovered.current ? 14 : 4
+      const want = phase === 'airlock' ? 26 : hovered.current ? 14 : 4
       light.current.intensity += (want - light.current.intensity) * Math.min(1, dt * 5)
     }
   })
@@ -202,7 +263,7 @@ function Airlock({ angle }: { angle: number }) {
       }}
       onClick={(e) => {
         e.stopPropagation()
-        setCvOpen(true)
+        enterAirlock()
       }}
     >
       {/* Frame */}
@@ -227,9 +288,114 @@ function Airlock({ angle }: { angle: number }) {
       {/* Warning light */}
       <mesh position={[0, 2.95, 0.46]}>
         <boxGeometry args={[0.46, 0.18, 0.2]} />
-        <meshStandardMaterial color={PALETTE.brassHot} emissive={PALETTE.brassHot} emissiveIntensity={2.4} />
+        <meshStandardMaterial
+          color={PALETTE.brassHot}
+          emissive={PALETTE.brassHot}
+          emissiveIntensity={2.4}
+        />
       </mesh>
-      <pointLight ref={light} color={PALETTE.brassHot} intensity={4} distance={9} decay={2} position={[0, 1.4, 1.6]} />
+      <pointLight
+        ref={light}
+        color={PALETTE.brassHot}
+        intensity={4}
+        distance={9}
+        decay={2}
+        position={[0, 1.4, 1.6]}
+      />
+    </group>
+  )
+}
+
+/**
+ * The rest of the monitoring room: service runs along the wall, a hazard
+ * marking on the deck at the airlock threshold, and two blank status panels
+ * flanking the console. Nothing here carries data.
+ */
+function MonitoringRoom({ angle }: { angle: number }) {
+  const y = levelY(1)
+  const deck = deckY(1)
+
+  const pipes = useMemo(() => {
+    const group = new THREE.Group()
+    const mat = new THREE.MeshStandardMaterial({
+      color: PALETTE.steelDark,
+      roughness: 0.52,
+      metalness: 0.76,
+    })
+    // Two service runs following the wall across the width of the room.
+    const arc = 1.9
+    for (const [dy, radius] of [
+      [3.0, SHAFT_RADIUS - 0.55],
+      [3.34, SHAFT_RADIUS - 0.95],
+    ] as const) {
+      const pipe = new THREE.Mesh(new THREE.TorusGeometry(radius, 0.11, 8, 48, arc), mat)
+      pipe.rotation.x = -Math.PI / 2
+      pipe.rotation.z = -(angle + arc / 2)
+      pipe.position.y = y + dy
+      group.add(pipe)
+    }
+    // Brackets tying them back to the wall.
+    for (let i = 0; i < 5; i++) {
+      const a = angle - arc / 2 + 0.1 + (i / 4) * arc
+      const bracket = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.1, 0.12), mat)
+      bracket.position.set(
+        Math.cos(a) * (SHAFT_RADIUS - 0.75),
+        y + 3.17,
+        Math.sin(a) * (SHAFT_RADIUS - 0.75),
+      )
+      bracket.rotation.y = -a
+      group.add(bracket)
+    }
+    return group
+  }, [angle, y])
+
+  return (
+    <group>
+      <primitive object={pipes} />
+
+      {/* Hazard marking on the threshold of the airlock. */}
+      <group rotation={[0, Math.PI / 2 - (angle + SLOT.airlock), 0]}>
+        <mesh
+          position={[0, deck + 0.03, (DECK_INNER + SHAFT_RADIUS) / 2 + 1.4]}
+          rotation={[-Math.PI / 2, 0, 0]}
+        >
+          <planeGeometry args={[3.4, 2.2]} />
+          <meshStandardMaterial
+            color={PALETTE.brass}
+            roughness={0.9}
+            transparent
+            opacity={0.28}
+            depthWrite={false}
+          />
+        </mesh>
+      </group>
+
+      {/* Two blank status panels flanking the console. */}
+      {[-0.28, 0.22].map((off, i) => {
+        const a = angle + SLOT.console + off
+        const r = SHAFT_RADIUS - 0.34
+        return (
+          <group
+            key={i}
+            position={[Math.cos(a) * r, y + 2.0, Math.sin(a) * r]}
+            onUpdate={(g) => g.lookAt(0, y + 2.0, 0)}
+          >
+            <mesh>
+              <boxGeometry args={[0.9, 0.62, 0.14]} />
+              <meshStandardMaterial color={PALETTE.steelDark} roughness={0.56} metalness={0.7} />
+            </mesh>
+            <mesh position={[0, 0, 0.09]}>
+              <planeGeometry args={[0.74, 0.46]} />
+              <meshStandardMaterial
+                color="#1b1511"
+                emissive={PALETTE.brass}
+                emissiveIntensity={0.22}
+                roughness={0.6}
+              />
+            </mesh>
+          </group>
+        )
+      })}
     </group>
   )
 }
@@ -241,6 +407,7 @@ export default function Level01() {
       <PortraitWindow angle={angle + SLOT.window} />
       <IdentityConsole angle={angle} />
       <Airlock angle={angle} />
+      <MonitoringRoom angle={angle} />
     </group>
   )
 }

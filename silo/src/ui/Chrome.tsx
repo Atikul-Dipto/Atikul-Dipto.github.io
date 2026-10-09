@@ -89,7 +89,7 @@ export function CallPanel() {
 /** The CV airlock viewer. The record is reachable without any animation. */
 export function CvViewer() {
   const open = useSilo((s) => s.cvOpen)
-  const setCvOpen = useSilo((s) => s.setCvOpen)
+  const closeAirlock = useSilo((s) => s.closeAirlock)
   if (!open) return null
 
   return (
@@ -100,7 +100,7 @@ export function CvViewer() {
             <p className="cv__eyebrow">Personnel record</p>
             <h2>{identity.name}</h2>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={() => setCvOpen(false)}>
+          <button type="button" className="btn btn--ghost" onClick={closeAirlock}>
             Seal airlock
           </button>
         </div>

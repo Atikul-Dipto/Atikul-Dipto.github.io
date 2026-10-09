@@ -7,6 +7,7 @@ export type Phase =
   | 'exterior' // cinematic approach
   | 'riding' // elevator in motion
   | 'onFloor' // standing on a deck
+  | 'airlock' // stepped into the personnel airlock on level 1
 
 export type Quality = 'high' | 'low'
 
@@ -31,6 +32,10 @@ interface SiloState {
   setDoors: (open: boolean) => void
   toggleDirectory: (open?: boolean) => void
   setCvOpen: (open: boolean) => void
+  /** Walk into the airlock; the rig opens the record once the camera arrives. */
+  enterAirlock: () => void
+  /** Seal it again and step back onto the deck. */
+  closeAirlock: () => void
   toggleMute: () => void
   setReducedMotion: (v: boolean) => void
   setQuality: (q: Quality) => void
@@ -75,6 +80,14 @@ export const useSilo = create<SiloState>((set, get) => ({
   setDoors: (doorsOpen) => set({ doorsOpen }),
   toggleDirectory: (open) => set((s) => ({ directoryOpen: open ?? !s.directoryOpen })),
   setCvOpen: (cvOpen) => set({ cvOpen }),
+
+  enterAirlock: () => {
+    if (get().phase !== 'onFloor' || get().level !== 1) return
+    set({ phase: 'airlock', directoryOpen: false })
+  },
+
+  closeAirlock: () =>
+    set((s) => ({ cvOpen: false, phase: s.phase === 'airlock' ? 'onFloor' : s.phase })),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setQuality: (quality) => set({ quality }),

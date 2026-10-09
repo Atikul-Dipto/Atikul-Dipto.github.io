@@ -1,6 +1,6 @@
 import { Suspense, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { AdaptiveDpr, PerformanceMonitor, Preload } from '@react-three/drei'
+import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import { PALETTE, levelY } from '../content/floors'
 import { useSilo } from '../state/useSilo'
@@ -27,7 +27,7 @@ function Interior({ carY }: { carY: React.RefObject<number> }) {
   const phase = useSilo((s) => s.phase)
   // Fog is scene-wide, so the interior's density was swallowing the exterior
   // approach entirely. Thin it right out until we are inside the shaft.
-  const density = phase === 'exterior' ? 0.0022 : 0.0155
+  const density = phase === 'exterior' ? 0.0012 : 0.0155
   return (
     <>
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
@@ -44,12 +44,34 @@ function Interior({ carY }: { carY: React.RefObject<number> }) {
   )
 }
 
-function Progress() {
+/**
+ * Holds the boot screen until the scene's assets have actually resolved, and
+ * reports real progress while they load. Lives outside the inner Suspense
+ * boundary so it keeps rendering while that boundary is still suspended.
+ */
+function LoadGate() {
+  const { progress, active } = useProgress()
   const setProgress = useSilo((s) => s.setProgress)
+  const setPhase = useSilo((s) => s.setPhase)
+  const started = useRef(false)
+
   useEffect(() => {
-    // drei's useProgress is Suspense-bound; this fires once the tree resolves.
-    setProgress(1)
-  }, [setProgress])
+    if (active) started.current = true
+    setProgress(active ? progress / 100 : 1)
+    if (!active && started.current && useSilo.getState().phase === 'boot') setPhase('exterior')
+  }, [active, progress, setPhase, setProgress])
+
+  // Nothing may hold the boot screen up indefinitely: if no loader ever ran, or
+  // one failed outright, open up anyway.
+  useEffect(() => {
+    const id = window.setTimeout(() => {
+      if (useSilo.getState().phase !== 'boot') return
+      setProgress(1)
+      setPhase('exterior')
+    }, 3000)
+    return () => window.clearTimeout(id)
+  }, [setPhase, setProgress])
+
   return null
 }
 
@@ -57,7 +79,6 @@ export default function SiloScene() {
   const phase = useSilo((s) => s.phase)
   const setQuality = useSilo((s) => s.setQuality)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
-  const setPhase = useSilo((s) => s.setPhase)
   // Shared between the rig and the car so they stay locked while travelling.
   const carY = useRef(levelY(1))
 
@@ -67,7 +88,12 @@ export default function SiloScene() {
       dpr={[1, 1.9]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       camera={{ fov: 55, near: 0.1, far: 400, position: [0, levelY(1) + 26, 46] }}
-      onCreated={({ gl, camera }) => {
+      onCreated={({ gl, camera, scene }) => {
+        // Dev-only handle, so the scene can be probed from the console or a
+        // headless browser instead of guessed at.
+        if (import.meta.env.DEV) {
+          ;(window as unknown as { __silo?: unknown }).__silo = { gl, camera, scene, THREE }
+        }
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 0.95
         // Hold the HORIZONTAL fov constant: three.js fov is vertical, so on a
@@ -82,7 +108,6 @@ export default function SiloScene() {
         }
         applyFov()
         window.addEventListener('resize', applyFov)
-        if (useSilo.getState().phase === 'boot') setPhase('exterior')
       }}
       fallback={null}
       onError={() => setWebglFailed()}
@@ -90,10 +115,10 @@ export default function SiloScene() {
       <color attach="background" args={[PALETTE.void]} />
       <PerformanceMonitor onDecline={() => setQuality('low')} />
       <AdaptiveDpr pixelated={false} />
+      <LoadGate />
       <Suspense fallback={null}>
         {phase === 'exterior' && <Exterior />}
         <Interior carY={carY} />
-        <Progress />
         <Preload all />
       </Suspense>
       <Rig carY={carY} />

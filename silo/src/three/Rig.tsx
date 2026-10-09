@@ -2,7 +2,16 @@ import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import * as THREE from 'three'
-import { CAM_RADIUS, EYE, DECK_DROP, SHAFT_RADIUS, contentAngle, levelY } from '../content/floors'
+import {
+  CAM_RADIUS,
+  CUT_MID,
+  DECK_DROP,
+  EYE,
+  SHAFT_RADIUS,
+  SLOT,
+  contentAngle,
+  levelY,
+} from '../content/floors'
 import { useSilo } from '../state/useSilo'
 
 /**
@@ -11,6 +20,7 @@ import { useSilo } from '../state/useSilo'
  * scroll/stateful logic from fighting the render loop.
  *
  * radius 0 = inside the elevator car. radius CAM_RADIUS = out on the deck.
+ * lookRadius 0 = looking at the shaft axis; SHAFT_RADIUS = looking at the wall.
  */
 export interface Pose {
   y: number
@@ -18,7 +28,15 @@ export interface Pose {
   angle: number
   lookY: number
   lookRadius: number
-  fovBoost: number
+}
+
+/** The opening shot: high over the plain, square on to the cutaway. */
+const EXTERIOR_START: Pose = {
+  y: levelY(1) + 14,
+  radius: 48,
+  angle: CUT_MID,
+  lookY: levelY(1) - 16,
+  lookRadius: 0,
 }
 
 export default function Rig({ carY }: { carY: React.RefObject<number> }) {
@@ -28,14 +46,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   const arrive = useSilo((s) => s.arrive)
   const reduced = useSilo((s) => s.reducedMotion)
 
-  const pose = useRef<Pose>({
-    y: levelY(1) + 5,
-    radius: 62,
-    angle: contentAngle(1),
-    lookY: levelY(1) + 10,
-    lookRadius: 0,
-    fovBoost: 0,
-  })
+  const pose = useRef<Pose>({ ...EXTERIOR_START })
   const look = useRef({ yaw: 0, pitch: 0 })
   const lookTarget = useRef({ yaw: 0, pitch: 0 })
   const tl = useRef<gsap.core.Timeline | null>(null)
@@ -75,10 +86,29 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     const p = pose.current
 
     if (phase === 'exterior') {
-      // Slow push-in on the structure from outside.
+      // Descend into the excavation, square on to the cutaway, so the section
+      // reads from the first frame: the camera pushes in and tilts down the
+      // twelve decks rather than orbiting a sealed tube.
       const t = gsap.timeline()
-      t.to(p, { radius: 42, y: levelY(1) + 7, duration: reduced ? 0 : 18, ease: 'none' })
+      t.to(
+        p,
+        {
+          radius: 30,
+          y: levelY(1) + 3,
+          lookY: levelY(1) - 24,
+          angle: CUT_MID,
+          lookRadius: 0,
+          duration: reduced ? 0 : 22,
+          ease: 'none',
+        },
+        0,
+      )
       tl.current = t
+      if (import.meta.env.DEV) {
+        ;(window as unknown as { __rig?: unknown }).__rig = {
+          seek: (p: number) => t.progress(p).pause(),
+        }
+      }
       return
     }
 
@@ -90,9 +120,42 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
       const ride = reduced ? 0.2 : Math.min(5.5, 1.1 + distance * 0.045)
       const t = gsap.timeline({ onComplete: () => arrive() })
       // Pull into the car first, then descend, then step out on arrival.
-      t.to(p, { radius: 0, lookRadius: 0, angle: contentAngle(target), duration: reduced ? 0 : 0.7, ease: 'power2.inOut' }, 0)
+      t.to(
+        p,
+        {
+          radius: 0,
+          lookRadius: SHAFT_RADIUS,
+          angle: contentAngle(target),
+          duration: reduced ? 0 : 0.7,
+          ease: 'power2.inOut',
+        },
+        0,
+      )
       t.to(p, { y: destY, duration: ride, ease: reduced ? 'none' : 'power2.inOut' }, reduced ? 0 : 0.35)
-      t.to(p, { lookY: destY, duration: ride, ease: reduced ? 'none' : 'power2.inOut' }, reduced ? 0 : 0.35)
+      t.to(p, { lookY: destY + 0.4, duration: ride, ease: reduced ? 'none' : 'power2.inOut' }, reduced ? 0 : 0.35)
+      tl.current = t
+      return
+    }
+
+    if (phase === 'airlock') {
+      // Walk up to the airlock. The record only opens once the camera has
+      // actually arrived, so the transition is the thing that reveals it.
+      const a = contentAngle(1) + SLOT.airlock
+      const y = levelY(1) - DECK_DROP + EYE
+      const t = gsap.timeline({ onComplete: () => useSilo.getState().setCvOpen(true) })
+      t.to(
+        p,
+        {
+          angle: a,
+          radius: SHAFT_RADIUS - 5.6,
+          y,
+          lookY: y + 0.15,
+          lookRadius: SHAFT_RADIUS,
+          duration: reduced ? 0 : 1.7,
+          ease: 'power2.inOut',
+        },
+        0,
+      )
       tl.current = t
       return
     }
@@ -130,10 +193,18 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     look.current.yaw += (lookTarget.current.yaw - look.current.yaw) * k
     look.current.pitch += (lookTarget.current.pitch - look.current.pitch) * k
 
-    camPos.current.set(Math.cos(p.angle) * p.radius, p.y + (p.radius < 0.01 ? EYE : 0), Math.sin(p.angle) * p.radius)
+    camPos.current.set(
+      Math.cos(p.angle) * p.radius,
+      p.y + (p.radius < 0.01 ? EYE : 0),
+      Math.sin(p.angle) * p.radius,
+    )
     camera.position.copy(camPos.current)
 
-    lookPos.current.set(Math.cos(p.angle) * (p.lookRadius || SHAFT_RADIUS), p.lookY, Math.sin(p.angle) * (p.lookRadius || SHAFT_RADIUS))
+    lookPos.current.set(
+      Math.cos(p.angle) * p.lookRadius,
+      p.lookY,
+      Math.sin(p.angle) * p.lookRadius,
+    )
     camera.lookAt(lookPos.current)
     camera.rotateY(look.current.yaw)
     camera.rotateX(look.current.pitch)

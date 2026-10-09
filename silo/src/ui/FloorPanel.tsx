@@ -9,7 +9,7 @@ import { useSilo } from '../state/useSilo'
 export default function FloorPanel() {
   const phase = useSilo((s) => s.phase)
   const level = useSilo((s) => s.level)
-  const setCvOpen = useSilo((s) => s.setCvOpen)
+  const enterAirlock = useSilo((s) => s.enterAirlock)
   const floor = floorByLevel(level)
   const visible = phase === 'onFloor'
 
@@ -31,8 +31,8 @@ export default function FloorPanel() {
           </ul>
           <p className="panel__meta">{identity.location}</p>
           <div className="panel__actions">
-            <button type="button" className="btn btn--primary" onClick={() => setCvOpen(true)}>
-              Open personnel record
+            <button type="button" className="btn btn--primary" onClick={enterAirlock}>
+              Enter the personnel airlock
             </button>
             {identity.links.map((l) => (
               <a key={l.href} className="btn" href={l.href} target="_blank" rel="noreferrer">

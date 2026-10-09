@@ -16,9 +16,10 @@ export default function App() {
   const webglFailed = useSilo((s) => s.webglFailed)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
   const toggleDirectory = useSilo((s) => s.toggleDirectory)
-  const setCvOpen = useSilo((s) => s.setCvOpen)
+  const closeAirlock = useSilo((s) => s.closeAirlock)
   const goToLevel = useSilo((s) => s.goToLevel)
   const level = useSilo((s) => s.level)
+  const progress = useSilo((s) => s.progress)
 
   useEffect(() => {
     if (!supportsWebGL()) setWebglFailed()
@@ -30,7 +31,7 @@ export default function App() {
       if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
       if (e.key === 'Escape') {
         toggleDirectory(false)
-        setCvOpen(false)
+        closeAirlock()
       }
       if (useSilo.getState().phase !== 'onFloor') return
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
@@ -45,7 +46,7 @@ export default function App() {
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goToLevel, level, toggleDirectory, setCvOpen])
+  }, [goToLevel, level, toggleDirectory, closeAirlock])
 
   if (webglFailed) return <Fallback />
 
@@ -55,9 +56,18 @@ export default function App() {
         <SiloScene />
       </Suspense>
 
-      <div className={`boot${phase === 'boot' ? '' : ' is-done'}`} aria-hidden={phase !== 'boot'}>
+      <div
+        className={`boot${phase === 'boot' ? '' : ' is-done'}`}
+        aria-hidden={phase !== 'boot'}
+        role="status"
+        aria-live="polite"
+      >
         <span className="boot__ring" />
         <p>Pressurising…</p>
+        <span className="boot__bar" aria-hidden="true">
+          <i style={{ transform: `scaleX(${Math.max(0.04, progress)})` }} />
+        </span>
+        <span className="boot__pct">{Math.round(progress * 100)}%</span>
       </div>
 
       {phase === 'exterior' && <Intro />}

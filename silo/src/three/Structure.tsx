@@ -1,9 +1,13 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
 import {
+  BAYS,
   BOTTOM,
+  CUT_HALF,
+  CUT_MID,
   DECK_INNER,
   FLOORS,
+  FLOOR_HEIGHT,
   PALETTE,
   SHAFT_RADIUS,
   SLOT,
@@ -11,10 +15,15 @@ import {
   STAIR_WIDTH,
   STEP_RISE,
   TOP_MARGIN,
+  WALL_ARC,
   WALL_CENTER,
   WALL_HEIGHT,
+  WALL_THETA_START,
+  WALL_THICK,
+  cutTheta,
   contentAngle,
   deckY,
+  inCut,
   levelY,
 } from '../content/floors'
 
@@ -39,21 +48,148 @@ function faceAxis(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z:
   mesh.setMatrixAt(i, dummy.matrix)
 }
 
+/** Places a radial member: a box whose local +X runs outward along `angle`. */
+function radial(mesh: THREE.InstancedMesh, i: number, angle: number, radius: number, y: number) {
+  dummy.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
+  dummy.rotation.set(0, -angle, 0)
+  dummy.updateMatrix()
+  mesh.setMatrixAt(i, dummy.matrix)
+}
+
+/** Every angle a level's fit-out occupies — nothing structural may stand here. */
+function fitOutAngles() {
+  const out: number[] = []
+  FLOORS.forEach((f) => {
+    const base = contentAngle(f.level)
+    Object.values(SLOT).forEach((off) => out.push(base + off))
+  })
+  return out
+}
+
+/** Clear of every fit-out slot on every level, by `pad` radians. */
+function clearOfFitOut(angles: number[], a: number, pad: number) {
+  return angles.every((b) => {
+    const d = Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+    return d > pad
+  })
+}
+
+/**
+ * The wall: an arc, not a tube. WALL_ARC leaves the cutaway sector unbuilt,
+ * which is what makes the section readable from outside. Inner and outer
+ * shells plus two radial cut faces give it real thickness, so the missing
+ * panel looks cut away rather than merely absent.
+ */
 function ConcreteWall() {
-  const geometry = useMemo(() => {
-    const geo = new THREE.CylinderGeometry(SHAFT_RADIUS, SHAFT_RADIUS, WALL_HEIGHT, 80, 64, true)
+  const nodes = useMemo(() => {
+    const group = new THREE.Group()
+
     // Vertex-colour mottling instead of a texture: nothing to download, no UV
     // seam on a cylinder, and it holds up at every distance.
-    const rand = makeRandom(9)
-    const base = new THREE.Color(PALETTE.concrete)
-    const dark = new THREE.Color(PALETTE.concreteDark)
+    const mottle = (geo: THREE.BufferGeometry, seed: number, light: number) => {
+      const rand = makeRandom(seed)
+      const base = new THREE.Color(PALETTE.concrete)
+      const dark = new THREE.Color(PALETTE.concreteDark)
+      const pos = geo.attributes.position
+      const colors = new Float32Array(pos.count * 3)
+      for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i)
+        const blotch =
+          (Math.sin(y * 0.6 + pos.getX(i) * 0.4) + Math.sin(pos.getZ(i) * 0.55 - y * 0.22)) * 0.25
+        const t = Math.min(1, Math.max(0, light + blotch + rand() * 0.34))
+        const c = base.clone().lerp(dark, t)
+        colors[i * 3] = c.r
+        colors[i * 3 + 1] = c.g
+        colors[i * 3 + 2] = c.b
+      }
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+      return geo
+    }
+
+    const shell = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.97,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    })
+
+    const inner = new THREE.Mesh(
+      mottle(
+        new THREE.CylinderGeometry(
+          SHAFT_RADIUS,
+          SHAFT_RADIUS,
+          WALL_HEIGHT,
+          72,
+          48,
+          true,
+          WALL_THETA_START,
+          WALL_ARC,
+        ),
+        9,
+        0.32,
+      ),
+      shell,
+    )
+    inner.position.y = WALL_CENTER
+    group.add(inner)
+
+    const outerR = SHAFT_RADIUS + WALL_THICK
+    const outer = new THREE.Mesh(
+      mottle(
+        new THREE.CylinderGeometry(outerR, outerR, WALL_HEIGHT, 72, 24, true, WALL_THETA_START, WALL_ARC),
+        17,
+        0.52,
+      ),
+      shell,
+    )
+    outer.position.y = WALL_CENTER
+    group.add(outer)
+
+    // The two cut faces: exposed aggregate across the wall thickness.
+    const cutMat = new THREE.MeshStandardMaterial({ color: PALETTE.concreteCut, roughness: 0.99 })
+    for (const sign of [-1, 1]) {
+      const a = CUT_MID + sign * CUT_HALF
+      const face = new THREE.Mesh(new THREE.BoxGeometry(WALL_THICK, WALL_HEIGHT, 0.04), cutMat)
+      face.position.set(
+        Math.cos(a) * (SHAFT_RADIUS + WALL_THICK / 2),
+        WALL_CENTER,
+        Math.sin(a) * (SHAFT_RADIUS + WALL_THICK / 2),
+      )
+      face.rotation.y = -a
+      group.add(face)
+    }
+    return group
+  }, [])
+
+  return <primitive object={nodes} />
+}
+
+/**
+ * Rock behind the missing wall panel. BackSide, so it is drawn when you are
+ * inside the shaft looking out through the cutaway, and back-face culled on the
+ * approach — the one surface that must not block the section view.
+ */
+function StrataBackdrop() {
+  const geometry = useMemo(() => {
+    const geo = new THREE.CylinderGeometry(
+      SHAFT_RADIUS + WALL_THICK + 0.5,
+      SHAFT_RADIUS + WALL_THICK + 0.5,
+      WALL_HEIGHT,
+      28,
+      40,
+      true,
+      cutTheta(0.1),
+      CUT_HALF * 2 + 0.2,
+    )
+    // Horizontal banding, so the exposed ground reads as strata.
+    const rock = new THREE.Color(PALETTE.rock)
+    const dark = new THREE.Color(PALETTE.rockDark)
     const pos = geo.attributes.position
     const colors = new Float32Array(pos.count * 3)
     for (let i = 0; i < pos.count; i++) {
       const y = pos.getY(i)
-      const blotch =
-        (Math.sin(y * 0.6 + pos.getX(i) * 0.4) + Math.sin(pos.getZ(i) * 0.55 - y * 0.22)) * 0.25
-      const c = base.clone().lerp(dark, Math.min(1, Math.max(0, 0.32 + blotch + rand() * 0.34)))
+      const band = (Math.sin(y * 0.42) + Math.sin(y * 1.31 + 1.7) * 0.4) * 0.5 + 0.5
+      const c = rock.clone().lerp(dark, band)
       colors[i * 3] = c.r
       colors[i * 3 + 1] = c.g
       colors[i * 3 + 2] = c.b
@@ -64,41 +200,46 @@ function ConcreteWall() {
 
   return (
     <mesh geometry={geometry} position={[0, WALL_CENTER, 0]}>
-      <meshStandardMaterial vertexColors roughness={0.97} metalness={0} side={THREE.BackSide} />
+      <meshStandardMaterial vertexColors roughness={1} metalness={0} side={THREE.BackSide} />
     </mesh>
   )
 }
 
-/** Vertical pilasters — the detail that stops the wall reading as a plain tube. */
+/**
+ * Pilasters, one level tall. They used to run the full depth, which meant a
+ * single fit-out slot anywhere in the shaft culled the whole column — with
+ * twelve levels of slots that culled every rib in the building and left the
+ * wall a bare tube. Segmenting them per level keeps the detail everywhere
+ * except directly in front of a console, window or airlock.
+ */
 function Ribs() {
   const ref = useMemo(() => {
-    const count = 28
+    const perFloor = 14
+    const height = FLOOR_HEIGHT - 0.4
     const mesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(0.8, WALL_HEIGHT, 0.6),
+      new THREE.BoxGeometry(0.8, height, 0.6),
       new THREE.MeshStandardMaterial({ color: PALETTE.concreteDark, roughness: 0.93 }),
-      count,
+      FLOORS.length * perFloor,
     )
-    // Skip any rib that would stand between the camera and a level's fit-out —
-    // a full-height pilaster across the portrait is not "architecture", it is
-    // an occluder.
-    const blocked: number[] = []
-    FLOORS.forEach((f) => {
-      const base = contentAngle(f.level)
-      Object.values(SLOT).forEach((off) => blocked.push(base + off))
-    })
-    const clear = (a: number) =>
-      blocked.every((b) => {
-        const d = Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-        return d > 0.34
-      })
 
     let n = 0
-    for (let i = 0; i < count; i++) {
-      const a = (i / count) * Math.PI * 2
-      if (!clear(a)) continue
-      faceAxis(mesh, n, Math.cos(a) * (SHAFT_RADIUS - 0.32), WALL_CENTER, Math.sin(a) * (SHAFT_RADIUS - 0.32))
-      n++
-    }
+    FLOORS.forEach((floor) => {
+      const base = contentAngle(floor.level)
+      const slots = Object.values(SLOT).map((off) => base + off)
+      const y = levelY(floor.level) + 1.4
+      for (let i = 0; i < perFloor; i++) {
+        const a = base + (i / perFloor) * Math.PI * 2
+        if (inCut(a, 0.12) || !clearOfFitOut(slots, a, 0.3)) continue
+        faceAxis(
+          mesh,
+          n,
+          Math.cos(a) * (SHAFT_RADIUS - 0.32),
+          y,
+          Math.sin(a) * (SHAFT_RADIUS - 0.32),
+        )
+        n++
+      }
+    })
     mesh.count = n
     mesh.instanceMatrix.needsUpdate = true
     return mesh
@@ -142,7 +283,11 @@ function Decks() {
       group.add(rail)
 
       const n = 52
-      const posts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.03, 0.03, 1.05, 6), steel, n)
+      const posts = new THREE.InstancedMesh(
+        new THREE.CylinderGeometry(0.03, 0.03, 1.05, 6),
+        steel,
+        n,
+      )
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2
         dummy.position.set(Math.cos(a) * DECK_INNER, y + 0.52, Math.sin(a) * DECK_INNER)
@@ -153,12 +298,82 @@ function Decks() {
       posts.instanceMatrix.needsUpdate = true
       group.add(posts)
 
+      // Edge rail across the cutaway, where the deck ends in open air.
+      const edge = new THREE.Mesh(
+        new THREE.TorusGeometry(SHAFT_RADIUS - 0.2, 0.06, 6, 20, CUT_HALF * 2 + 0.2),
+        steel,
+      )
+      edge.rotation.x = -Math.PI / 2
+      edge.rotation.z = -(CUT_MID + CUT_HALF + 0.1)
+      edge.position.y = y + 1.0
+      group.add(edge)
+
       // Structural band where the deck meets the wall.
       const band = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.26, 0.1, 6, 80), steel)
       band.rotation.x = -Math.PI / 2
       band.position.y = levelY(floor.level) + 2.2
       group.add(band)
     })
+    return group
+  }, [])
+
+  return <primitive object={nodes} />
+}
+
+/**
+ * Radial corridors. Each deck is divided into BAYS bays by a floor kerb, a
+ * waist-high bulkhead and an overhead joist, which is what turns a bare ring
+ * into circulation space. Bays holding a fit-out slot, and bays in the
+ * cutaway, are left open.
+ */
+function Corridors() {
+  const nodes = useMemo(() => {
+    const group = new THREE.Group()
+    const max = FLOORS.length * BAYS
+    const span = SHAFT_RADIUS - DECK_INNER
+
+    const steel = new THREE.MeshStandardMaterial({
+      color: PALETTE.steelDark,
+      roughness: 0.52,
+      metalness: 0.74,
+    })
+    const panel = new THREE.MeshStandardMaterial({
+      color: PALETTE.deck,
+      roughness: 0.84,
+      metalness: 0.2,
+    })
+
+    const joists = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.34, 0.46), steel, max)
+    const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.12, 0.34), steel, max)
+    const bulkheads = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(span * 0.62, 1.15, 0.14),
+      panel,
+      max,
+    )
+    const hangers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 1.5, 0.1), steel, max)
+
+    const slots = fitOutAngles()
+    let n = 0
+    FLOORS.forEach((floor) => {
+      const base = contentAngle(floor.level)
+      const deck = deckY(floor.level)
+      const mid = DECK_INNER + span / 2
+      for (let k = 0; k < BAYS; k++) {
+        const a = base + ((k + 0.5) / BAYS) * Math.PI * 2
+        if (inCut(a, 0.06) || !clearOfFitOut(slots, a, 0.26)) continue
+        radial(joists, n, a, mid, levelY(floor.level) + 2.6)
+        radial(kerbs, n, a, mid, deck + 0.1)
+        radial(bulkheads, n, a, mid, deck + 0.64)
+        radial(hangers, n, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
+        n++
+      }
+    })
+
+    for (const mesh of [joists, kerbs, bulkheads, hangers]) {
+      mesh.count = n
+      mesh.instanceMatrix.needsUpdate = true
+      group.add(mesh)
+    }
     return group
   }, [])
 
@@ -190,7 +405,13 @@ function Stairs() {
     for (let i = 0; i <= steps; i += 2) {
       const y = TOP_MARGIN - i * STEP_RISE
       const a = turn(y)
-      pts.push(new THREE.Vector3(Math.cos(a) * (STAIR_RADIUS + 0.68), y + 1.0, Math.sin(a) * (STAIR_RADIUS + 0.68)))
+      pts.push(
+        new THREE.Vector3(
+          Math.cos(a) * (STAIR_RADIUS + 0.68),
+          y + 1.0,
+          Math.sin(a) * (STAIR_RADIUS + 0.68),
+        ),
+      )
     }
     group.add(
       new THREE.Mesh(
@@ -231,12 +452,15 @@ function Lamps() {
       const y = levelY(floor.level)
       for (let k = 0; k < perFloor; k++) {
         const a = (k / perFloor) * Math.PI * 2 + contentAngle(floor.level)
+        if (inCut(a, 0.06)) continue
         const r = SHAFT_RADIUS - 0.62
         faceAxis(bulbs, n, Math.cos(a) * r, y + 1.5, Math.sin(a) * r)
         faceAxis(housings, n, Math.cos(a) * r, y + 1.68, Math.sin(a) * r)
         n++
       }
     })
+    bulbs.count = n
+    housings.count = n
     bulbs.instanceMatrix.needsUpdate = true
     housings.instanceMatrix.needsUpdate = true
     group.add(bulbs, housings)
@@ -265,8 +489,10 @@ export default function Structure() {
   return (
     <group>
       <ConcreteWall />
+      <StrataBackdrop />
       <Ribs />
       <Decks />
+      <Corridors />
       <Stairs />
       <Lamps />
       <Caps />
