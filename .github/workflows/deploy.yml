@@ -58,6 +58,9 @@ jobs:
           npm run build
           mkdir -p ../dist/silo
           cp -r dist/. ../dist/silo/
+          # Employer logos are shared with the main site; the silo loads them
+          # relative to its own base.
+          cp -r ../public/logos ../dist/silo/
 
       - uses: actions/upload-pages-artifact@v3
         with:
