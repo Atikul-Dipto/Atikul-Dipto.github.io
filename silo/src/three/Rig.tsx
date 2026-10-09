@@ -12,6 +12,7 @@ import {
   contentAngle,
   levelY,
 } from '../content/floors'
+import { gesture } from '../lib/drag'
 import { useSilo } from '../state/useSilo'
 
 /**
@@ -47,38 +48,112 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   const reduced = useSilo((s) => s.reducedMotion)
 
   const pose = useRef<Pose>({ ...EXTERIOR_START })
+  /** Smoothed values actually applied to the camera each frame. */
   const look = useRef({ yaw: 0, pitch: 0 })
-  const lookTarget = useRef({ yaw: 0, pitch: 0 })
+  /** Accumulated from drag gestures. Yaw is unbounded: you can turn all the
+   *  way round and keep going. */
+  const drag = useRef({ yaw: 0, pitch: 0 })
+  /** A small parallax from cursor position, added on top of the drag so the
+   *  two never fight for the same value. */
+  const parallax = useRef({ yaw: 0, pitch: 0 })
   const tl = useRef<gsap.core.Timeline | null>(null)
 
-  // Mouse look: a gentle parallax, amplified while the button is held.
+  /** Radians per pixel. A full-width drag turns you most of the way around. */
+  const MOUSE_SENS = 0.004
+  const TOUCH_SENS = 0.006
+  const PITCH_LIMIT = 0.85
+
+  // Look: drag to turn, with no limit on yaw. The previous version mapped
+  // cursor position straight onto an absolute angle capped at about 45
+  // degrees, so half the floor was unreachable and touch did nothing at all.
   useEffect(() => {
-    let dragging = false
-    const onMove = (e: PointerEvent) => {
-      if (e.pointerType === 'touch') return
-      const nx = (e.clientX / window.innerWidth) * 2 - 1
-      const ny = (e.clientY / window.innerHeight) * 2 - 1
-      const gain = dragging ? 0.8 : 0.26
-      lookTarget.current.yaw = -nx * gain
-      lookTarget.current.pitch = -ny * gain * 0.55
+    let active = false
+    let touch = false
+    let lastX = 0
+    let lastY = 0
+    let moved = 0
+    const canvas = () => document.querySelector('.silo canvas') as HTMLCanvasElement | null
+
+    const setCursor = (v: string) => {
+      const c = canvas()
+      if (c) c.style.cursor = v
     }
+
     const down = (e: PointerEvent) => {
-      if (e.pointerType !== 'touch') dragging = true
+      // Only the scene turns. Dragging across the HTML panels must not.
+      if (!(e.target instanceof HTMLCanvasElement)) return
+      active = true
+      touch = e.pointerType === 'touch'
+      lastX = e.clientX
+      lastY = e.clientY
+      moved = 0
+      gesture.dragging = false
+      setCursor('grabbing')
     }
+
+    const move = (e: PointerEvent) => {
+      if (!active) {
+        if (e.pointerType === 'touch') return
+        const nx = (e.clientX / window.innerWidth) * 2 - 1
+        const ny = (e.clientY / window.innerHeight) * 2 - 1
+        parallax.current.yaw = -nx * 0.1
+        parallax.current.pitch = -ny * 0.05
+        return
+      }
+      const dx = e.clientX - lastX
+      const dy = e.clientY - lastY
+      lastX = e.clientX
+      lastY = e.clientY
+      moved += Math.abs(dx) + Math.abs(dy)
+      // Past a few pixels this is a look, not a click on whatever is under it.
+      if (moved > 6) gesture.dragging = true
+      const sens = touch ? TOUCH_SENS : MOUSE_SENS
+      drag.current.yaw -= dx * sens
+      drag.current.pitch = Math.max(
+        -PITCH_LIMIT,
+        Math.min(PITCH_LIMIT, drag.current.pitch - dy * sens),
+      )
+    }
+
     const up = () => {
-      dragging = false
+      if (!active) return
+      active = false
+      setCursor('grab')
+      // Clear a tick later: R3F dispatches its click from this same pointerup.
+      setTimeout(() => {
+        gesture.dragging = false
+      }, 0)
     }
-    window.addEventListener('pointermove', onMove, { passive: true })
+
+    // Arrow keys turn too, so the whole floor is reachable without a pointer.
+    const key = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+      if (e.key === 'ArrowLeft') drag.current.yaw += 0.3
+      else if (e.key === 'ArrowRight') drag.current.yaw -= 0.3
+      else return
+      e.preventDefault()
+    }
+
+    setCursor('grab')
     window.addEventListener('pointerdown', down, { passive: true })
+    window.addEventListener('pointermove', move, { passive: true })
     window.addEventListener('pointerup', up, { passive: true })
     window.addEventListener('pointercancel', up, { passive: true })
+    window.addEventListener('keydown', key)
     return () => {
-      window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerdown', down)
+      window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
       window.removeEventListener('pointercancel', up)
+      window.removeEventListener('keydown', key)
     }
   }, [])
+
+  // Face the fit-out again on arrival, however far round you had turned.
+  useEffect(() => {
+    drag.current.yaw = 0
+    drag.current.pitch = 0
+  }, [phase, target])
 
   // Drive the rig from phase changes.
   useEffect(() => {
@@ -190,8 +265,10 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     else carY.current = levelY(useSilo.getState().level)
 
     const k = Math.min(1, dt * 8)
-    look.current.yaw += (lookTarget.current.yaw - look.current.yaw) * k
-    look.current.pitch += (lookTarget.current.pitch - look.current.pitch) * k
+    const wantYaw = drag.current.yaw + parallax.current.yaw
+    const wantPitch = drag.current.pitch + parallax.current.pitch
+    look.current.yaw += (wantYaw - look.current.yaw) * k
+    look.current.pitch += (wantPitch - look.current.pitch) * k
 
     camPos.current.set(
       Math.cos(p.angle) * p.radius,

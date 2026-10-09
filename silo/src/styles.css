@@ -32,7 +32,7 @@ html, body, #root { height: 100%; }
 body { margin: 0; overflow: hidden; background: var(--void); }
 .silo { position: fixed; inset: 0; }
 .silo__canvas, .silo__canvas > div { width: 100% !important; height: 100% !important; }
-.silo__canvas canvas { display: block; }
+.silo__canvas canvas { display: block; cursor: grab; touch-action: none; }
 h1, h2 { margin: 0; font-weight: 650; letter-spacing: -0.01em; }
 p { margin: 0; }
 button { font: inherit; }
@@ -189,6 +189,8 @@ a { color: inherit; }
 }
 .panel__meta { margin-top: 16px; color: rgba(237, 233, 230, 0.42); font: 700 10px/1 var(--sans); letter-spacing: 0.2em; text-transform: uppercase; }
 .panel__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
+.panel__hint { margin-top: 20px; padding-top: 14px; border-top: 1px solid var(--edge-soft); color: rgba(237, 233, 230, 0.38); font: 500 11px/1.6 var(--sans); letter-spacing: 0.04em; }
+.panel__hint kbd { display: inline-block; min-width: 16px; padding: 1px 4px; border: 1px solid var(--edge-soft); color: rgba(237, 233, 230, 0.6); font: 600 10px/1.4 var(--mono); text-align: center; }
 .panel__stub {
   margin-top: 18px; padding: 10px 12px;
   border: 1px dashed rgba(201, 153, 107, 0.4);

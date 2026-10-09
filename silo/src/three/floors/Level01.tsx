@@ -11,6 +11,7 @@ import {
   levelY,
 } from '../../content/floors'
 import { identity } from '../../content/portfolio'
+import { gesture } from '../../lib/drag'
 import { useSilo } from '../../state/useSilo'
 
 const BASE = import.meta.env.BASE_URL
@@ -263,6 +264,8 @@ function Airlock({ angle }: { angle: number }) {
       }}
       onClick={(e) => {
         e.stopPropagation()
+        // Turning to look ends with a pointerup over whatever you now face.
+        if (gesture.dragging) return
         enterAirlock()
       }}
     >

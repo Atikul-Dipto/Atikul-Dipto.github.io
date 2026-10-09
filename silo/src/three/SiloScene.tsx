@@ -31,7 +31,7 @@ function Interior({ carY }: { carY: React.RefObject<number> }) {
   return (
     <>
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
-      <ambientLight color="#6d5f55" intensity={0.12} />
+      <ambientLight color="#6d5f55" intensity={0.34} />
       <directionalLight color={PALETTE.brassHot} intensity={0.22} position={[0, 60, 10]} />
       <TravellingLights carY={carY} />
       <Structure />

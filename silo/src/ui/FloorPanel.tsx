@@ -51,6 +51,11 @@ export default function FloorPanel() {
           </p>
         </>
       )}
+
+      <p className="panel__hint">
+        Drag to look around · <kbd>&larr;</kbd> <kbd>&rarr;</kbd> turn ·{' '}
+        <kbd>&uarr;</kbd> <kbd>&darr;</kbd> ride
+      </p>
     </main>
   )
 }

@@ -94,10 +94,23 @@ tall phone the horizontal view narrows and off-axis content leaves the frame.
 ## Accessibility and fallbacks
 
 Every level's content is real HTML over the canvas, not WebGL-only. Devices
-without WebGL get a 2D route to everything. Arrow keys and Page Up/Down ride the
-elevator, `D` opens the directory, `Escape` closes overlays. `prefers-reduced-motion`
-is honoured and can be toggled in the top bar. Audio is muted by default and the
-control is currently inert — there is no audio yet.
+without WebGL get a 2D route to everything. `prefers-reduced-motion` is honoured
+and can be toggled in the top bar. Audio is muted by default and the control is
+currently inert — there is no audio yet.
+
+Controls on a deck:
+
+| Input | Action |
+| --- | --- |
+| Drag on the canvas | Turn to look, with no limit on yaw — you can face any part of the floor |
+| <kbd>&larr;</kbd> <kbd>&rarr;</kbd> | Turn |
+| <kbd>&uarr;</kbd> <kbd>&darr;</kbd> / Page Up / Page Down | Ride one level |
+| <kbd>D</kbd> | Floor directory |
+| <kbd>Esc</kbd> | Close overlays, seal the airlock |
+
+Drags that start on an HTML panel are left alone so text stays selectable, and a
+drag of more than a few pixels suppresses the click it would otherwise end with,
+so turning past the airlock does not open it.
 
 ## Status
 

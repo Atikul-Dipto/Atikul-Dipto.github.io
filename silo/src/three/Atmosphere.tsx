@@ -59,25 +59,35 @@ export function Dust({ count = 900 }: { count?: number }) {
 }
 
 /**
- * Two pooled lights that follow the visitor instead of one per level. Twelve
- * levels of real point lights would cost far more than it would ever show.
+ * Three pooled lights that follow the visitor instead of one set per level.
+ * Spread evenly around the shaft rather than clustered on the fit-out: you can
+ * now turn the whole way round on a deck, and a floor that is lit on one side
+ * only is a floor with nothing to turn towards.
  */
 export function TravellingLights({ carY }: { carY: React.RefObject<number> }) {
-  const a = useRef<THREE.PointLight>(null)
-  const b = useRef<THREE.PointLight>(null)
+  const refs = [
+    useRef<THREE.PointLight>(null),
+    useRef<THREE.PointLight>(null),
+    useRef<THREE.PointLight>(null),
+  ]
 
   useFrame(() => {
     const y = carY.current ?? 0
-    const level = useSilo.getState().level
-    const ang = contentAngle(level)
-    if (a.current) a.current.position.set(Math.cos(ang) * (SHAFT_RADIUS - 3.2), y + 1.6, Math.sin(ang) * (SHAFT_RADIUS - 3.2))
-    if (b.current) b.current.position.set(Math.cos(ang + 2.3) * (SHAFT_RADIUS - 3.2), y - 5, Math.sin(ang + 2.3) * (SHAFT_RADIUS - 3.2))
+    const base = contentAngle(useSilo.getState().level)
+    const r = SHAFT_RADIUS - 3.4
+    refs.forEach((ref, i) => {
+      if (!ref.current) return
+      const a = base + (i * Math.PI * 2) / 3
+      // Stagger the heights so the three do not read as one flat ring.
+      ref.current.position.set(Math.cos(a) * r, y + 1.8 - i * 2.2, Math.sin(a) * r)
+    })
   })
 
   return (
     <>
-      <pointLight ref={a} color={PALETTE.brassHot} intensity={46} distance={22} decay={2} />
-      <pointLight ref={b} color={PALETTE.brass} intensity={26} distance={24} decay={2} />
+      <pointLight ref={refs[0]} color={PALETTE.brassHot} intensity={58} distance={30} decay={2} />
+      <pointLight ref={refs[1]} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
+      <pointLight ref={refs[2]} color={PALETTE.brass} intensity={62} distance={36} decay={2} />
     </>
   )
 }

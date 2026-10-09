@@ -200,7 +200,17 @@ function StrataBackdrop() {
 
   return (
     <mesh geometry={geometry} position={[0, WALL_CENTER, 0]}>
-      <meshStandardMaterial vertexColors roughness={1} metalness={0} side={THREE.BackSide} />
+      <meshStandardMaterial
+        vertexColors
+        roughness={1}
+        metalness={0}
+        side={THREE.BackSide}
+        // The pooled lights cluster on the fit-out, so without a little self
+        // illumination the cutaway reads as a hole in the world when you turn
+        // towards it rather than as the rock the shaft was bored through.
+        emissive={PALETTE.rock}
+        emissiveIntensity={2.4}
+      />
     </mesh>
   )
 }
@@ -262,6 +272,13 @@ function Decks() {
       roughness: 0.45,
       metalness: 0.78,
     })
+    const edgeMat = new THREE.MeshStandardMaterial({
+      color: PALETTE.brass,
+      emissive: new THREE.Color(PALETTE.brass),
+      emissiveIntensity: 1.6,
+      roughness: 0.5,
+      metalness: 0.4,
+    })
 
     FLOORS.forEach((floor) => {
       const y = deckY(floor.level)
@@ -298,10 +315,12 @@ function Decks() {
       posts.instanceMatrix.needsUpdate = true
       group.add(posts)
 
-      // Edge rail across the cutaway, where the deck ends in open air.
+      // Edge rail across the cutaway, where the deck ends in open air. Lit,
+      // because it is both the only warning you get and the thing that tells
+      // you which way the structure has been cut.
       const edge = new THREE.Mesh(
         new THREE.TorusGeometry(SHAFT_RADIUS - 0.2, 0.06, 6, 20, CUT_HALF * 2 + 0.2),
-        steel,
+        edgeMat,
       )
       edge.rotation.x = -Math.PI / 2
       edge.rotation.z = -(CUT_MID + CUT_HALF + 0.1)
