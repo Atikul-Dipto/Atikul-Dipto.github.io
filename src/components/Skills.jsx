@@ -3,6 +3,7 @@ import { skills } from '../data'
 import { useReveal } from '../hooks/useReveal'
 import ToolIcon from './ToolIcon'
 import { brandVars } from '../data/brandVars'
+import CountUp from './CountUp'
 
 const TABS = [
   { key: 'software', label: 'Software & Tools', hint: 'What I build and analyse with' },
@@ -30,7 +31,7 @@ function SkillGroup({ group, index, variant }) {
     >
       <h3>
         {group.group}
-        <span className="skill-group__count">{group.items.length}</span>
+        <span className="skill-group__count"><CountUp value={String(group.items.length)} duration={900} /></span>
       </h3>
       {variant === 'software' ? (
         <div className="tool-grid">
@@ -93,7 +94,8 @@ export default function Skills() {
           <SkillGroup group={group} index={index} variant={active} key={group.group} />
         ))}
         <p className="skill-panel__total">
-          {total} {active === 'soft' ? 'strengths' : active === 'analytics' ? 'capabilities' : 'tools'}
+          <CountUp value={String(total)} />{' '}
+          {active === 'soft' ? 'strengths' : active === 'analytics' ? 'capabilities' : 'tools'}
         </p>
       </div>
     </section>

@@ -1,5 +1,6 @@
 import { useRef } from 'react'
 import { profile } from '../data'
+import CountUp from './CountUp'
 
 export default function Hero() {
   const frameRef = useRef(null)
@@ -53,7 +54,7 @@ export default function Hero() {
           <div className="hero__stats" aria-label="Quick profile stats">
             {profile.stats.map((stat) => (
               <div className="hero__stat" key={stat.label}>
-                <strong>{stat.value}</strong>
+                <strong><CountUp value={stat.value} /></strong>
                 <span>{stat.label}</span>
               </div>
             ))}

@@ -1,32 +1,45 @@
+/* Palette
+   #EDE9E6 bone   · #C9996B camel · #5C4F4A umber · #5C766D sage
+   Camel is a FILL colour, not an ink one: on bone it only reaches ~2.1:1, so
+   anything that carries text uses a darkened camel (--camel-ink, ~3.5:1) or a
+   sage. Hence the split between --grad (fills) and --grad-ink (text). */
 :root {
-  --bg: #f5f7fc;
-  --bg-alt: rgba(255, 255, 255, 0.55);
-  --band: linear-gradient(180deg, rgba(37, 99, 235, 0.06), rgba(124, 58, 237, 0.07));
-  --band-edge: rgba(37, 99, 235, 0.12);
-  --surface: rgba(255, 255, 255, 0.88);
-  --surface-strong: #ffffff;
-  --border: rgba(37, 99, 235, 0.16);
-  --text: #334155;
-  --text-strong: #0f172a;
-  --text-muted: #5b6b82;
-  --accent: #2563eb;
-  --accent-strong: #1d4ed8;
-  --accent-2: #7c3aed;
-  --accent-3: #0891b2;
-  --accent-bg: rgba(37, 99, 235, 0.09);
-  --accent-border: rgba(37, 99, 235, 0.38);
-  --grad: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-  --grad-wide: linear-gradient(120deg, #2563eb 0%, #7c3aed 55%, #0891b2 100%);
-  --btn-grad: linear-gradient(135deg, #2563eb 0%, #6d3ff0 100%);
-  --btn-grad-hover: linear-gradient(135deg, #1d4ed8 0%, #5b21b6 100%);
-  --btn-text: #ffffff;
-  --btn-shadow: 0 14px 28px -12px rgba(79, 70, 229, 0.55);
-  --shadow: 0 18px 40px -20px rgba(37, 99, 235, 0.28), 0 2px 8px -3px rgba(15, 23, 42, 0.1);
-  --shadow-lift: 0 28px 50px -22px rgba(37, 99, 235, 0.4), 0 6px 14px -6px rgba(15, 23, 42, 0.12);
-  --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.9);
-  --sheen: rgba(255, 255, 255, 0.7);
-  --code-bg: #0b1526;
-  --code-border: rgba(94, 199, 255, 0.22);
+  --bone: #ede9e6;
+  --camel: #c9996b;
+  --umber: #5c4f4a;
+  --sage: #5c766d;
+
+  --bg: #ede9e6;
+  --bg-alt: rgba(255, 253, 251, 0.6);
+  --band: linear-gradient(180deg, rgba(92, 118, 109, 0.07), rgba(201, 153, 107, 0.09));
+  --band-edge: rgba(92, 79, 74, 0.14);
+  --surface: rgba(255, 253, 251, 0.86);
+  --surface-strong: #fdfcfb;
+  --border: rgba(92, 79, 74, 0.17);
+  --text: #5c4f4a;
+  --text-strong: #332b27;
+  --text-muted: #6f635c;
+  --accent: #4d665c;
+  --accent-strong: #3b5049;
+  --accent-2: #c9996b;
+  --accent-3: #5c766d;
+  --camel-ink: #a3703f;
+  --accent-bg: rgba(92, 118, 109, 0.1);
+  --accent-border: rgba(92, 118, 109, 0.36);
+  --grad: linear-gradient(135deg, #5c766d 0%, #c9996b 100%);
+  --grad-wide: linear-gradient(120deg, #4d665c 0%, #5c766d 45%, #c9996b 100%);
+  --grad-ink: linear-gradient(120deg, #3b5049 0%, #a3703f 100%);
+  --btn-grad: linear-gradient(135deg, #42594f 0%, #5c766d 100%);
+  --btn-grad-hover: linear-gradient(135deg, #374b42 0%, #4d665c 100%);
+  --btn-text: #fbf8f6;
+  --btn-shadow: 0 14px 28px -12px rgba(92, 118, 109, 0.6);
+  --shadow: 0 18px 40px -22px rgba(92, 79, 74, 0.38), 0 2px 8px -3px rgba(92, 79, 74, 0.12);
+  --shadow-lift: 0 28px 50px -24px rgba(92, 79, 74, 0.45), 0 6px 14px -6px rgba(92, 79, 74, 0.16);
+  --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  --sheen: rgba(255, 255, 255, 0.72);
+  --code-bg: #241f1c;
+  --code-border: rgba(201, 153, 107, 0.26);
+  --screenshot-bg: #241f1c;
   --radius: 12px;
   --glass-blur: blur(16px);
 
@@ -43,34 +56,39 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #020d1b;
-    --bg-alt: rgba(10, 18, 28, 0.82);
-    --band: linear-gradient(180deg, rgba(94, 199, 255, 0.06), rgba(167, 139, 250, 0.07));
-    --band-edge: rgba(126, 162, 198, 0.2);
-    --surface: rgba(28, 37, 47, 0.78);
-    --surface-strong: #101b29;
-    --border: rgba(126, 162, 198, 0.3);
-    --text: #dfeaf5;
-    --text-strong: #f4f9ff;
-    --text-muted: #8ca7bf;
-    --accent: #5ec7ff;
-    --accent-strong: #9edfff;
-    --accent-2: #a78bfa;
-    --accent-3: #22d3ee;
-    --accent-bg: rgba(94, 199, 255, 0.12);
-    --accent-border: rgba(94, 199, 255, 0.5);
-    --grad: linear-gradient(135deg, #5ec7ff 0%, #a78bfa 100%);
-    --grad-wide: linear-gradient(120deg, #5ec7ff 0%, #a78bfa 55%, #22d3ee 100%);
-    --btn-grad: linear-gradient(135deg, #6bbdff 0%, #4d9ef7 100%);
-    --btn-grad-hover: linear-gradient(135deg, #87d5ff 0%, #67aefb 100%);
-    --btn-text: #08131d;
-    --btn-shadow: 0 12px 24px -12px rgba(94, 199, 255, 0.9);
-    --shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.7);
-    --shadow-lift: 0 26px 48px -20px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(94, 199, 255, 0.12);
-    --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    --sheen: rgba(255, 255, 255, 0.16);
-    --code-bg: #071120;
-    --code-border: rgba(94, 199, 255, 0.28);
+    /* Warm near-black, derived from the umber rather than a neutral grey, so
+       the dark theme reads as the same family and not a different site. */
+    --bg: #1e1a18;
+    --bg-alt: rgba(42, 36, 32, 0.8);
+    --band: linear-gradient(180deg, rgba(143, 176, 163, 0.06), rgba(201, 153, 107, 0.08));
+    --band-edge: rgba(237, 233, 230, 0.12);
+    --surface: rgba(58, 50, 46, 0.72);
+    --surface-strong: #2a2420;
+    --border: rgba(237, 233, 230, 0.16);
+    --text: #e3dcd7;
+    --text-strong: #f7f3f0;
+    --text-muted: #a2948c;
+    --accent: #c9996b;
+    --accent-strong: #e0b489;
+    --accent-2: #8fb0a3;
+    --accent-3: #d9b892;
+    --camel-ink: #ddb68f;
+    --accent-bg: rgba(201, 153, 107, 0.14);
+    --accent-border: rgba(201, 153, 107, 0.5);
+    --grad: linear-gradient(135deg, #8fb0a3 0%, #c9996b 100%);
+    --grad-wide: linear-gradient(120deg, #8fb0a3 0%, #c9996b 55%, #e0b489 100%);
+    --grad-ink: linear-gradient(120deg, #a8c4b6 0%, #e0b489 100%);
+    --btn-grad: linear-gradient(135deg, #c9996b 0%, #ddb68f 100%);
+    --btn-grad-hover: linear-gradient(135deg, #d8ab80 0%, #ecc9a4 100%);
+    --btn-text: #24201d;
+    --btn-shadow: 0 12px 24px -12px rgba(201, 153, 107, 0.85);
+    --shadow: 0 18px 36px -18px rgba(0, 0, 0, 0.72);
+    --shadow-lift: 0 26px 48px -20px rgba(0, 0, 0, 0.78), 0 0 0 1px rgba(201, 153, 107, 0.14);
+    --card-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    --sheen: rgba(255, 255, 255, 0.14);
+    --code-bg: #191513;
+    --code-border: rgba(201, 153, 107, 0.3);
+    --screenshot-bg: #191513;
   }
 }
 
@@ -121,6 +139,6 @@ section[id] {
 }
 
 ::selection {
-  background: rgba(37, 99, 235, 0.18);
+  background: rgba(201, 153, 107, 0.3);
   color: var(--text-strong);
 }

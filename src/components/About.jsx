@@ -1,17 +1,20 @@
 import { profile, education, certifications } from '../data'
+import { useReveal } from '../hooks/useReveal'
 
 export default function About() {
+  const { ref: bioRef, visible: bioVisible } = useReveal({ threshold: 0.3 })
+
   return (
     <section id="about" className="section">
       <div className="about">
         <div className="about__text">
           <h2 className="section__heading">About</h2>
-          <p className="about__bio">
+          <p className={`about__bio${bioVisible ? ' is-visible' : ''}`} ref={bioRef}>
             {profile.bio.map((part, i) =>
               typeof part === 'string' ? (
                 <span key={i}>{part}</span>
               ) : (
-                <strong className="bio-highlight" key={i}>
+                <strong className="bio-highlight" style={{ '--hl-delay': `${i * 120}ms` }} key={i}>
                   {part.text}
                 </strong>
               ),

@@ -61,10 +61,12 @@
   width: var(--size);
   height: var(--size);
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(94, 199, 255, 0.9), rgba(94, 199, 255, 0.3));
-  box-shadow: 
-    0 0 8px rgba(94, 199, 255, 0.8),
-    0 0 20px rgba(94, 199, 255, 0.4),
+  background: radial-gradient(circle at 35% 35%,
+    color-mix(in srgb, var(--accent-2) 90%, transparent),
+    color-mix(in srgb, var(--accent-2) 30%, transparent));
+  box-shadow:
+    0 0 8px color-mix(in srgb, var(--accent-2) 70%, transparent),
+    0 0 20px color-mix(in srgb, var(--accent-2) 35%, transparent),
     inset 0 0 4px rgba(255, 255, 255, 0.3);
   opacity: var(--opacity, 0.35);
   filter: blur(0.5px);
@@ -137,7 +139,7 @@
   max-height: 560px;
   min-width: 300px;
   min-height: 300px;
-  background: radial-gradient(circle at 60% 40%, #7c3aed 0%, transparent 70%);
+  background: radial-gradient(circle at 60% 40%, var(--accent-2) 0%, transparent 70%);
   opacity: 0.3;
   animation: float-two 34s ease-in-out infinite;
 }
@@ -151,7 +153,7 @@
   max-height: 420px;
   min-width: 220px;
   min-height: 220px;
-  background: radial-gradient(circle at 50% 50%, #22d3ee 0%, transparent 70%);
+  background: radial-gradient(circle at 50% 50%, var(--accent-3) 0%, transparent 70%);
   opacity: 0.22;
   animation: float-three 24s ease-in-out infinite;
 }
@@ -241,7 +243,7 @@ main {
   font-size: 32px;
   letter-spacing: -0.02em;
   margin-bottom: 12px;
-  background: var(--grad);
+  background: var(--grad-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -659,7 +661,7 @@ main {
 .hero__title {
   font-size: 24px;
   font-weight: 650;
-  background: var(--grad-wide);
+  background: var(--grad-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -718,7 +720,7 @@ main {
 .hero__stat strong {
   display: block;
   font-size: clamp(1.3rem, 2vw, 1.9rem);
-  background: var(--grad);
+  background: var(--grad-ink);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -769,8 +771,11 @@ main {
   z-index: 0;
   border-radius: 32px;
   background:
-    radial-gradient(circle at var(--gx) var(--gy), rgba(94, 199, 255, 0.8) 0%, transparent 45%),
-    linear-gradient(135deg, rgba(94, 199, 255, 0.32), rgba(28, 196, 208, 0.1), rgba(56, 189, 248, 0.2));
+    radial-gradient(circle at var(--gx) var(--gy), color-mix(in srgb, var(--accent-2) 80%, transparent) 0%, transparent 45%),
+    linear-gradient(135deg,
+      color-mix(in srgb, var(--accent-3) 40%, transparent),
+      color-mix(in srgb, var(--accent-2) 22%, transparent),
+      color-mix(in srgb, var(--accent-3) 26%, transparent));
   opacity: 0.8;
   filter: blur(18px);
   transition: opacity 0.25s ease-out;
@@ -785,8 +790,8 @@ main {
   inset: -14px;
   z-index: 0;
   border-radius: 36px;
-  border: 1px dashed rgba(94, 199, 255, 0.58);
-  box-shadow: 0 0 0 1px rgba(94, 199, 255, 0.12);
+  border: 1px dashed color-mix(in srgb, var(--accent-3) 58%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-3) 16%, transparent);
   animation: portrait-spin 20s linear infinite;
 }
 
@@ -1153,7 +1158,11 @@ main {
   gap: 40px;
 }
 
-.timeline::before {
+/* Two layers: a faint full-height track, and a gradient line that scales up to
+   --timeline-progress (set from scroll in Experience.jsx) so the spine draws
+   itself as you read down. */
+.timeline::before,
+.timeline::after {
   content: '';
   position: absolute;
   left: 0;
@@ -1161,7 +1170,26 @@ main {
   bottom: 0;
   width: 2px;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--accent) 0%, var(--accent-2) 60%, transparent 100%);
+}
+
+.timeline::before {
+  background: var(--border);
+}
+
+.timeline::after {
+  background: linear-gradient(180deg, var(--accent-3) 0%, var(--accent-2) 100%);
+  transform: scaleY(var(--timeline-progress, 0));
+  transform-origin: top;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-2) 45%, transparent);
+}
+
+.timeline__marker {
+  transition: transform 0.4s cubic-bezier(0.34, 1.5, 0.64, 1), box-shadow 0.4s ease;
+}
+
+.timeline__item:not(.is-visible) .timeline__marker {
+  transform: scale(0.3);
+  box-shadow: none;
 }
 
 .timeline__item {
@@ -1703,7 +1731,7 @@ main {
   aspect-ratio: 16 / 9;
   border: 1px solid var(--border);
   border-radius: 10px;
-  background: #071522;
+  background: var(--screenshot-bg);
 }
 
 .project-card__screenshot img {
@@ -1734,8 +1762,8 @@ main {
   padding: 4px 8px;
   border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 999px;
-  background: rgba(2, 13, 27, 0.72);
-  color: #dff7ff;
+  background: rgba(25, 21, 19, 0.78);
+  color: var(--bone);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -2117,10 +2145,10 @@ main {
   background: var(--code-bg);
   border: 1px solid var(--code-border);
   border-radius: 10px;
-  color: #d8e5f2;
+  color: #ddd3cb;
   font: 13px/1.65 var(--mono);
   tab-size: 2;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 14px 30px -20px rgba(2, 13, 27, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 14px 30px -20px rgba(36, 31, 28, 0.9);
   scrollbar-color: var(--accent-border) transparent;
   scrollbar-width: thin;
 }
@@ -2130,13 +2158,13 @@ main {
   outline-offset: 2px;
 }
 
-.sql-tok--keyword { color: #7dd3fc; font-weight: 650; }
-.sql-tok--function { color: #c4b5fd; }
-.sql-tok--string { color: #86efac; }
-.sql-tok--number { color: #fbbf24; }
-.sql-tok--comment { color: #6b8299; font-style: italic; }
-.sql-tok--ident { color: #fda4af; }
-.sql-tok--type { color: #67e8f9; }
+.sql-tok--keyword { color: #e0b489; font-weight: 650; }
+.sql-tok--function { color: #a8c4b6; }
+.sql-tok--string { color: #c2cba0; }
+.sql-tok--number { color: #e8c77e; }
+.sql-tok--comment { color: #8a7b72; font-style: italic; }
+.sql-tok--ident { color: #d7a89a; }
+.sql-tok--type { color: #93bfb4; }
 
 .sql-panel__note {
   margin-top: 14px;
@@ -2402,5 +2430,149 @@ main {
   .sql-nav__item::after,
   .sql-panel::after {
     display: none;
+  }
+}
+
+/* ---------- count-up ---------- */
+.countup__num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+
+/* ---------- trend divider ----------
+   A decorative trend line that draws itself between sections: the one visual
+   motif that says "analyst" without pretending to be anybody's data. */
+.trend-divider {
+  position: relative;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.trend-divider__svg {
+  display: block;
+  width: 100%;
+  height: 92px;
+  overflow: visible;
+}
+
+.trend-divider__grid line {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 7;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Draw the stroke on reveal. pathLength normalises the dash maths so it works
+   whatever the viewBox or the generated path length. */
+.trend-divider__line {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  pathLength: 1;
+  transition: stroke-dashoffset 1.8s cubic-bezier(0.33, 0.9, 0.3, 1);
+}
+
+.trend-divider.is-visible .trend-divider__line {
+  stroke-dashoffset: 0;
+}
+
+.trend-divider__area {
+  opacity: 0;
+  transition: opacity 1s ease 0.9s;
+}
+
+.trend-divider.is-visible .trend-divider__area {
+  opacity: 1;
+}
+
+.trend-divider__dot {
+  fill: var(--surface-strong);
+  stroke: var(--accent-2);
+  stroke-width: 2;
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  scale: 0.2;
+  transition: opacity 0.4s ease var(--delay, 0ms), scale 0.5s cubic-bezier(0.34, 1.6, 0.64, 1) var(--delay, 0ms);
+}
+
+.trend-divider.is-visible .trend-divider__dot {
+  opacity: 1;
+  scale: 1;
+}
+
+.trend-divider__label {
+  position: absolute;
+  right: 24px;
+  bottom: 8px;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  opacity: 0;
+  translate: 0 6px;
+  transition: opacity 0.6s ease 1s, translate 0.6s ease 1s;
+}
+
+.trend-divider.is-visible .trend-divider__label {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@media (max-width: 640px) {
+  .trend-divider__svg { height: 64px; }
+  .trend-divider__label { display: none; }
+}
+
+/* ---------- bio highlight sweep ---------- */
+/* The highlighter draws across the phrase the first time it is seen, the way
+   you would actually mark up a finding. */
+.about__bio .bio-highlight {
+  background-repeat: no-repeat;
+  background-size: 0% 100%;
+  transition: background-size 0.7s cubic-bezier(0.33, 0.9, 0.3, 1) var(--hl-delay, 0ms);
+}
+
+.about__bio.is-visible .bio-highlight {
+  background-size: 100% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .timeline::after {
+    transform: scaleY(1);
+  }
+
+  .timeline__item:not(.is-visible) .timeline__marker {
+    transform: none;
+  }
+
+  .trend-divider__line {
+    stroke-dashoffset: 0;
+    transition: none;
+  }
+
+  .trend-divider__area,
+  .trend-divider__label {
+    opacity: 1;
+    translate: none;
+    transition: none;
+  }
+
+  .trend-divider__dot {
+    opacity: 1;
+    scale: 1;
+    transition: none;
+  }
+
+  .about__bio .bio-highlight {
+    background-size: 100% 100%;
+    transition: none;
   }
 }

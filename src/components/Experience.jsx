@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react'
 import { experience } from '../data'
 import { useReveal } from '../hooks/useReveal'
 
@@ -66,10 +67,45 @@ function Job({ job, index }) {
 }
 
 export default function Experience() {
+  const listRef = useRef(null)
+
+  // The spine fills as you read down the list — a time series drawing itself.
+  useEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+      el.style.setProperty('--timeline-progress', '1')
+      return
+    }
+
+    let raf = 0
+    const measure = () => {
+      raf = 0
+      const rect = el.getBoundingClientRect()
+      // Complete when the end of the list reaches the lower third of the screen.
+      const start = window.innerHeight * 0.85
+      const span = rect.height + start - window.innerHeight * 0.35
+      const p = Math.min(1, Math.max(0, (start - rect.top) / span))
+      el.style.setProperty('--timeline-progress', p.toFixed(3))
+    }
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(measure)
+    }
+
+    measure()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [])
+
   return (
     <section id="experience" className="section">
       <h2 className="section__heading">Experience</h2>
-      <ol className="timeline">
+      <ol className="timeline" ref={listRef}>
         {experience.map((job, index) => (
           <Job job={job} index={index} key={job.role + job.org} />
         ))}
