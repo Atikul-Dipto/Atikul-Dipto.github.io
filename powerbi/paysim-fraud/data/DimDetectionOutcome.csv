@@ -1,0 +1,5 @@
+OutcomeKey,Outcome,WasFraud,AlertRaised,ConfusionCell,OutcomeSortOrder
+1,"Alert raised, fraud confirmed",1,1,True positive,1
+2,"No alert, fraud occurred",1,0,False negative,2
+3,"Alert raised, legitimate",0,1,False positive,3
+4,"No alert, legitimate",0,0,True negative,4

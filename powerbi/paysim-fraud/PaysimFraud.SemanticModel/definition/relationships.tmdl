@@ -1,0 +1,15 @@
+relationship DimTransactionType_FactTransaction
+	fromColumn: FactTransaction.TypeKey
+	toColumn: DimTransactionType.TypeKey
+
+relationship DimStep_FactTransaction
+	fromColumn: FactTransaction.StepKey
+	toColumn: DimStep.StepKey
+
+relationship DimAmountBand_FactTransaction
+	fromColumn: FactTransaction.AmountBandKey
+	toColumn: DimAmountBand.AmountBandKey
+
+relationship DimDetectionOutcome_FactTransaction
+	fromColumn: FactTransaction.OutcomeKey
+	toColumn: DimDetectionOutcome.OutcomeKey

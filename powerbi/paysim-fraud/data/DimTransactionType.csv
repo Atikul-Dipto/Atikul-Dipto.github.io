@@ -1,0 +1,6 @@
+TypeKey,TypeName,Direction,DestinationKind,TypeSortOrder
+1,PAYMENT,Money out,Merchant,1
+2,CASH_IN,Money in,Customer account,2
+3,CASH_OUT,Money out,Customer account,3
+4,TRANSFER,Money out,Customer account,4
+5,DEBIT,Money out,Customer account,5

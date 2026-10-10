@@ -1,0 +1,80 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "p4t1",
+  "position": {
+    "x": 16,
+    "y": 444,
+    "z": 0,
+    "width": 1248,
+    "height": 260
+  },
+  "visual": {
+    "visualType": "textbox",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "paragraphs": [
+              {
+                "textRuns": [
+                  {
+                    "value": "Four limits worth stating out loud",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "fontWeight": "bold",
+                      "color": "#1B1B1B"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "1. It is synthetic. PaySim is an agent-based simulation of a mobile money network, not a record of anything that happened. Patterns here are the simulator's, and any of them may be an artefact.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#333333"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "2. The ledger does not reconcile. Reading the balance equation in the direction each type implies, it holds on 41% of rows -- 93% of cash-ins but 5% of transfers. Balances cannot be audited, so this model reads the flags instead.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#333333"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "3. There is no calendar. The source has an hour counter and nothing else, so this model has no date table and no dates were invented. Axes are simulated day and hour, and hour is not a wall-clock time.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#333333"
+                    }
+                  }
+                ]
+              },
+              {
+                "textRuns": [
+                  {
+                    "value": "4. Legitimate volume is uneven, fraud injection is not. A fraud rate by day therefore measures the simulator's duty cycle. Use IsFullVolumeDay to compare days honestly.",
+                    "textStyle": {
+                      "fontSize": "10pt",
+                      "color": "#333333"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,6 @@
+/// Folder holding the CSVs written by build_dataset.py. The only thing in
+/// this model that knows where the data lives -- repoint it if you move the
+/// repo or rebuild the data elsewhere.
+expression DataFolder = "D:\Atikul-Dipto.github.io\powerbi\paysim-fraud\data" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+
+	annotation PBI_ResultType = Text

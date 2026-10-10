@@ -1,0 +1,12 @@
+# The fact table is 367 MB. Rebuild it with build_dataset.py instead of
+# committing it -- GitHub rejects files over 100 MB in any case. The four
+# dimension CSVs beside it are a few kilobytes and are committed, so the
+# dimensional design is reviewable without downloading anything.
+data/FactTransaction.csv
+
+# Fabric JSON schemas, cached by _validate_schemas.py so it can run offline.
+_schema_cache/
+
+# Power BI Desktop's per-machine state and its local model cache.
+**/.pbi/localSettings.json
+**/.pbi/cache.abf

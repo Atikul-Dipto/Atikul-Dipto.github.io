@@ -1,0 +1,74 @@
+table DimStep
+
+	column StepKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: StepKey
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Simulated day, 1-31. Not a calendar date.
+	column SimDay
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: SimDay
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Hour within the simulated day, 0-23. PaySim documents no clock alignment, so this is not a wall-clock time and must not be labelled as one.
+	column SimHour
+		dataType: int64
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: SimHour
+
+		annotation SummarizationSetBy = Automatic
+
+	column SimHourLabel
+		dataType: string
+		summarizeBy: none
+		sourceColumn: SimHourLabel
+		sortByColumn: SimHour
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Quiet hours (1-8) carry under a tenth of the peak hour's volume. Derived from volume, not from an assumed business day.
+	column HourBand
+		dataType: string
+		summarizeBy: none
+		sourceColumn: HourBand
+
+		annotation SummarizationSetBy = Automatic
+
+	column DayLabel
+		dataType: string
+		summarizeBy: none
+		sourceColumn: DayLabel
+		sortByColumn: SimDay
+
+		annotation SummarizationSetBy = Automatic
+
+	/// True on the 14 days the simulator generated a full load of legitimate traffic. Fraud injection is near constant, so fraud RATE on the other 17 days measures the simulator, not risk.
+	column IsFullVolumeDay
+		dataType: boolean
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: IsFullVolumeDay
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimStep = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimStep.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.None]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"StepKey", Int64.Type}, {"SimDay", Int64.Type}, {"SimHour", Int64.Type}, {"SimHourLabel", type text}, {"HourBand", type text}, {"DayLabel", type text}, {"IsFullVolumeDay", Int64.Type}}),
+				    Flags = Table.TransformColumns(Typed, {{"IsFullVolumeDay", Logical.From, type logical}})
+				in
+				    Flags
+
+	annotation PBI_ResultType = Table

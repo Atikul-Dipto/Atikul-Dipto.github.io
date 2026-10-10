@@ -1,0 +1,65 @@
+table DimDetectionOutcome
+
+	column OutcomeKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: OutcomeKey
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The four cells of the confusion matrix for the bank's own isFlaggedFraud rule. The 'Alert raised, legitimate' row exists with zero rows behind it on purpose: that zero is the finding.
+	column Outcome
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Outcome
+		sortByColumn: OutcomeSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	column ConfusionCell
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ConfusionCell
+		sortByColumn: OutcomeSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	column WasFraud
+		dataType: boolean
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: WasFraud
+
+		annotation SummarizationSetBy = Automatic
+
+	column AlertRaised
+		dataType: boolean
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: AlertRaised
+
+		annotation SummarizationSetBy = Automatic
+
+	column OutcomeSortOrder
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: OutcomeSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimDetectionOutcome = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimDetectionOutcome.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"OutcomeKey", Int64.Type}, {"Outcome", type text}, {"WasFraud", Int64.Type}, {"AlertRaised", Int64.Type}, {"ConfusionCell", type text}, {"OutcomeSortOrder", Int64.Type}}),
+				    Flags = Table.TransformColumns(Typed, {{"WasFraud", Logical.From, type logical}, {"AlertRaised", Logical.From, type logical}})
+				in
+				    Flags
+
+	annotation PBI_ResultType = Table

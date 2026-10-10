@@ -1,0 +1,49 @@
+table DimAmountBand
+
+	column AmountBandKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: AmountBandKey
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Right-open amount buckets, so 1000.00 falls in 1K - 10K.
+	column AmountBand
+		dataType: string
+		summarizeBy: none
+		sourceColumn: AmountBand
+		sortByColumn: BandSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	column BandSortOrder
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: BandSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Inclusive lower bound of the band.
+	column BandFloor
+		dataType: int64
+		formatString: #,0
+		summarizeBy: none
+		sourceColumn: BandFloor
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimAmountBand = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimAmountBand.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.None]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"AmountBandKey", Int64.Type}, {"AmountBand", type text}, {"BandSortOrder", Int64.Type}, {"BandFloor", Int64.Type}}),
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table

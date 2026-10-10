@@ -1,0 +1,56 @@
+table DimTransactionType
+
+	column TypeKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: TypeKey
+
+		annotation SummarizationSetBy = Automatic
+
+	/// The five PaySim transaction types.
+	column TypeName
+		dataType: string
+		summarizeBy: none
+		sourceColumn: TypeName
+		sortByColumn: TypeSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Whether the type credits or debits the origin account. Reading the balance equation in the wrong direction is the easiest way to mis-measure this dataset.
+	column Direction
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Direction
+
+		annotation SummarizationSetBy = Automatic
+
+	/// PAYMENT always lands on a merchant account; every other type lands on a customer account.
+	column DestinationKind
+		dataType: string
+		summarizeBy: none
+		sourceColumn: DestinationKind
+
+		annotation SummarizationSetBy = Automatic
+
+	column TypeSortOrder
+		dataType: int64
+		isHidden
+		formatString: 0
+		summarizeBy: none
+		sourceColumn: TypeSortOrder
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimTransactionType = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimTransactionType.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Typed = Table.TransformColumnTypes(Headers, {{"TypeKey", Int64.Type}, {"TypeName", type text}, {"Direction", type text}, {"DestinationKind", type text}, {"TypeSortOrder", Int64.Type}}),
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
