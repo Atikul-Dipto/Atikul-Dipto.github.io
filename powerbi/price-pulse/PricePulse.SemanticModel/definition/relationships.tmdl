@@ -1,0 +1,14 @@
+/// Fact joins each dimension directly. DimProduct also carries RetailerKey,
+/// but it is deliberately NOT related to DimRetailer: that would create a
+/// second path from the fact to the retailer and make the filter ambiguous.
+relationship rel_Fact_Product
+	fromColumn: FactPriceObservation.ProductKey
+	toColumn: DimProduct.ProductKey
+
+relationship rel_Fact_Retailer
+	fromColumn: FactPriceObservation.RetailerKey
+	toColumn: DimRetailer.RetailerKey
+
+relationship rel_Fact_Date
+	fromColumn: FactPriceObservation.DateKey
+	toColumn: DimDate.DateKey

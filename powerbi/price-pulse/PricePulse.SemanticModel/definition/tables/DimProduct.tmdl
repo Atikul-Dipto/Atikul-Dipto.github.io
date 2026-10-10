@@ -1,0 +1,63 @@
+table DimProduct
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Attribute only. Deliberately not related to DimRetailer, which would make the filter path ambiguous.
+	column RetailerKey
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: RetailerKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column ProductName
+		dataType: string
+		summarizeBy: none
+		sourceColumn: ProductName
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Derived from keywords in the product name. Unmatched names stay Unclassified.
+	column Category
+		dataType: string
+		summarizeBy: none
+		sourceColumn: Category
+
+		annotation SummarizationSetBy = Automatic
+
+	column SourceUrl
+		dataType: string
+		summarizeBy: none
+		sourceColumn: SourceUrl
+		dataCategory: WebUrl
+
+		annotation SummarizationSetBy = Automatic
+
+	column FirstSeen
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn:ss
+		summarizeBy: none
+		sourceColumn: FirstSeen
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimProduct = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimProduct.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Cleaned = Table.ReplaceValue(Headers, "", null, Replacer.ReplaceValue, {"SourceUrl", "FirstSeen"}),
+				    Typed = Table.TransformColumnTypes(Cleaned, {{"ProductKey", Int64.Type}, {"RetailerKey", Int64.Type}, {"ProductName", type text}, {"Category", type text}, {"SourceUrl", type text}, {"FirstSeen", type datetime}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table

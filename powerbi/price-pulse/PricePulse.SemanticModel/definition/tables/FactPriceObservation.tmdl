@@ -1,0 +1,192 @@
+table FactPriceObservation
+
+	column ObservationKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: ObservationKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column ProductKey
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: ProductKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column RetailerKey
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: RetailerKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column DateKey
+		dataType: int64
+		isHidden
+		summarizeBy: none
+		sourceColumn: DateKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column ScrapedAt
+		dataType: dateTime
+		formatString: yyyy-mm-dd hh:nn:ss
+		summarizeBy: none
+		sourceColumn: ScrapedAt
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Blank when the scraped value failed validation. See SuspectReason.
+	column CurrentPrice
+		dataType: double
+		formatString: #,0.00
+		summarizeBy: none
+		sourceColumn: CurrentPrice
+
+		annotation SummarizationSetBy = Automatic
+
+	column OriginalPrice
+		dataType: double
+		formatString: #,0.00
+		summarizeBy: none
+		sourceColumn: OriginalPrice
+
+		annotation SummarizationSetBy = Automatic
+
+	column DiscountPercent
+		dataType: double
+		formatString: #,0.0
+		summarizeBy: none
+		sourceColumn: DiscountPercent
+
+		annotation SummarizationSetBy = Automatic
+
+	column Currency
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: Currency
+
+		annotation SummarizationSetBy = Automatic
+
+	column IsSuspectPrice
+		dataType: boolean
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: IsSuspectPrice
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Why a price was rejected. Blank for good rows.
+	column SuspectReason
+		dataType: string
+		summarizeBy: none
+		sourceColumn: SuspectReason
+
+		annotation SummarizationSetBy = Automatic
+
+	column HasOriginalPrice
+		dataType: boolean
+		isHidden
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: HasOriginalPrice
+
+		annotation SummarizationSetBy = Automatic
+
+	column HasDiscount
+		dataType: boolean
+		isHidden
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: HasDiscount
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Exactly one row per product: its most recent observation.
+	column IsLatest
+		dataType: boolean
+		isHidden
+		formatString: "TRUE";;"FALSE"
+		summarizeBy: none
+		sourceColumn: IsLatest
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Scraped price rows in the current context.
+	measure 'Observations' = COUNTROWS('FactPriceObservation')
+		formatString: #,0
+
+	/// Distinct products observed.
+	measure 'Products Tracked' = DISTINCTCOUNT('FactPriceObservation'[ProductKey])
+		formatString: #,0
+
+	/// Distinct marketplaces observed.
+	measure 'Retailers Covered' = DISTINCTCOUNT('FactPriceObservation'[RetailerKey])
+		formatString: #,0
+
+	/// Distinct scrape days. This is the ceiling on any trend analysis.
+	measure 'Days With Data' = DISTINCTCOUNT('FactPriceObservation'[DateKey])
+		formatString: #,0
+
+	/// Median validated price. Suspect rows are blank, so they drop out.
+	measure 'Median Price' = MEDIAN('FactPriceObservation'[CurrentPrice])
+		formatString: #,0 "BDT"
+
+	/// Mean validated price. Read next to the median to see the skew.
+	measure 'Average Price' = AVERAGE('FactPriceObservation'[CurrentPrice])
+		formatString: #,0 "BDT"
+
+	/// The premium end of the assortment.
+	measure 'P90 Price' = PERCENTILEX.INC('FactPriceObservation', 'FactPriceObservation'[CurrentPrice], 0.9)
+		formatString: #,0 "BDT"
+
+	/// Median across the most recent observation of each product only.
+	measure 'Current Median Price' = CALCULATE([Median Price], 'FactPriceObservation'[IsLatest] = TRUE())
+		formatString: #,0 "BDT"
+
+	/// Share of observations advertising a discount.
+	measure 'Discount Coverage %' = DIVIDE(CALCULATE([Observations], 'FactPriceObservation'[HasDiscount] = TRUE()), [Observations])
+		formatString: 0.0%
+
+	/// Mean advertised discount across discounted rows only.
+	measure 'Average Discount Depth %' = AVERAGE('FactPriceObservation'[DiscountPercent])
+		formatString: 0.0
+
+	/// Of discounted rows, the share at 30 percent off or deeper.
+	measure 'Deep Discount Share %' = DIVIDE(CALCULATE([Observations], 'FactPriceObservation'[DiscountPercent] >= 30), CALCULATE([Observations], 'FactPriceObservation'[HasDiscount] = TRUE()))
+		formatString: 0.0%
+
+	/// Rows whose scraped price failed validation.
+	measure 'Suspect Observations' = CALCULATE([Observations], 'FactPriceObservation'[IsSuspectPrice] = TRUE())
+		formatString: #,0
+
+	/// Pipeline health. Concentrated in one retailer, this points at a selector bug.
+	measure 'Suspect Price Rate %' = DIVIDE([Suspect Observations], [Observations])
+		formatString: 0.0%
+
+	/// Share of rows where a was-price was captured.
+	measure 'Original Price Coverage %' = DIVIDE(CALCULATE([Observations], 'FactPriceObservation'[HasOriginalPrice] = TRUE()), [Observations])
+		formatString: 0.0%
+
+	/// How much of the catalogue the keyword classifier does not reach.
+	measure 'Unclassified Product Share %' = DIVIDE(CALCULATE(DISTINCTCOUNT(DimProduct[ProductKey]), DimProduct[Category] = "Unclassified"), DISTINCTCOUNT(DimProduct[ProductKey]))
+		formatString: 0.0%
+
+	partition FactPriceObservation = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\FactPriceObservation.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Cleaned = Table.ReplaceValue(Headers, "", null, Replacer.ReplaceValue, {"CurrentPrice", "OriginalPrice", "DiscountPercent", "Currency", "SuspectReason"}),
+				    Typed = Table.TransformColumnTypes(Cleaned, {{"ObservationKey", Int64.Type}, {"ProductKey", Int64.Type}, {"RetailerKey", Int64.Type}, {"DateKey", Int64.Type}, {"ScrapedAt", type datetime}, {"CurrentPrice", type number}, {"OriginalPrice", type number}, {"DiscountPercent", type number}, {"Currency", type text}, {"IsSuspectPrice", type logical}, {"SuspectReason", type text}, {"HasOriginalPrice", type logical}, {"HasDiscount", type logical}, {"IsLatest", type logical}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table

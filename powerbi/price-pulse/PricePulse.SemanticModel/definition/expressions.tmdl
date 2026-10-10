@@ -1,0 +1,6 @@
+/// Folder holding the CSVs written by build_dataset.py. Change this one
+/// line if you move the project, then refresh.
+expression DataFolder = "D:\Atikul-Dipto.github.io\powerbi\price-pulse\data" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 9f1b2c30-0001-4a00-9000-000000000001
+
+	annotation PBI_ResultType = Text

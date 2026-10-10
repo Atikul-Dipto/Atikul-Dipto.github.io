@@ -1,0 +1,15 @@
+model Model
+	culture: en-US
+	defaultPowerBIDataSourceVersion: powerBI_V3
+	discourageImplicitMeasures
+	sourceQueryCulture: en-US
+	dataAccessOptions
+		legacyRedirects
+		returnErrorValuesAsNull
+
+annotation PBI_QueryOrder = ["DataFolder","DimRetailer","DimProduct","DimDate","FactPriceObservation"]
+
+ref table DimRetailer
+ref table DimProduct
+ref table DimDate
+ref table FactPriceObservation

@@ -1,0 +1,39 @@
+table DimRetailer
+
+	column RetailerKey
+		dataType: int64
+		isHidden
+		isKey
+		summarizeBy: none
+		sourceColumn: RetailerKey
+
+		annotation SummarizationSetBy = Automatic
+
+	column RetailerCode
+		dataType: string
+		isHidden
+		summarizeBy: none
+		sourceColumn: RetailerCode
+
+		annotation SummarizationSetBy = Automatic
+
+	/// Display name of the marketplace.
+	column RetailerName
+		dataType: string
+		summarizeBy: none
+		sourceColumn: RetailerName
+
+		annotation SummarizationSetBy = Automatic
+
+	partition DimRetailer = m
+		mode: import
+		source =
+				let
+				    Source = Csv.Document(File.Contents(DataFolder & "\DimRetailer.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
+				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
+				    Cleaned = Headers,
+				    Typed = Table.TransformColumnTypes(Cleaned, {{"RetailerKey", Int64.Type}, {"RetailerCode", type text}, {"RetailerName", type text}})
+				in
+				    Typed
+
+	annotation PBI_ResultType = Table
