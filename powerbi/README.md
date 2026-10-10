@@ -16,6 +16,8 @@ Each folder has its own README covering the model, the measures, how to build
 the data, and — in both cases explicitly — what has been verified and what has
 not.
 
+`check_m.py` lints the M in every TMDL partition: balanced brackets and quotes, no comma before `in` (which Desktop reports with no file and no line number), and every step reference resolving to a binding that exists.
+
 `check_tmdl.ps1` parses every semantic model here with `Microsoft.AnalysisServices.Tabular.TmdlSerializer`, the same parser Power BI Desktop uses to open a `.pbip`. Run it after changing any TMDL: hand-written TMDL fails in ways no JSON schema or static check can see, and both projects were rejected by Desktop before this existed.
 
 [dataset-audits/](dataset-audits/) holds the structural check that runs before

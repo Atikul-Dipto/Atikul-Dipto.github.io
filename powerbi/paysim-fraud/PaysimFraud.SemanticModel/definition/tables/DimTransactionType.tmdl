@@ -49,7 +49,7 @@ table DimTransactionType
 				let
 				    Source = Csv.Document(File.Contents(DataFolder & "\DimTransactionType.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.Csv]),
 				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
-				    Typed = Table.TransformColumnTypes(Headers, {{"TypeKey", Int64.Type}, {"TypeName", type text}, {"Direction", type text}, {"DestinationKind", type text}, {"TypeSortOrder", Int64.Type}}),
+				    Typed = Table.TransformColumnTypes(Headers, {{"TypeKey", Int64.Type}, {"TypeName", type text}, {"Direction", type text}, {"DestinationKind", type text}, {"TypeSortOrder", Int64.Type}})
 				in
 				    Typed
 

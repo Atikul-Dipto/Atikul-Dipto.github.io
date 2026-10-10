@@ -42,7 +42,7 @@ table DimAmountBand
 				let
 				    Source = Csv.Document(File.Contents(DataFolder & "\DimAmountBand.csv"), [Delimiter = ",", Encoding = 65001, QuoteStyle = QuoteStyle.None]),
 				    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),
-				    Typed = Table.TransformColumnTypes(Headers, {{"AmountBandKey", Int64.Type}, {"AmountBand", type text}, {"BandSortOrder", Int64.Type}, {"BandFloor", Int64.Type}}),
+				    Typed = Table.TransformColumnTypes(Headers, {{"AmountBandKey", Int64.Type}, {"AmountBand", type text}, {"BandSortOrder", Int64.Type}, {"BandFloor", Int64.Type}})
 				in
 				    Typed
 

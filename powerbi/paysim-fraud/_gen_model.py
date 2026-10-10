@@ -69,29 +69,41 @@ def partition(table, types, *, logicals=(), quoted=False, ncols=None):
 
     Booleans are stored as 1/0 in the CSVs (see build_dataset.py) and are
     converted here with Logical.From, so the model exposes real booleans.
+
+    The let bindings are assembled as a list and joined with ",\n" rather than
+    each carrying its own trailing comma. M rejects a comma before `in`, and
+    the previous version produced exactly that on any table with no boolean
+    columns to append a final binding after the typed one.
     """
     cols_m = ", ".join('{"%s", %s}' % (c, t) for c, t in types)
     quote = "QuoteStyle.Csv" if quoted else "QuoteStyle.None"
     ncols_arg = f"Columns = {ncols}, " if ncols else ""
-    lines = [
-        f"\tpartition {table} = m",
-        "\t\tmode: import",
-        "\t\tsource =",
-        "\t\t\t\tlet",
-        f'\t\t\t\t    Source = Csv.Document(File.Contents(DataFolder & "\\{table}.csv"), '
-        f'[Delimiter = ",", {ncols_arg}Encoding = 65001, QuoteStyle = {quote}]),',
-        "\t\t\t\t    Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true]),",
-        f"\t\t\t\t    Typed = Table.TransformColumnTypes(Headers, {{{cols_m}}}),",
+    pad = "\t\t\t\t    "
+
+    bindings = [
+        f'Source = Csv.Document(File.Contents(DataFolder & "\\{table}.csv"), '
+        f'[Delimiter = ",", {ncols_arg}Encoding = 65001, QuoteStyle = {quote}])',
+        "Headers = Table.PromoteHeaders(Source, [PromoteAllScalars = true])",
+        f"Typed = Table.TransformColumnTypes(Headers, {{{cols_m}}})",
     ]
+    result = "Typed"
     if logicals:
         flags = ", ".join('{"%s", Logical.From, type logical}' % c for c in logicals)
-        lines += [f"\t\t\t\t    Flags = Table.TransformColumns(Typed, {{{flags}}})",
-                  "\t\t\t\tin",
-                  "\t\t\t\t    Flags"]
-    else:
-        lines += ["\t\t\t\tin", "\t\t\t\t    Typed"]
-    lines += ["", "\tannotation PBI_ResultType = Table", ""]
-    return "\n".join(lines)
+        bindings.append(f"Flags = Table.TransformColumns(Typed, {{{flags}}})")
+        result = "Flags"
+
+    body = (",\n").join(pad + b for b in bindings)
+    return (
+        f"\tpartition {table} = m\n"
+        "\t\tmode: import\n"
+        "\t\tsource =\n"
+        "\t\t\t\tlet\n"
+        f"{body}\n"
+        "\t\t\t\tin\n"
+        f"{pad}{result}\n"
+        "\n"
+        "\tannotation PBI_ResultType = Table\n"
+    )
 
 
 # --------------------------------------------------------------------------

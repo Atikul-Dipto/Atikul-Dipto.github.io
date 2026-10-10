@@ -187,6 +187,7 @@ expression). That is the only place in the model that knows where the data is.
 | `_check_model.py` | 765 static checks: DAX references resolve, partitions match CSV headers, visuals bind to fields that exist, visuals fit the page and do not overlap |
 | `_validate_schemas.py` | Validates all 49 JSON files against Microsoft's published Fabric schemas (`pip install jsonschema`) |
 | `../check_tmdl.ps1` | Parses the semantic model with the real Power BI TMDL parser. The only check here that proves Desktop will accept it |
+| `../check_m.py` | Lints the M in every partition: brackets, quotes, no comma before `in`, and step references that resolve |
 
 The model and report are generated rather than hand-written so that the
 measures all live in one reviewable file instead of scattered across TMDL, and
@@ -269,6 +270,16 @@ static analysis had no way to see why. Two bugs, both fatal to the whole model:
 - A `///` note above a `relationship` — relationships have no `Description` in
   the object model. TMDL has no plain-comment form either, so notes about
   relationships belong in a README. (This one was in Price Pulse.)
+
+A third bug surfaced on the next open, from the M engine rather than TMDL:
+
+- **A trailing comma before `in`.** The partition generator appended a comma to
+  the typed-columns binding unconditionally and only added a following binding
+  for tables with boolean columns, so the two tables without any emitted
+  `Typed = ...,` directly followed by `in`. M rejects that, and Desktop reports
+  it as `M Engine error: A ',' cannot precede a 'in'.` with no file, no line and
+  no query name. The generator now assembles bindings as a list and joins them,
+  so it cannot recur, and `check_m.py` checks for it anyway.
 
 Both spellings were established by testing candidates against the real parser,
 not guessed. 765 static checks also pass, and all 49 JSON files validate against

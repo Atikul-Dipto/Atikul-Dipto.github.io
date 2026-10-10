@@ -178,7 +178,9 @@ for rname, ft, fc, tt, tc in rels:
 
 print("\n-- each partition's column list matches its CSV header exactly --")
 for tn, t in tables.items():
-    m = re.search(r"Table\.TransformColumnTypes\(Headers, \{(.+?)\}\),", t["text"])
+    # The trailing comma is optional: a table with no boolean columns has no
+    # binding after the typed one, and M rejects a comma before `in`.
+    m = re.search(r"Table\.TransformColumnTypes\(Headers, \{(.+?)\}\),?\n", t["text"])
     check(m is not None, f"{tn}: partition has a type transform")
     if not m:
         continue
