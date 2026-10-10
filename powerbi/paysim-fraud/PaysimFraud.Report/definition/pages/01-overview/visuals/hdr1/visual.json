@@ -2,10 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
   "name": "hdr1",
   "position": {
-    "x": 16,
-    "y": 8,
-    "z": 0,
-    "width": 1248,
+    "x": 252,
+    "y": 16,
+    "z": 10,
+    "width": 1012,
     "height": 52
   },
   "visual": {
@@ -18,11 +18,11 @@
               {
                 "textRuns": [
                   {
-                    "value": "Mobile money fraud: scale and shape",
+                    "value": "Scale and shape",
                     "textStyle": {
-                      "fontSize": "20pt",
+                      "fontSize": "19pt",
                       "fontWeight": "bold",
-                      "color": "#1B1B1B"
+                      "color": "#1B2430"
                     }
                   }
                 ]
@@ -32,8 +32,8 @@
                   {
                     "value": "6.36M simulated transactions over 31 days. 0.129% are fraudulent, and they are not spread evenly across type, size or hour.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#555555"
+                      "fontSize": "9.5pt",
+                      "color": "#5A6572"
                     }
                   }
                 ]

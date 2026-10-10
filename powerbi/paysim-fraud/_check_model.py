@@ -275,25 +275,68 @@ if pages_dir.exists():
                   f"{d.name}/{v.parent.name}: visual name matches its folder")
             names.append(vo["name"])
             pos = vo["position"]
-            boxes.append((vo["name"], pos["x"], pos["y"], pos["width"], pos["height"]))
+            boxes.append((vo["name"], pos["x"], pos["y"], pos["width"],
+                          pos["height"], pos.get("z", 0)))
             check(pos["x"] >= 0 and pos["y"] >= 0, f"{v.parent.name}: on-canvas origin")
             check(pos["x"] + pos["width"] <= page.get("width", 1280) + 0.5
                   and pos["y"] + pos["height"] <= page.get("height", 720) + 0.5,
                   f"{d.name}/{vo['name']}: fits the page",
                   f"{pos} vs {page.get('width')}x{page.get('height')}")
         check(len(names) == len(set(names)), f"{d.name}: visual names unique")
-        # overlap detection: two visuals stacked on top of each other is
-        # invisible in JSON and obvious on screen, so catch it here
+        # Overlap detection: two visuals accidentally stacked is invisible in
+        # JSON and obvious on screen. Only compare visuals on the same z,
+        # because a differing z is a deliberate layer -- the filter rail is a
+        # backdrop that every control on it is meant to sit above.
         for i in range(len(boxes)):
             for j in range(i + 1, len(boxes)):
-                n1, x1, y1, w1, h1 = boxes[i]
-                n2, x2, y2, w2, h2 = boxes[j]
+                n1, x1, y1, w1, h1, z1 = boxes[i]
+                n2, x2, y2, w2, h2, z2 = boxes[j]
+                if z1 != z2:
+                    continue
                 overlap = (x1 < x2 + w2 and x2 < x1 + w1
                            and y1 < y2 + h2 and y2 < y1 + h1)
-                check(not overlap, f"{d.name}: {n1} and {n2} do not overlap",
+                check(not overlap,
+                      f"{d.name}: {n1} and {n2} do not overlap at z={z1}",
                       f"{(x1, y1, w1, h1)} vs {(x2, y2, w2, h2)}")
 else:
     print("  (no report pages yet)")
+
+print("\n-- slicers and cross-page filter sync --")
+# A slicer's syncGroup is the only thing making a selection carry to the other
+# pages. A typo in one group name breaks that silently: the slicer still works,
+# it just stops filtering anywhere else. Same for binding a slicer to a measure
+# instead of a column -- it renders, and filters nothing.
+sync_pages: dict[str, list[str]] = {}
+slicer_count = 0
+if pages_dir.exists():
+    all_pages = sorted(d.name for d in pages_dir.iterdir() if d.is_dir())
+    for vis_path in sorted(pages_dir.rglob("visuals/*/visual.json")):
+        vo = json.loads(vis_path.read_text(encoding="utf-8"))
+        page_name = vis_path.parents[2].name
+        vis = vo.get("visual", {})
+        if vis.get("visualType") != "slicer":
+            continue
+        slicer_count += 1
+        group = (vis.get("syncGroup") or {}).get("groupName")
+        check(bool(group), f"{page_name}/{vo['name']}: slicer has a syncGroup",
+              "without one it filters its own page only")
+        if group:
+            sync_pages.setdefault(group, []).append(page_name)
+        # Must be bound to a column; a measure cannot act as a filter.
+        for state in (vis.get("query", {}).get("queryState", {}) or {}).values():
+            for pr in state.get("projections", []):
+                check("Column" in pr["field"],
+                      f"{page_name}/{vo['name']}: slicer is bound to a column",
+                      f"got {sorted(pr['field'])}")
+    for group, on_pages in sorted(sync_pages.items()):
+        check(len(on_pages) == len(set(on_pages)),
+              f"sync group '{group}' appears at most once per page",
+              str(sorted(on_pages)))
+        check(sorted(set(on_pages)) == all_pages,
+              f"sync group '{group}' is on every page",
+              f"missing from {sorted(set(all_pages) - set(on_pages))}")
+    print(f"  {slicer_count} slicers in {len(sync_pages)} sync groups "
+          f"across {len(all_pages)} pages")
 
 print(f"\n{checks} checks, {len(failures)} failed")
 if failures:

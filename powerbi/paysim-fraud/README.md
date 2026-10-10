@@ -183,8 +183,8 @@ expression). That is the only place in the model that knows where the data is.
 |---|---|
 | `build_dataset.py` | Kaggle CSV → five star-schema CSVs in `data/` |
 | `_gen_model.py` | Regenerates the TMDL semantic model (tables, 38 measures, relationships) |
-| `_gen_report.py` | Regenerates the PBIR report (4 pages, 40 visuals) |
-| `_check_model.py` | 765 static checks: DAX references resolve, partitions match CSV headers, visuals bind to fields that exist, visuals fit the page and do not overlap |
+| `_gen_report.py` | Regenerates the PBIR report (4 pages, 72 visuals, 16 synced slicers) |
+| `_check_model.py` | 1,313 static checks: DAX references resolve, partitions match CSV headers, visuals bind to fields that exist, visuals fit the page and do not overlap at the same z, slicers are column-bound and synced on every page |
 | `_validate_schemas.py` | Validates all 49 JSON files against Microsoft's published Fabric schemas (`pip install jsonschema`) |
 | `../check_tmdl.ps1` | Parses the semantic model with the real Power BI TMDL parser. The only check here that proves Desktop will accept it |
 | `../check_m.py` | Lints the M in every partition: brackets, quotes, no comma before `in`, and step references that resolve |
@@ -195,7 +195,11 @@ so a layout change is an edit to arithmetic rather than to 40 JSON files.
 Hand-editing the generated output is fine; re-running the generator overwrites
 it.
 
-## Report pages
+## The dashboard
+
+Four pages on a 1280x720 canvas. Each has a 236px rail down the left carrying
+the title, page navigation and the filters, and a content area of cards to its
+right.
 
 1. **Scale and shape** — volume and fraud rate by type, the hourly rate curve,
    the fraud rate gradient across amount bands.
@@ -208,6 +212,41 @@ it.
 4. **Data quality** — ledger reconciliation by type, the simulator's uneven duty
    cycle, and the four limits spelled out below. This page is the point, not an
    apology.
+
+72 visuals in total, of which 16 are slicers: four filters repeated on all four
+pages.
+
+### Filters
+
+| Filter | Field | What it is for |
+|---|---|---|
+| Transaction type | `DimTransactionType[TypeName]` | Isolate transfers and cash-outs, the only two types fraud appears in |
+| Amount band | `DimAmountBand[AmountBand]` | Walk up the risk gradient from under 1K to over 10M |
+| Hour of the simulated day | `DimStep[HourBand]` | Split quiet hours from active ones |
+| Full-volume days only | `DimStep[IsFullVolumeDay]` | Restrict to the 14 days the simulator ran at full rate, which is the only honest way to compare days |
+
+Each carries a `syncGroup`, so a selection made on any page applies on all
+four. That is what makes this a dashboard rather than four unrelated pages, and
+it is why the slicers are repeated per page rather than living on one: Power BI
+syncs by group name, not by position. `_check_model.py` verifies every group
+appears exactly once on every page, because a typo in one group name breaks the
+sync silently — the slicer still works, it just stops filtering elsewhere.
+
+The native filter pane is left available alongside the rail and styled to
+match. The rail holds the four filters worth reaching for constantly; the pane
+reaches every other field.
+
+**One deliberate interaction.** Selecting a transaction type other than TRANSFER
+blanks `Fraud Events`, `Fraud Exposure` and `Exposure Detected`. Those measures
+use `KEEPFILTERS` to count each fraud once on its transfer leg, so a CASH_OUT
+context genuinely has no transfer-leg value. The blank is the honest answer; a
+number there would be one that ignored your filter.
+
+**The riskiest visual.** The page navigator in the rail is the one visual type
+here least likely to survive first contact — it is a newer built-in, and the
+PBIR schema does not validate `visualType` strings at all. If it shows an error
+placeholder, delete it: the page tabs along the bottom of the report do the same
+job, and nothing else depends on it.
 
 ## What this data cannot tell you
 
@@ -282,12 +321,12 @@ A third bug surfaced on the next open, from the M engine rather than TMDL:
   so it cannot recur, and `check_m.py` checks for it anyway.
 
 Both spellings were established by testing candidates against the real parser,
-not guessed. 765 static checks also pass, and all 49 JSON files validate against
+not guessed. 1,313 static checks also pass, and all 81 JSON files validate against
 Microsoft's published Fabric schemas; every validator here was tested by
 injecting faults and confirming it fails.
 
 **Still not verified: the report layer, and anything at runtime.** There is no
-redistributable parser for PBIR, so the 4 pages and 40 visuals are proven only
+redistributable parser for PBIR, so the 4 pages and 72 visuals are proven only
 against the published JSON schemas — and those leave `visualType` and data-role
 names as open strings, so a name Power BI does not recognise would pass
 everything above. Nothing here exercises DAX evaluation or a refresh either.

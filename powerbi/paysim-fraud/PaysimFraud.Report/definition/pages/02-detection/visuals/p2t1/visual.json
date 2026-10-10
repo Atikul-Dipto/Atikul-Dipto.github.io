@@ -2,11 +2,11 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
   "name": "p2t1",
   "position": {
-    "x": 16,
-    "y": 512,
-    "z": 0,
-    "width": 616,
-    "height": 192
+    "x": 252,
+    "y": 500,
+    "z": 10,
+    "width": 498,
+    "height": 204
   },
   "visual": {
     "visualType": "textbox",
@@ -20,9 +20,9 @@
                   {
                     "value": "The feature",
                     "textStyle": {
-                      "fontSize": "10pt",
+                      "fontSize": "9.5pt",
                       "fontWeight": "bold",
-                      "color": "#1B1B1B"
+                      "color": "#1B2430"
                     }
                   }
                 ]
@@ -32,8 +32,8 @@
                   {
                     "value": "A fraudulent transfer moves an amount exactly equal to the origin account's opening balance, to the cent. The account is emptied in one move.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
@@ -41,10 +41,10 @@
               {
                 "textRuns": [
                   {
-                    "value": "It holds on 8,034 of 8,213 fraud legs and on 1 of 6,354,407 legitimate ones -- a 63.99 payment to a merchant that left 0.01 behind, which the rule excludes by only considering money out to a customer account.",
+                    "value": "It holds on 8,034 of 8,213 fraud legs and 1 of 6,354,407 legitimate ones -- a 63.99 payment to a merchant that left 0.01 behind, which the rule excludes by only counting money out to a customer account.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
@@ -52,15 +52,172 @@
               {
                 "textRuns": [
                   {
-                    "value": "Caveat: this rule was derived from the same labels it is scored against, so the figures above are in-sample. On real data it would need validating on a held-out period before anyone relied on it.",
+                    "value": "In-sample: the rule was derived from the labels it is scored against. On real data it would need a held-out period before anyone relied on it.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#555555"
+                      "fontSize": "9.5pt",
+                      "color": "#5A6572"
                     }
                   }
                 ]
               }
             ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#FFFFFF'"
+                    }
+                  }
+                }
+              }
+            },
+            "transparency": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#DCE1E6'"
+                    }
+                  }
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "padding": [
+        {
+          "properties": {
+            "top": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "bottom": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "left": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            },
+            "right": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#9AA5B1'"
+                    }
+                  }
+                }
+              }
+            },
+            "transparency": {
+              "expr": {
+                "Literal": {
+                  "Value": "80D"
+                }
+              }
+            },
+            "shadowBlur": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "shadowDistance": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            },
+            "angle": {
+              "expr": {
+                "Literal": {
+                  "Value": "90D"
+                }
+              }
+            },
+            "preset": {
+              "expr": {
+                "Literal": {
+                  "Value": "'BottomRight'"
+                }
+              }
+            }
           }
         }
       ]

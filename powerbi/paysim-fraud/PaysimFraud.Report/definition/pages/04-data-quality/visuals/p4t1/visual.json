@@ -2,10 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
   "name": "p4t1",
   "position": {
-    "x": 16,
+    "x": 252,
     "y": 444,
-    "z": 0,
-    "width": 1248,
+    "z": 10,
+    "width": 1012,
     "height": 260
   },
   "visual": {
@@ -20,9 +20,9 @@
                   {
                     "value": "Four limits worth stating out loud",
                     "textStyle": {
-                      "fontSize": "10pt",
+                      "fontSize": "9.5pt",
                       "fontWeight": "bold",
-                      "color": "#1B1B1B"
+                      "color": "#1B2430"
                     }
                   }
                 ]
@@ -32,8 +32,8 @@
                   {
                     "value": "1. It is synthetic. PaySim is an agent-based simulation of a mobile money network, not a record of anything that happened. Patterns here are the simulator's, and any of them may be an artefact.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
@@ -43,8 +43,8 @@
                   {
                     "value": "2. The ledger does not reconcile. Reading the balance equation in the direction each type implies, it holds on 41% of rows -- 93% of cash-ins but 5% of transfers. Balances cannot be audited, so this model reads the flags instead.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
@@ -54,8 +54,8 @@
                   {
                     "value": "3. There is no calendar. The source has an hour counter and nothing else, so this model has no date table and no dates were invented. Axes are simulated day and hour, and hour is not a wall-clock time.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
@@ -63,15 +63,172 @@
               {
                 "textRuns": [
                   {
-                    "value": "4. Legitimate volume is uneven, fraud injection is not. A fraud rate by day therefore measures the simulator's duty cycle. Use IsFullVolumeDay to compare days honestly.",
+                    "value": "4. Legitimate volume is uneven, fraud injection is not. A fraud rate by day therefore measures the simulator's duty cycle. The full-volume filter on the left restricts to the 14 comparable days.",
                     "textStyle": {
-                      "fontSize": "10pt",
-                      "color": "#333333"
+                      "fontSize": "9.5pt",
+                      "color": "#2B3440"
                     }
                   }
                 ]
               }
             ]
+          }
+        }
+      ]
+    },
+    "visualContainerObjects": {
+      "background": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#FFFFFF'"
+                    }
+                  }
+                }
+              }
+            },
+            "transparency": {
+              "expr": {
+                "Literal": {
+                  "Value": "0D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "border": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#DCE1E6'"
+                    }
+                  }
+                }
+              }
+            },
+            "radius": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "padding": [
+        {
+          "properties": {
+            "top": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "bottom": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "left": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            },
+            "right": {
+              "expr": {
+                "Literal": {
+                  "Value": "8D"
+                }
+              }
+            }
+          }
+        }
+      ],
+      "dropShadow": [
+        {
+          "properties": {
+            "show": {
+              "expr": {
+                "Literal": {
+                  "Value": "true"
+                }
+              }
+            },
+            "color": {
+              "solid": {
+                "color": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'#9AA5B1'"
+                    }
+                  }
+                }
+              }
+            },
+            "transparency": {
+              "expr": {
+                "Literal": {
+                  "Value": "80D"
+                }
+              }
+            },
+            "shadowBlur": {
+              "expr": {
+                "Literal": {
+                  "Value": "6D"
+                }
+              }
+            },
+            "shadowDistance": {
+              "expr": {
+                "Literal": {
+                  "Value": "1D"
+                }
+              }
+            },
+            "angle": {
+              "expr": {
+                "Literal": {
+                  "Value": "90D"
+                }
+              }
+            },
+            "preset": {
+              "expr": {
+                "Literal": {
+                  "Value": "'BottomRight'"
+                }
+              }
+            }
           }
         }
       ]

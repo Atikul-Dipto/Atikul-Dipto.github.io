@@ -11,6 +11,7 @@
   "settings": {
     "useStylableVisualContainerHeader": true,
     "defaultFilterActionIsDataFilter": true,
-    "useEnhancedTooltips": true
+    "useEnhancedTooltips": true,
+    "allowChangeFilterTypes": true
   }
 }
