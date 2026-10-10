@@ -15,3 +15,8 @@ is a published synthetic dataset.
 Each folder has its own README covering the model, the measures, how to build
 the data, and — in both cases explicitly — what has been verified and what has
 not.
+
+[dataset-audits/](dataset-audits/) holds the structural check that runs before
+any of this: whether a dataset can support a claim about the world, or whether
+every "insight" would just restate how the file was generated. It is the reason
+there is no third dashboard built on the E-commerce Customer Behavior set.
