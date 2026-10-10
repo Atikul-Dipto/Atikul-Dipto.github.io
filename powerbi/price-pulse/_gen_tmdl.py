@@ -105,7 +105,11 @@ w(
     ),
 )
 
-BOOL_FMT = '"TRUE";;"FALSE"'
+# TMDL reads a property value starting with a double quote as an escaped
+# quoted string, with inner quotes doubled. Written the obvious way the
+# parser rejects the whole model. Verified against the real TmdlSerializer
+# -- see ../check_tmdl.ps1.
+BOOL_FMT = '"""TRUE"";;""FALSE"""'
 
 cols = (
     col("ObservationKey", "int64", hidden=True, key=True)

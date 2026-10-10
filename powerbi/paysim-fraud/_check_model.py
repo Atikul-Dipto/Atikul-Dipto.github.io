@@ -130,6 +130,32 @@ for tn, t in tables.items():
                 check(val in vals, f"{mname}: {tbl}[{col}] = \"{val}\" is a real value",
                       f"actual: {sorted(vals)[:6]}")
 
+print("\n-- TMDL value quoting and description placement --")
+# Both of these made Power BI Desktop reject an entire model outright.
+# check_tmdl.ps1 proves the real parser accepts the files; these two rules
+# catch the specific mistakes without needing PowerShell.
+for path in sorted(DEFN.rglob("*.tmdl")):
+    tmdl_lines = path.read_text(encoding="utf-8").splitlines()
+    for idx, line in enumerate(tmdl_lines):
+        m = re.match(r"\s*(\w+):\s*(\S.*)$", line)
+        if m and m.group(2).startswith('"'):
+            value = m.group(2)
+            # A leading quote makes TMDL read the value as an escaped quoted
+            # string: it must open and close with a quote and double every
+            # inner one. 'formatString: "TRUE";;"FALSE"' does not, and is
+            # fatal to the whole model.
+            inner = value[1:-1] if len(value) >= 2 else value
+            ok = (len(value) >= 2 and value.endswith('"')
+                  and '"' not in inner.replace('""', ""))
+            check(ok, f"{path.name}:{idx + 1} `{m.group(1)}` value is a "
+                      f"correctly escaped TMDL string", line.strip())
+        if line.strip().startswith("///"):
+            nxt = next((x for x in tmdl_lines[idx + 1:]
+                        if not x.strip().startswith("///")), "")
+            check(not re.match(r"\s*relationship\b", nxt),
+                  f"{path.name}:{idx + 1} description is not attached to a "
+                  f"relationship (relationships have no Description property)")
+
 print("\n-- relationships --")
 rel_text = (DEFN / "relationships.tmdl").read_text(encoding="utf-8")
 rels = re.findall(r"relationship (\S+)\n\tfromColumn: (\S+)\.(\S+)\n\ttoColumn: (\S+)\.(\S+)",

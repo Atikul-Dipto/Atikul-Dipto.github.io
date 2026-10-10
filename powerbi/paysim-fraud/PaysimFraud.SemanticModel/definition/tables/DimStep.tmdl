@@ -54,7 +54,7 @@ table DimStep
 	/// True on the 14 days the simulator generated a full load of legitimate traffic. Fraud injection is near constant, so fraud RATE on the other 17 days measures the simulator, not risk.
 	column IsFullVolumeDay
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsFullVolumeDay
 

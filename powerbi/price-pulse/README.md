@@ -134,6 +134,23 @@ clean, `IsLatest` resolves to exactly one row per product, and the UTF-8
 round-trip preserves Bangla product names. The three JSON scaffolding files
 validate against Microsoft's published Fabric schemas.
 
-The **TMDL has not been opened in Power BI Desktop** — it was written by hand
-against the documented format, and there is no Desktop install here to test it.
-Expect to fix small things on first open; the fallback above is the backstop.
+**The TMDL now parses with the parser Power BI actually uses.**
+`../check_tmdl.ps1` runs `Microsoft.AnalysisServices.Tabular.TmdlSerializer`
+over the model — the same code path Desktop takes opening a `.pbip` — and it
+reports 4 tables, 31 columns, 15 measures, 3 relationships, 1 expression.
+
+It did not, at first. Two bugs had to be fixed, both of which made Desktop
+refuse the entire model:
+
+- `formatString: "TRUE";;"FALSE"` on the four boolean columns. TMDL reads a
+  value starting with a double quote as an escaped quoted string, with inner
+  quotes doubled, so the correct spelling is
+  `formatString: """TRUE"";;""FALSE"""`.
+- A `///` note above the first `relationship` in `relationships.tmdl`.
+  Relationships have no `Description` in the object model, and TMDL has no
+  plain-comment form, so that reasoning now lives in the Model section above
+  instead of in the file.
+
+What is still unproven is anything at runtime: no refresh has been run and no
+DAX has been evaluated here. The fallback above remains the backstop if a
+measure or an M query needs correcting on first open.

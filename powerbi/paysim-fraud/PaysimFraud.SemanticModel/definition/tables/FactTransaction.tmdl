@@ -80,7 +80,7 @@ table FactTransaction
 	/// The ground-truth label supplied with the dataset.
 	column IsFraud
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsFraud
 
@@ -89,7 +89,7 @@ table FactTransaction
 	/// The bank's own rule fired and blocked the transfer. All 16 rows that carry it show the origin balance unchanged, which is what 'blocked' looks like in the ledger.
 	column IsFlaggedFraud
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsFlaggedFraud
 
@@ -98,7 +98,7 @@ table FactTransaction
 	/// Amount equals the origin's opening balance to the cent, on money out to a customer account: the account was emptied in one move. Derived in build_dataset.py, not supplied with the dataset.
 	column IsFullAccountDrain
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsFullAccountDrain
 
@@ -107,7 +107,7 @@ table FactTransaction
 	/// The row's own arithmetic adds up, reading the balance equation in the direction the type implies. True on only ~41% of rows.
 	column LedgerReconciles
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: LedgerReconciles
 
@@ -116,7 +116,7 @@ table FactTransaction
 	/// Destination balance is zero both before and after -- structurally missing rather than genuinely zero.
 	column DestBalanceAbsent
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: DestBalanceAbsent
 

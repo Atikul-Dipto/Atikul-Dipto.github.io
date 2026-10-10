@@ -76,7 +76,7 @@ table FactPriceObservation
 
 	column IsSuspectPrice
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsSuspectPrice
 
@@ -93,7 +93,7 @@ table FactPriceObservation
 	column HasOriginalPrice
 		dataType: boolean
 		isHidden
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: HasOriginalPrice
 
@@ -102,7 +102,7 @@ table FactPriceObservation
 	column HasDiscount
 		dataType: boolean
 		isHidden
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: HasDiscount
 
@@ -112,7 +112,7 @@ table FactPriceObservation
 	column IsLatest
 		dataType: boolean
 		isHidden
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: IsLatest
 

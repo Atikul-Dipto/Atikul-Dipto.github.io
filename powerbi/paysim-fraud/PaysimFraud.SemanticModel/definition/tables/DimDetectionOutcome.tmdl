@@ -28,7 +28,7 @@ table DimDetectionOutcome
 
 	column WasFraud
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: WasFraud
 
@@ -36,7 +36,7 @@ table DimDetectionOutcome
 
 	column AlertRaised
 		dataType: boolean
-		formatString: "TRUE";;"FALSE"
+		formatString: """TRUE"";;""FALSE"""
 		summarizeBy: none
 		sourceColumn: AlertRaised
 

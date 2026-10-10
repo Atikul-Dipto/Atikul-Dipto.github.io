@@ -184,8 +184,9 @@ expression). That is the only place in the model that knows where the data is.
 | `build_dataset.py` | Kaggle CSV → five star-schema CSVs in `data/` |
 | `_gen_model.py` | Regenerates the TMDL semantic model (tables, 38 measures, relationships) |
 | `_gen_report.py` | Regenerates the PBIR report (4 pages, 40 visuals) |
-| `_check_model.py` | 696 static checks: DAX references resolve, partitions match CSV headers, visuals bind to fields that exist, visuals fit the page and do not overlap |
+| `_check_model.py` | 765 static checks: DAX references resolve, partitions match CSV headers, visuals bind to fields that exist, visuals fit the page and do not overlap |
 | `_validate_schemas.py` | Validates all 49 JSON files against Microsoft's published Fabric schemas (`pip install jsonschema`) |
+| `../check_tmdl.ps1` | Parses the semantic model with the real Power BI TMDL parser. The only check here that proves Desktop will accept it |
 
 The model and report are generated rather than hand-written so that the
 measures all live in one reviewable file instead of scattered across TMDL, and
@@ -244,24 +245,43 @@ admin must enable it. Import mode only, which this model is.
 
 ## Honesty note
 
-**Verified, by `build_dataset.py`, `_check_model.py`, `_validate_schemas.py` and
-a separate round-trip script:** row count, amount total, per-type counts, fraud
-count and flagged count all survive the export unchanged; referential integrity
-is clean across all four keys with zero orphans; every dimension key is unique;
-the fact has no nulls; every amount falls inside its declared band; both rules'
-confusion matrices recompute from the exported fact alone; no CSV carries a BOM;
-696 static checks on the model and report pass; and all 49 JSON files validate
-against Microsoft's published Fabric schemas. Both validators were tested by
-injecting faults and confirming they fail.
+**The data export is verified** by `build_dataset.py` and a separate round-trip
+script: row count, amount total, per-type counts, fraud count and flagged count
+all survive the export unchanged; referential integrity is clean across all four
+keys with zero orphans; every dimension key is unique; the fact has no nulls;
+every amount falls inside its declared band; both rules' confusion matrices
+recompute from the exported fact alone; and no CSV carries a BOM.
 
-**Not verified: this project has never been opened in Power BI Desktop.** There
-is no Desktop install on the machine it was written on. The TMDL and PBIR were
-written against the documented formats and checked as far as static analysis
-reaches, but two classes of error survive that: a `visualType` or data-role name
-that Power BI does not recognise (the schema leaves both open strings), and
-anything about DAX evaluation or refresh behaviour. Expect to fix small things
-on first open.
+**The semantic model is verified against the parser Power BI actually uses.**
+`check_tmdl.ps1` runs `Microsoft.AnalysisServices.Tabular.TmdlSerializer` over
+the TMDL — the same code path Desktop takes when it opens a `.pbip` — and it
+parses: 5 tables, 36 columns, 38 measures, 4 relationships, 1 expression. So
+Desktop will not reject this model on a format error.
 
-If the project will not open at all, the CSVs are the real deliverable: load the
+That check exists because the first version of this project *was* rejected, and
+static analysis had no way to see why. Two bugs, both fatal to the whole model:
+
+- `formatString: "TRUE";;"FALSE"` — TMDL reads any value starting with a double
+  quote as an escaped quoted string and escapes inner quotes by doubling them,
+  so the obvious spelling is a parse error. Correct:
+  `formatString: """TRUE"";;""FALSE"""`. This was in 8 places here and 4 in
+  Price Pulse.
+- A `///` note above a `relationship` — relationships have no `Description` in
+  the object model. TMDL has no plain-comment form either, so notes about
+  relationships belong in a README. (This one was in Price Pulse.)
+
+Both spellings were established by testing candidates against the real parser,
+not guessed. 765 static checks also pass, and all 49 JSON files validate against
+Microsoft's published Fabric schemas; every validator here was tested by
+injecting faults and confirming it fails.
+
+**Still not verified: the report layer, and anything at runtime.** There is no
+redistributable parser for PBIR, so the 4 pages and 40 visuals are proven only
+against the published JSON schemas — and those leave `visualType` and data-role
+names as open strings, so a name Power BI does not recognise would pass
+everything above. Nothing here exercises DAX evaluation or a refresh either.
+Expect to fix small things on first open.
+
+If the project still will not open, the CSVs are the real deliverable: load the
 five files, create the four relationships above, and paste the measures from
 `PaysimFraud.SemanticModel/definition/tables/FactTransaction.tmdl`.

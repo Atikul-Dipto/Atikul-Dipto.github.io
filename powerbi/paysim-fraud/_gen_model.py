@@ -20,6 +20,12 @@ FACT = "FactTransaction"
 # in the generated expressions.tmdl (or here and regenerate) if the repo moves.
 DATA_FOLDER = str(ROOT / "data").replace("/", "\\")
 
+# TMDL reads a property value starting with a double quote as an escaped
+# quoted string, with inner quotes doubled. Written the obvious way, as
+# '"TRUE";;"FALSE"', the parser rejects the whole model. Verified against
+# the real TmdlSerializer -- see ../check_tmdl.ps1.
+BOOL_FMT = '"""TRUE"";;""FALSE"""'
+
 
 def write(path: Path, text: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -124,7 +130,7 @@ write(TABLES / "DimStep.tmdl",
             desc="Quiet hours (1-8) carry under a tenth of the peak hour's volume. "
                  "Derived from volume, not from an assumed business day.")
       + col("DayLabel", "string", sort="SimDay")
-      + col("IsFullVolumeDay", "boolean", fmt='"TRUE";;"FALSE"',
+      + col("IsFullVolumeDay", "boolean", fmt=BOOL_FMT,
             desc="True on the 14 days the simulator generated a full load of "
                  "legitimate traffic. Fraud injection is near constant, so fraud "
                  "RATE on the other 17 days measures the simulator, not risk.")
@@ -154,8 +160,8 @@ write(TABLES / "DimDetectionOutcome.tmdl",
                  "isFlaggedFraud rule. The 'Alert raised, legitimate' row exists "
                  "with zero rows behind it on purpose: that zero is the finding.")
       + col("ConfusionCell", "string", sort="OutcomeSortOrder")
-      + col("WasFraud", "boolean", fmt='"TRUE";;"FALSE"')
-      + col("AlertRaised", "boolean", fmt='"TRUE";;"FALSE"')
+      + col("WasFraud", "boolean", fmt=BOOL_FMT)
+      + col("AlertRaised", "boolean", fmt=BOOL_FMT)
       + col("OutcomeSortOrder", "int64", hidden=True, fmt="0")
       + partition("DimDetectionOutcome",
                   [("OutcomeKey", "Int64.Type"), ("Outcome", "type text"),
@@ -182,20 +188,20 @@ fact_cols = (
           desc="Destination balance before. Always 0 for PAYMENT -- merchant "
                "balances are not recorded. See DestBalanceAbsent.")
     + col("NewBalanceDest", "double", fmt=MONEY, desc="Destination balance after.")
-    + col("IsFraud", "boolean", fmt='"TRUE";;"FALSE"',
+    + col("IsFraud", "boolean", fmt=BOOL_FMT,
           desc="The ground-truth label supplied with the dataset.")
-    + col("IsFlaggedFraud", "boolean", fmt='"TRUE";;"FALSE"',
+    + col("IsFlaggedFraud", "boolean", fmt=BOOL_FMT,
           desc="The bank's own rule fired and blocked the transfer. All 16 rows "
                "that carry it show the origin balance unchanged, which is what "
                "'blocked' looks like in the ledger.")
-    + col("IsFullAccountDrain", "boolean", fmt='"TRUE";;"FALSE"',
+    + col("IsFullAccountDrain", "boolean", fmt=BOOL_FMT,
           desc="Amount equals the origin's opening balance to the cent, on money "
                "out to a customer account: the account was emptied in one move. "
                "Derived in build_dataset.py, not supplied with the dataset.")
-    + col("LedgerReconciles", "boolean", fmt='"TRUE";;"FALSE"',
+    + col("LedgerReconciles", "boolean", fmt=BOOL_FMT,
           desc="The row's own arithmetic adds up, reading the balance equation in "
                "the direction the type implies. True on only ~41% of rows.")
-    + col("DestBalanceAbsent", "boolean", fmt='"TRUE";;"FALSE"',
+    + col("DestBalanceAbsent", "boolean", fmt=BOOL_FMT,
           desc="Destination balance is zero both before and after -- structurally "
                "missing rather than genuinely zero.")
 )
