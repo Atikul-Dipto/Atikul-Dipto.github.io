@@ -1,9 +1,11 @@
 table DimTransactionType
+	lineageTag: 76bb7af8-e7cb-4c1d-a4f8-969c2fe63008
 
 	column TypeKey
 		dataType: int64
 		isHidden
 		isKey
+		lineageTag: f734fa52-c9dd-4b1d-a711-fb6ae2a3b30c
 		summarizeBy: none
 		sourceColumn: TypeKey
 
@@ -12,6 +14,7 @@ table DimTransactionType
 	/// The five PaySim transaction types.
 	column TypeName
 		dataType: string
+		lineageTag: 02a4f012-26a9-4440-9447-6ac3ed3150a5
 		summarizeBy: none
 		sourceColumn: TypeName
 		sortByColumn: TypeSortOrder
@@ -21,6 +24,7 @@ table DimTransactionType
 	/// Whether the type credits or debits the origin account. Reading the balance equation in the wrong direction is the easiest way to mis-measure this dataset.
 	column Direction
 		dataType: string
+		lineageTag: b469b815-bd90-4835-9421-24e237eae9f9
 		summarizeBy: none
 		sourceColumn: Direction
 
@@ -29,6 +33,7 @@ table DimTransactionType
 	/// PAYMENT always lands on a merchant account; every other type lands on a customer account.
 	column DestinationKind
 		dataType: string
+		lineageTag: 6d9f2cd3-4616-43dd-85b4-fde52ea1d117
 		summarizeBy: none
 		sourceColumn: DestinationKind
 
@@ -38,6 +43,7 @@ table DimTransactionType
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: ed7dbe61-9db0-45a9-bc82-09cca6065ed6
 		summarizeBy: none
 		sourceColumn: TypeSortOrder
 
@@ -54,3 +60,4 @@ table DimTransactionType
 				    Typed
 
 	annotation PBI_ResultType = Table
+

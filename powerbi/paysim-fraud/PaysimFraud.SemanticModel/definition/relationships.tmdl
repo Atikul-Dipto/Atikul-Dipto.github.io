@@ -13,3 +13,4 @@ relationship DimAmountBand_FactTransaction
 relationship DimDetectionOutcome_FactTransaction
 	fromColumn: FactTransaction.OutcomeKey
 	toColumn: DimDetectionOutcome.OutcomeKey
+

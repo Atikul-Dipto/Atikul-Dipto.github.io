@@ -427,3 +427,107 @@ LEFT JOIN delivered x USING (day)
 ORDER BY d.day;`,
   },
 ]
+
+const POWERBI_REPO =
+  'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/powerbi'
+
+// Power BI case studies. Content only -- the Dashboards section decides how to
+// present it, and renders an honest placeholder for any dashboard whose
+// embedUrl is still null rather than implying a live report exists.
+//
+// To go live: Power BI Desktop -> Publish -> My Workspace, then File ->
+// Embed report -> Publish to web (public), and paste the iframe src here.
+// Nothing else needs changing.
+export const dashboards = [
+  {
+    id: 'paysim-fraud',
+    title: 'Mobile money fraud detection',
+    dataset: 'PaySim synthetic mobile-money log (Kaggle), 6,362,620 transactions',
+    purpose:
+      'Score the fraud rule a bank already has against the ground truth, and test whether a single derived feature does better.',
+    question: 'Is the detection rule in production actually catching fraud?',
+    findings: [
+      {
+        headline: 'The existing rule catches 16 of 8,213 frauds',
+        detail:
+          'Perfect precision, 0.195% recall. It stopped 77.8M and let 11.98bn through.',
+      },
+      {
+        headline: 'One derived feature reaches 97.8% recall with zero false positives',
+        detail:
+          'The amount moved equals the origin account\u2019s opening balance to the cent \u2014 the account emptied in one move. True on 8,034 of 8,213 fraud legs and 1 of 6,354,407 legitimate ones. A 502x lift in recall.',
+      },
+      {
+        headline: 'Overnight transactions are 422x likelier to be fraud',
+        detail:
+          'Fraud volume holds steady around the clock while legitimate volume collapses, so the rate runs 0.053% to 22.3% across the simulated day. A staffing conclusion, not a blocking one.',
+      },
+    ],
+    build: [
+      ['Model', 'Star schema: one 6.36M-row fact, four dimensions, four single-direction relationships'],
+      ['Measures', '38 DAX measures in six display folders, every one using KEEPFILTERS so it cannot contradict the reader\u2019s own filter'],
+      ['Format', 'Power BI Project (PBIP) \u2014 TMDL semantic model and PBIR report, both plain text and reviewable in git rather than sealed in a .pbix'],
+      ['Pipeline', 'Python builds the star schema from the raw CSV and flags its own data-quality defects'],
+      ['Dashboard', '4 pages, 72 visuals, 4 slicers synced across every page'],
+    ],
+    tags: ['Power BI', 'DAX', 'TMDL', 'Star schema', 'Python'],
+    caveats: [
+      'The data is synthetic. PaySim simulates a mobile money network; it is not a record of anything that happened, and no employer data is involved.',
+      'The 97.8% figure is in-sample: the rule was derived from the same labels it is scored against. On real data it would need a held-out period first.',
+    ],
+    highlights: [
+      ['16 of 8,213', 'caught by the existing rule'],
+      ['97.8%', 'recall from one derived feature'],
+      ['0', 'false positives, either rule'],
+      ['422x', 'overnight fraud-rate spread'],
+    ],
+    repoHref: `${POWERBI_REPO}/paysim-fraud`,
+    embedUrl: null,
+    status: 'built',
+  },
+  {
+    id: 'price-pulse',
+    title: 'Price Pulse \u2014 retail assortment and pricing',
+    dataset: 'My own Selenium scraper, 2,211 observations across 6 Bangladesh marketplaces',
+    purpose:
+      'Compare how six marketplaces price and discount, on data from a pipeline I wrote and therefore have to audit.',
+    question: 'What can a two-day scrape honestly tell you, and what can it not?',
+    findings: [
+      {
+        headline: 'The scraper had a selector bug, and the dashboard found it',
+        detail:
+          'Pickaboo prices arrive as two numbers concatenated: 194500195000 is the sale price and the was-price glued together. It affects 17 of Pickaboo\u2019s 154 observations and almost nothing elsewhere.',
+      },
+      {
+        headline: 'Cross-retailer price comparison is not possible here',
+        detail:
+          'Only 2 of 750 distinct product names appear at more than one retailer, so the model compares assortments and pricing behaviour instead of the same basket.',
+      },
+      {
+        headline: 'Two distinct scrape days means no trend',
+        detail:
+          'A Days With Data measure exists so a page can state its own limit rather than drawing a two-point line and calling it a trend.',
+      },
+    ],
+    build: [
+      ['Model', 'Star schema over the scraper\u2019s SQLite: fact plus product, retailer and date dimensions'],
+      ['Measures', '15 DAX measures across volume, pricing, discounting and data quality'],
+      ['Data quality', 'Suspect rows keep a blank price, so every price aggregation drops them automatically \u2014 no filter to remember'],
+      ['Pipeline', 'Selenium scraper into SQLite, then a Python export to the star schema'],
+    ],
+    tags: ['Power BI', 'DAX', 'TMDL', 'Selenium', 'SQLite'],
+    caveats: [
+      'Public product listings I scraped myself. No employer data.',
+      'A two-day snapshot. The time dimension becomes worth using once the scraper has run daily for a few weeks.',
+    ],
+    highlights: [
+      ['2,211', 'price observations'],
+      ['6', 'marketplaces'],
+      ['11%', 'of one retailer\u2019s rows caught as malformed'],
+      ['15', 'DAX measures'],
+    ],
+    repoHref: `${POWERBI_REPO}/price-pulse`,
+    embedUrl: null,
+    status: 'built',
+  },
+]

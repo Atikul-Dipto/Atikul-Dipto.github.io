@@ -5,6 +5,7 @@ import About from './components/About'
 import Skills from './components/Skills'
 import Experience from './components/Experience'
 import Projects from './components/Projects'
+import Dashboards from './components/Dashboards'
 import TrendDivider from './components/TrendDivider'
 import SqlShowcase from './components/SqlShowcase'
 import Writing from './components/Writing'
@@ -25,6 +26,7 @@ function App() {
         <Experience />
         <TrendDivider seed={23} label="Built, shipped, measured" />
         <Projects />
+        <Dashboards />
         <SqlShowcase />
         <Writing />
         <Contact />

@@ -1,9 +1,11 @@
 table DimDetectionOutcome
+	lineageTag: a9da5cb6-fc1c-4be5-b760-6deb0d369b71
 
 	column OutcomeKey
 		dataType: int64
 		isHidden
 		isKey
+		lineageTag: 5379ca0a-60d8-4d7e-b298-5cc27c4e85e2
 		summarizeBy: none
 		sourceColumn: OutcomeKey
 
@@ -12,6 +14,7 @@ table DimDetectionOutcome
 	/// The four cells of the confusion matrix for the bank's own isFlaggedFraud rule. The 'Alert raised, legitimate' row exists with zero rows behind it on purpose: that zero is the finding.
 	column Outcome
 		dataType: string
+		lineageTag: 4dcef560-95ee-4817-8e52-228d276e5641
 		summarizeBy: none
 		sourceColumn: Outcome
 		sortByColumn: OutcomeSortOrder
@@ -20,6 +23,7 @@ table DimDetectionOutcome
 
 	column ConfusionCell
 		dataType: string
+		lineageTag: 3d089c1d-70c1-470a-96c5-690683dce9a0
 		summarizeBy: none
 		sourceColumn: ConfusionCell
 		sortByColumn: OutcomeSortOrder
@@ -29,6 +33,7 @@ table DimDetectionOutcome
 	column WasFraud
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: d3116781-c2a8-41e6-8d5b-4b3ebfc174f2
 		summarizeBy: none
 		sourceColumn: WasFraud
 
@@ -37,6 +42,7 @@ table DimDetectionOutcome
 	column AlertRaised
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: 8d1c51ee-d75b-4ad9-b2b6-2368a583098d
 		summarizeBy: none
 		sourceColumn: AlertRaised
 
@@ -46,6 +52,7 @@ table DimDetectionOutcome
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: 102419aa-39c0-480b-8f0a-53ec4ac8c0e0
 		summarizeBy: none
 		sourceColumn: OutcomeSortOrder
 
@@ -63,3 +70,4 @@ table DimDetectionOutcome
 				    Flags
 
 	annotation PBI_ResultType = Table
+

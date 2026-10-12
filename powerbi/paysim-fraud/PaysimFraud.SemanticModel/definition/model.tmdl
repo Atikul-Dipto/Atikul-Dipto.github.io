@@ -9,8 +9,18 @@ model Model
 
 annotation PBI_QueryOrder = ["DataFolder","DimTransactionType","DimStep","DimAmountBand","DimDetectionOutcome","FactTransaction"]
 
+annotation __PBI_TimeIntelligenceEnabled = 1
+
+annotation PBIDesktopVersion = 2.131.901.0 (24.07)
+
+annotation PBI_ProTooling = ["DevMode"]
+
 ref table DimTransactionType
 ref table DimStep
 ref table DimAmountBand
 ref table DimDetectionOutcome
 ref table FactTransaction
+ref table DateTableTemplate_b5855233-f708-46a1-a3aa-a13acf0ee312
+
+ref cultureInfo en-US
+

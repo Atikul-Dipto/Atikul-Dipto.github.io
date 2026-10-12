@@ -2,5 +2,7 @@
 /// this model that knows where the data lives -- repoint it if you move the
 /// repo or rebuild the data elsewhere.
 expression DataFolder = "D:\Atikul-Dipto.github.io\powerbi\paysim-fraud\data" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]
+	lineageTag: 39313f61-c7c8-43fd-80ef-32483aabd41a
 
 	annotation PBI_ResultType = Text
+

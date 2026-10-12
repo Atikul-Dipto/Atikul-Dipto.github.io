@@ -2668,3 +2668,315 @@ main {
     transition: none;
   }
 }
+
+/* ---------- Dashboards ------------------------------------------------- */
+/* Power BI case studies. Each one is a long card: question, headline
+   numbers, the embed (or an honest placeholder when nothing is published),
+   then findings against build notes, then caveats. */
+
+.dashboards {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.5rem);
+  margin-top: 2rem;
+}
+
+.dash {
+  position: relative;
+  padding: clamp(1.25rem, 2.6vw, 2rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  backdrop-filter: var(--glass-blur);
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.6s ease var(--delay), transform 0.6s ease var(--delay);
+}
+
+.dash.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dash {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
+.dash__head h3 {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+  color: var(--text-strong);
+}
+
+.dash__question {
+  margin: 0.35rem 0 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  background: var(--grad-ink);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dash__purpose {
+  margin: 0.5rem 0 0;
+  max-width: 62ch;
+  color: var(--text);
+}
+
+.dash__dataset {
+  margin: 0.6rem 0 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+.dash__dataset span {
+  display: inline-block;
+  margin-right: 0.45rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--accent-bg);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+/* Headline numbers. Four across on a wide screen, two on a phone. */
+.dash__highlights {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin: 1.25rem 0 0;
+}
+
+.dash__highlight {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-strong);
+}
+
+.dash__highlight dt {
+  font-size: clamp(1.15rem, 2.2vw, 1.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--accent-strong);
+  font-variant-numeric: tabular-nums;
+}
+
+.dash__highlight dd {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ---------- the embed, and its absence ---------- */
+
+.dash__embed {
+  position: relative;
+  margin: 1.25rem 0 0;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--screenshot-bg);
+}
+
+.dash__embed:not(.dash__embed--pending)::before {
+  content: '';
+  display: block;
+  padding-top: var(--aspect, 56.25%);
+}
+
+.dash__embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.dash__embed-loading {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--bone);
+  font-size: 0.85rem;
+}
+
+.dash__embed--pending {
+  background: linear-gradient(
+    135deg,
+    rgba(92, 118, 109, 0.08),
+    rgba(201, 153, 107, 0.1)
+  );
+  border-style: dashed;
+}
+
+.dash__pending {
+  padding: clamp(1.1rem, 2.4vw, 1.75rem);
+  display: grid;
+  gap: 0.7rem;
+  justify-items: start;
+}
+
+.dash__pending p {
+  margin: 0;
+  max-width: 64ch;
+  color: var(--text);
+}
+
+.dash__pending-badge {
+  padding: 0.22rem 0.6rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--camel-ink);
+}
+
+/* ---------- findings against build notes ---------- */
+
+.dash__cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: clamp(1rem, 2.4vw, 2rem);
+  margin-top: 1.5rem;
+}
+
+.dash__col h4,
+.dash__caveats h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.dash__findings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.dash__findings li {
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--accent-border);
+}
+
+.dash__findings strong {
+  display: block;
+  color: var(--text-strong);
+}
+
+.dash__findings span {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.dash__build {
+  margin: 0;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.dash__build dt {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+}
+
+.dash__build dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+/* ---------- caveats and links ---------- */
+
+.dash__foot {
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 1.25rem;
+}
+
+.dash__caveats ul {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.dash__caveats li {
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  max-width: 72ch;
+}
+
+.dash__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dash__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.dash__link {
+  padding: 0.5rem 0.95rem;
+  border: 1px solid var(--accent-border);
+  border-radius: 999px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--accent-strong);
+  background: var(--surface-strong);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dash__link:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow);
+}
+
+.dash__link--primary {
+  border-color: transparent;
+  background: var(--btn-grad);
+  color: var(--btn-text);
+  box-shadow: var(--btn-shadow);
+}
+
+.dash__link--primary:hover {
+  background: var(--btn-grad-hover);
+}
+
+@media (max-width: 560px) {
+  .dash__meta {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

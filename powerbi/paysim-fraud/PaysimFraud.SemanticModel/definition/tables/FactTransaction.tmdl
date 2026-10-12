@@ -1,8 +1,238 @@
 table FactTransaction
+	lineageTag: b55f152d-5e60-4bfc-8acb-fc23c562be00
+
+	/// Rows in the current filter context. One row is one transaction leg.
+	measure Transactions = COUNTROWS('FactTransaction')
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: 828473b2-a869-4270-a764-4a82af02bb2c
+
+	/// Total amount moved. Unitless: PaySim names no currency.
+	measure 'Transaction Value' = SUM('FactTransaction'[Amount])
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: b0663253-5e0c-4ac8-8b61-968e6f11598d
+
+	/// Mean amount. Read next to the median -- this distribution is heavily skewed.
+	measure 'Average Transaction' = AVERAGE('FactTransaction'[Amount])
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: da254c16-b2c4-4030-a37a-08c8f956c32b
+
+	/// Median amount.
+	measure 'Median Transaction' = MEDIAN('FactTransaction'[Amount])
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: 79b1806d-50e2-473d-b435-bb672d44bfe6
+
+	/// Simulated days with at least one transaction in context.
+	measure 'Days Observed' = COUNTROWS(SUMMARIZE('FactTransaction', DimStep[SimDay]))
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: e9bfe330-3aa2-4f1a-a029-8c03ce760a34
+
+	/// Simulated hours with at least one transaction in context.
+	measure 'Hours Observed' = DISTINCTCOUNT('FactTransaction'[StepKey])
+		formatString: #,0
+		displayFolder: 01 Volume
+		lineageTag: 60f7960c-daf1-45b0-b657-b864d2d23cc1
+
+	/// Rows labelled fraudulent. A leg, not an event: each fraud is committed as a TRANSFER out of the victim and a CASH_OUT of the same amount.
+	measure 'Fraud Legs' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 02 Fraud
+		lineageTag: b4baa1c1-5a7c-4712-88ad-effe7cb57b35
+
+	/// Share of rows labelled fraudulent.
+	measure 'Fraud Rate %' = DIVIDE([Fraud Legs], [Transactions])
+		formatString: 0.000%
+		displayFolder: 02 Fraud
+		lineageTag: b017f135-7e16-477a-bb6f-be0587dd7587
+
+	/// Fraud counted once per event by taking only the TRANSFER leg. Blank if the context already excludes TRANSFER, which is the honest answer rather than a number that ignores your filter.
+	measure 'Fraud Events' = CALCULATE([Fraud Legs], KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"))
+		formatString: #,0
+		displayFolder: 02 Fraud
+		lineageTag: 2f4ff282-1b84-4bad-b9ab-424b0685b588
+
+	/// Money stolen, counted once, by summing the TRANSFER leg only. This is the number to quote -- not Fraud Leg Value.
+	measure 'Fraud Exposure' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"))
+		formatString: #,0
+		displayFolder: 02 Fraud
+		lineageTag: d8a4dc2b-ad71-42e0-90ad-c3f46a929940
+
+	/// Sum of amount over every fraud row. Double counts the money, because each fraud appears twice. Shown next to Fraud Exposure to make that visible.
+	measure 'Fraud Leg Value' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 02 Fraud
+		lineageTag: 6dd15d86-ae41-4efb-afa9-4e3decb789ed
+
+	/// How much of a naive SUM over fraud rows is the same money counted twice.
+	measure 'Leg Double Count %' = DIVIDE([Fraud Leg Value] - [Fraud Exposure], [Fraud Leg Value])
+		formatString: 0.0%
+		displayFolder: 02 Fraud
+		lineageTag: b80a1a70-8141-40aa-b605-979296b50af3
+
+	/// Times the bank's existing rule fired.
+	measure 'Alerts Raised' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: cabaebeb-811c-4466-bbf1-0e3b04621e64
+
+	/// True positives.
+	measure 'Fraud Caught' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: 80d0322a-a256-400b-9274-0307930a5e78
+
+	/// False negatives.
+	measure 'Fraud Missed' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = FALSE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: 1b8e432d-dda0-41ee-884c-c14d4a4b45be
+
+	/// False positives. Zero across the whole dataset: the rule never once fired on a legitimate transaction.
+	measure 'False Alarms' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = FALSE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: 4adc8126-b671-450e-9c65-e876e9b04d3e
+
+	/// Share of fraud the existing rule catches.
+	measure 'Bank Rule Recall %' = DIVIDE([Fraud Caught], [Fraud Legs])
+		formatString: 0.000%
+		displayFolder: 03 Bank rule
+		lineageTag: 5d99c5d1-5c74-4b1b-b94f-35a1b0431731
+
+	/// Share of its alerts that were really fraud.
+	measure 'Bank Rule Precision %' = DIVIDE([Fraud Caught], [Alerts Raised])
+		formatString: 0.0%
+		displayFolder: 03 Bank rule
+		lineageTag: 5ebc1a7f-074b-4325-8d56-5a5535d8e55d
+
+	/// Amount on the fraud rows the rule stopped.
+	measure 'Value Caught' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: af9372bc-60c8-4ab4-8e8b-de0d31a0b0a7
+
+	/// Amount on the fraud rows it did not.
+	measure 'Value Missed' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = FALSE()))
+		formatString: #,0
+		displayFolder: 03 Bank rule
+		lineageTag: b2eb64cf-f2bc-4a29-acd5-08a936b9846c
+
+	/// Rows the proposed rule would flag: amount equals the origin's whole opening balance, on money out to a customer account.
+	measure 'Drain Rule Alerts' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()))
+		formatString: #,0
+		displayFolder: 04 Drain rule
+		lineageTag: 339cc031-5627-4a59-8803-d0b37e295e25
+
+	/// True positives for the proposed rule.
+	measure 'Drain Rule Caught' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
+		formatString: #,0
+		displayFolder: 04 Drain rule
+		lineageTag: 67e29db1-317f-4407-be5a-512a7da731d4
+
+	/// False positives for the proposed rule.
+	measure 'Drain Rule False Alarms' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()), KEEPFILTERS('FactTransaction'[IsFraud] = FALSE()))
+		formatString: #,0
+		displayFolder: 04 Drain rule
+		lineageTag: 6df8a64d-ea55-4137-ba35-d237bad578a6
+
+	/// Share of fraud the proposed rule would catch.
+	measure 'Drain Rule Recall %' = DIVIDE([Drain Rule Caught], [Fraud Legs])
+		formatString: 0.0%
+		displayFolder: 04 Drain rule
+		lineageTag: 45d963a5-610d-4c7a-8e5c-2f01510bc7a4
+
+	/// Share of its alerts that would be real fraud.
+	measure 'Drain Rule Precision %' = DIVIDE([Drain Rule Caught], [Drain Rule Alerts])
+		formatString: 0.0%
+		displayFolder: 04 Drain rule
+		lineageTag: 6bc08542-e861-4290-9f1a-a426eca7d3d7
+
+	/// How many times more fraud the proposed rule catches. Derived from the same labels it is scored against, so this is an in-sample figure.
+	measure 'Recall Lift vs Bank Rule' = DIVIDE([Drain Rule Recall %], [Bank Rule Recall %])
+		formatString: #,0"x"
+		displayFolder: 04 Drain rule
+		lineageTag: 8da6ed2f-ad06-4c1e-9b02-5ad0c361fcae
+
+	/// Review workload the proposed rule would create. A rule nobody can staff is not a rule.
+	measure 'Alerts per Day' = DIVIDE([Drain Rule Alerts], [Days Observed])
+		formatString: #,0
+		displayFolder: 04 Drain rule
+		lineageTag: 2d9fae67-e520-47ae-af2a-6d4ed3663da4
+
+	/// Of the money actually stolen, how much the proposed rule would have stopped.
+	measure 'Exposure Detected' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"), KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()))
+		formatString: #,0
+		displayFolder: 04 Drain rule
+		lineageTag: f099775c-00fd-4d0a-a0da-f9169c18701c
+
+	/// Exposure Detected as a share of Fraud Exposure.
+	measure 'Exposure Detected %' = DIVIDE([Exposure Detected], [Fraud Exposure])
+		formatString: 0.0%
+		displayFolder: 04 Drain rule
+		lineageTag: badadb56-ba52-4015-a5d4-ab62643a5185
+
+	/// Fraud rate in the worst hour of the simulated day.
+	measure 'Peak Hourly Fraud Rate %' = MAXX(VALUES(DimStep[SimHour]), [Fraud Rate %])
+		formatString: 0.0%
+		displayFolder: 05 Risk concentration
+		lineageTag: 3039ad02-7104-4131-9114-46fdad19c5a3
+
+	/// Fraud rate in the best hour of the simulated day.
+	measure 'Lowest Hourly Fraud Rate %' = MINX(VALUES(DimStep[SimHour]), [Fraud Rate %])
+		formatString: 0.000%
+		displayFolder: 05 Risk concentration
+		lineageTag: fd082bbe-e8a8-42f3-9494-c423ab53da0b
+
+	/// Worst hour over best hour. Fraud volume is near constant around the clock while legitimate volume collapses overnight, so the ratio is large.
+	measure 'Hourly Fraud Rate Spread' = DIVIDE([Peak Hourly Fraud Rate %], [Lowest Hourly Fraud Rate %])
+		formatString: #,0"x"
+		displayFolder: 05 Risk concentration
+		lineageTag: 24133f96-fde7-4f6f-9671-c8e9079ddba9
+
+	/// Fraud rate across hours 1-8.
+	measure 'Quiet Hours Fraud Rate %' = CALCULATE([Fraud Rate %], KEEPFILTERS(DimStep[HourBand] = "Quiet hours"))
+		formatString: 0.0%
+		displayFolder: 05 Risk concentration
+		lineageTag: 676732de-61ac-4b7b-a05a-3f0eb52127b5
+
+	/// Fraud rate across hours 9-0.
+	measure 'Active Hours Fraud Rate %' = CALCULATE([Fraud Rate %], KEEPFILTERS(DimStep[HourBand] = "Active hours"))
+		formatString: 0.000%
+		displayFolder: 05 Risk concentration
+		lineageTag: 081c3890-d2cb-434e-a7bc-a951f611243a
+
+	/// Share of rows whose own balances add up. Low, and that is a property of the simulator, not of this model.
+	measure 'Ledger Reconciliation %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[LedgerReconciles] = TRUE())), [Transactions])
+		formatString: 0.0%
+		displayFolder: 06 Data quality
+		lineageTag: 9372cac9-e81c-489f-8fe9-b9f1bad7323f
+
+	/// Share of rows with no destination balance recorded at all.
+	measure 'Destination Balance Absent %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[DestBalanceAbsent] = TRUE())), [Transactions])
+		formatString: 0.0%
+		displayFolder: 06 Data quality
+		lineageTag: d6774b23-55db-4e30-8f44-7a8177eaebd0
+
+	/// Transactions that moved nothing. All 16 are the stranded second leg of a fraud whose first leg the bank's rule blocked.
+	measure 'Zero Amount Rows' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[Amount] = 0))
+		formatString: #,0
+		displayFolder: 06 Data quality
+		lineageTag: dd966637-5d5a-4b20-b433-163c945d6563
+
+	/// Share of rows falling on the 14 days with a full load of legitimate traffic.
+	measure 'Full Volume Day Share %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS(DimStep[IsFullVolumeDay] = TRUE())), [Transactions])
+		formatString: 0.0%
+		displayFolder: 06 Data quality
+		lineageTag: dd146bab-cd8a-430d-8119-79c2f83dac16
 
 	column StepKey
 		dataType: int64
 		isHidden
+		lineageTag: 96420310-5a43-4546-9515-76a925570b76
 		summarizeBy: none
 		sourceColumn: StepKey
 
@@ -11,6 +241,7 @@ table FactTransaction
 	column TypeKey
 		dataType: int64
 		isHidden
+		lineageTag: 7396c801-a62c-4e41-ba64-adb8b6db9846
 		summarizeBy: none
 		sourceColumn: TypeKey
 
@@ -19,6 +250,7 @@ table FactTransaction
 	column AmountBandKey
 		dataType: int64
 		isHidden
+		lineageTag: 0a19b070-f342-4e60-a10c-7d1767cf1ee0
 		summarizeBy: none
 		sourceColumn: AmountBandKey
 
@@ -27,6 +259,7 @@ table FactTransaction
 	column OutcomeKey
 		dataType: int64
 		isHidden
+		lineageTag: 69d20155-7e58-4251-b9ce-d8fce1c632e1
 		summarizeBy: none
 		sourceColumn: OutcomeKey
 
@@ -36,6 +269,7 @@ table FactTransaction
 	column Amount
 		dataType: double
 		formatString: #,0
+		lineageTag: b6fd1ad0-1e64-4e7f-a871-8316ff38b2bf
 		summarizeBy: sum
 		sourceColumn: Amount
 
@@ -45,6 +279,7 @@ table FactTransaction
 	column OldBalanceOrig
 		dataType: double
 		formatString: #,0
+		lineageTag: 286019eb-25cf-4785-b53c-448a914949a5
 		summarizeBy: none
 		sourceColumn: OldBalanceOrig
 
@@ -54,6 +289,7 @@ table FactTransaction
 	column NewBalanceOrig
 		dataType: double
 		formatString: #,0
+		lineageTag: 3e279d97-e507-4a3b-be98-36256353c5db
 		summarizeBy: none
 		sourceColumn: NewBalanceOrig
 
@@ -63,6 +299,7 @@ table FactTransaction
 	column OldBalanceDest
 		dataType: double
 		formatString: #,0
+		lineageTag: daa54439-7558-4b20-a93a-d3339e5f9a50
 		summarizeBy: none
 		sourceColumn: OldBalanceDest
 
@@ -72,6 +309,7 @@ table FactTransaction
 	column NewBalanceDest
 		dataType: double
 		formatString: #,0
+		lineageTag: 10ee3ba4-6823-4b33-90cd-d15081855056
 		summarizeBy: none
 		sourceColumn: NewBalanceDest
 
@@ -81,6 +319,7 @@ table FactTransaction
 	column IsFraud
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: 49104f14-077e-440d-82d3-32de6b7e3e37
 		summarizeBy: none
 		sourceColumn: IsFraud
 
@@ -90,6 +329,7 @@ table FactTransaction
 	column IsFlaggedFraud
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: eb0d60b6-a7e9-4a29-9994-b3eaac322ee1
 		summarizeBy: none
 		sourceColumn: IsFlaggedFraud
 
@@ -99,6 +339,7 @@ table FactTransaction
 	column IsFullAccountDrain
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: 61ff60bd-ea7e-4bc5-b5f0-cba39d4c7196
 		summarizeBy: none
 		sourceColumn: IsFullAccountDrain
 
@@ -108,6 +349,7 @@ table FactTransaction
 	column LedgerReconciles
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: 4ce63d3e-0563-4d9e-afc2-8ce3e4635142
 		summarizeBy: none
 		sourceColumn: LedgerReconciles
 
@@ -117,200 +359,11 @@ table FactTransaction
 	column DestBalanceAbsent
 		dataType: boolean
 		formatString: """TRUE"";;""FALSE"""
+		lineageTag: 90e84949-cefb-4810-b824-1adf56fd6f5b
 		summarizeBy: none
 		sourceColumn: DestBalanceAbsent
 
 		annotation SummarizationSetBy = Automatic
-
-	/// Rows in the current filter context. One row is one transaction leg.
-	measure 'Transactions' = COUNTROWS('FactTransaction')
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Total amount moved. Unitless: PaySim names no currency.
-	measure 'Transaction Value' = SUM('FactTransaction'[Amount])
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Mean amount. Read next to the median -- this distribution is heavily skewed.
-	measure 'Average Transaction' = AVERAGE('FactTransaction'[Amount])
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Median amount.
-	measure 'Median Transaction' = MEDIAN('FactTransaction'[Amount])
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Simulated days with at least one transaction in context.
-	measure 'Days Observed' = COUNTROWS(SUMMARIZE('FactTransaction', DimStep[SimDay]))
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Simulated hours with at least one transaction in context.
-	measure 'Hours Observed' = DISTINCTCOUNT('FactTransaction'[StepKey])
-		formatString: #,0
-		displayFolder: 01 Volume
-
-	/// Rows labelled fraudulent. A leg, not an event: each fraud is committed as a TRANSFER out of the victim and a CASH_OUT of the same amount.
-	measure 'Fraud Legs' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 02 Fraud
-
-	/// Share of rows labelled fraudulent.
-	measure 'Fraud Rate %' = DIVIDE([Fraud Legs], [Transactions])
-		formatString: 0.000%
-		displayFolder: 02 Fraud
-
-	/// Fraud counted once per event by taking only the TRANSFER leg. Blank if the context already excludes TRANSFER, which is the honest answer rather than a number that ignores your filter.
-	measure 'Fraud Events' = CALCULATE([Fraud Legs], KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"))
-		formatString: #,0
-		displayFolder: 02 Fraud
-
-	/// Money stolen, counted once, by summing the TRANSFER leg only. This is the number to quote -- not Fraud Leg Value.
-	measure 'Fraud Exposure' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"))
-		formatString: #,0
-		displayFolder: 02 Fraud
-
-	/// Sum of amount over every fraud row. Double counts the money, because each fraud appears twice. Shown next to Fraud Exposure to make that visible.
-	measure 'Fraud Leg Value' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 02 Fraud
-
-	/// How much of a naive SUM over fraud rows is the same money counted twice.
-	measure 'Leg Double Count %' = DIVIDE([Fraud Leg Value] - [Fraud Exposure], [Fraud Leg Value])
-		formatString: 0.0%
-		displayFolder: 02 Fraud
-
-	/// Times the bank's existing rule fired.
-	measure 'Alerts Raised' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// True positives.
-	measure 'Fraud Caught' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// False negatives.
-	measure 'Fraud Missed' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = FALSE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// False positives. Zero across the whole dataset: the rule never once fired on a legitimate transaction.
-	measure 'False Alarms' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFraud] = FALSE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// Share of fraud the existing rule catches.
-	measure 'Bank Rule Recall %' = DIVIDE([Fraud Caught], [Fraud Legs])
-		formatString: 0.000%
-		displayFolder: 03 Bank rule
-
-	/// Share of its alerts that were really fraud.
-	measure 'Bank Rule Precision %' = DIVIDE([Fraud Caught], [Alerts Raised])
-		formatString: 0.0%
-		displayFolder: 03 Bank rule
-
-	/// Amount on the fraud rows the rule stopped.
-	measure 'Value Caught' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// Amount on the fraud rows it did not.
-	measure 'Value Missed' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS('FactTransaction'[IsFlaggedFraud] = FALSE()))
-		formatString: #,0
-		displayFolder: 03 Bank rule
-
-	/// Rows the proposed rule would flag: amount equals the origin's whole opening balance, on money out to a customer account.
-	measure 'Drain Rule Alerts' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()))
-		formatString: #,0
-		displayFolder: 04 Drain rule
-
-	/// True positives for the proposed rule.
-	measure 'Drain Rule Caught' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()))
-		formatString: #,0
-		displayFolder: 04 Drain rule
-
-	/// False positives for the proposed rule.
-	measure 'Drain Rule False Alarms' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()), KEEPFILTERS('FactTransaction'[IsFraud] = FALSE()))
-		formatString: #,0
-		displayFolder: 04 Drain rule
-
-	/// Share of fraud the proposed rule would catch.
-	measure 'Drain Rule Recall %' = DIVIDE([Drain Rule Caught], [Fraud Legs])
-		formatString: 0.0%
-		displayFolder: 04 Drain rule
-
-	/// Share of its alerts that would be real fraud.
-	measure 'Drain Rule Precision %' = DIVIDE([Drain Rule Caught], [Drain Rule Alerts])
-		formatString: 0.0%
-		displayFolder: 04 Drain rule
-
-	/// How many times more fraud the proposed rule catches. Derived from the same labels it is scored against, so this is an in-sample figure.
-	measure 'Recall Lift vs Bank Rule' = DIVIDE([Drain Rule Recall %], [Bank Rule Recall %])
-		formatString: #,0"x"
-		displayFolder: 04 Drain rule
-
-	/// Review workload the proposed rule would create. A rule nobody can staff is not a rule.
-	measure 'Alerts per Day' = DIVIDE([Drain Rule Alerts], [Days Observed])
-		formatString: #,0
-		displayFolder: 04 Drain rule
-
-	/// Of the money actually stolen, how much the proposed rule would have stopped.
-	measure 'Exposure Detected' = CALCULATE(SUM('FactTransaction'[Amount]), KEEPFILTERS('FactTransaction'[IsFraud] = TRUE()), KEEPFILTERS(DimTransactionType[TypeName] = "TRANSFER"), KEEPFILTERS('FactTransaction'[IsFullAccountDrain] = TRUE()))
-		formatString: #,0
-		displayFolder: 04 Drain rule
-
-	/// Exposure Detected as a share of Fraud Exposure.
-	measure 'Exposure Detected %' = DIVIDE([Exposure Detected], [Fraud Exposure])
-		formatString: 0.0%
-		displayFolder: 04 Drain rule
-
-	/// Fraud rate in the worst hour of the simulated day.
-	measure 'Peak Hourly Fraud Rate %' = MAXX(VALUES(DimStep[SimHour]), [Fraud Rate %])
-		formatString: 0.0%
-		displayFolder: 05 Risk concentration
-
-	/// Fraud rate in the best hour of the simulated day.
-	measure 'Lowest Hourly Fraud Rate %' = MINX(VALUES(DimStep[SimHour]), [Fraud Rate %])
-		formatString: 0.000%
-		displayFolder: 05 Risk concentration
-
-	/// Worst hour over best hour. Fraud volume is near constant around the clock while legitimate volume collapses overnight, so the ratio is large.
-	measure 'Hourly Fraud Rate Spread' = DIVIDE([Peak Hourly Fraud Rate %], [Lowest Hourly Fraud Rate %])
-		formatString: #,0"x"
-		displayFolder: 05 Risk concentration
-
-	/// Fraud rate across hours 1-8.
-	measure 'Quiet Hours Fraud Rate %' = CALCULATE([Fraud Rate %], KEEPFILTERS(DimStep[HourBand] = "Quiet hours"))
-		formatString: 0.0%
-		displayFolder: 05 Risk concentration
-
-	/// Fraud rate across hours 9-0.
-	measure 'Active Hours Fraud Rate %' = CALCULATE([Fraud Rate %], KEEPFILTERS(DimStep[HourBand] = "Active hours"))
-		formatString: 0.000%
-		displayFolder: 05 Risk concentration
-
-	/// Share of rows whose own balances add up. Low, and that is a property of the simulator, not of this model.
-	measure 'Ledger Reconciliation %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[LedgerReconciles] = TRUE())), [Transactions])
-		formatString: 0.0%
-		displayFolder: 06 Data quality
-
-	/// Share of rows with no destination balance recorded at all.
-	measure 'Destination Balance Absent %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[DestBalanceAbsent] = TRUE())), [Transactions])
-		formatString: 0.0%
-		displayFolder: 06 Data quality
-
-	/// Transactions that moved nothing. All 16 are the stranded second leg of a fraud whose first leg the bank's rule blocked.
-	measure 'Zero Amount Rows' = CALCULATE([Transactions], KEEPFILTERS('FactTransaction'[Amount] = 0))
-		formatString: #,0
-		displayFolder: 06 Data quality
-
-	/// Share of rows falling on the 14 days with a full load of legitimate traffic.
-	measure 'Full Volume Day Share %' = DIVIDE(CALCULATE([Transactions], KEEPFILTERS(DimStep[IsFullVolumeDay] = TRUE())), [Transactions])
-		formatString: 0.0%
-		displayFolder: 06 Data quality
 
 	partition FactTransaction = m
 		mode: import
@@ -324,3 +377,4 @@ table FactTransaction
 				    Flags
 
 	annotation PBI_ResultType = Table
+

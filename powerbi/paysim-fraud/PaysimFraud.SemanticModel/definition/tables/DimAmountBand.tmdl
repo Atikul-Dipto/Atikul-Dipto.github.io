@@ -1,9 +1,11 @@
 table DimAmountBand
+	lineageTag: f41f6c15-f6cd-4dee-bd04-646566a9f51a
 
 	column AmountBandKey
 		dataType: int64
 		isHidden
 		isKey
+		lineageTag: c6ca0b80-c78f-43b4-99b5-6aa416523a95
 		summarizeBy: none
 		sourceColumn: AmountBandKey
 
@@ -12,6 +14,7 @@ table DimAmountBand
 	/// Right-open amount buckets, so 1000.00 falls in 1K - 10K.
 	column AmountBand
 		dataType: string
+		lineageTag: 55b59704-5545-4211-b9e2-9bacdb6d528c
 		summarizeBy: none
 		sourceColumn: AmountBand
 		sortByColumn: BandSortOrder
@@ -22,6 +25,7 @@ table DimAmountBand
 		dataType: int64
 		isHidden
 		formatString: 0
+		lineageTag: f2c79422-e6a5-45d1-801c-80c00c5f4392
 		summarizeBy: none
 		sourceColumn: BandSortOrder
 
@@ -31,6 +35,7 @@ table DimAmountBand
 	column BandFloor
 		dataType: int64
 		formatString: #,0
+		lineageTag: eacd1d44-4f84-4cf9-a8b1-51517f545e39
 		summarizeBy: none
 		sourceColumn: BandFloor
 
@@ -47,3 +52,4 @@ table DimAmountBand
 				    Typed
 
 	annotation PBI_ResultType = Table
+
