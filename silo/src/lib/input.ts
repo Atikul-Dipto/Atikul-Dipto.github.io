@@ -96,8 +96,25 @@ export function attachWalkInput(
     move.pitch -= e.movementY * LOOK_SENS
   }
 
-  const onClick = () => {
-    if (!move.locked) canvas.requestPointerLock()
+  /**
+   * Take the pointer on a click.
+   *
+   * Listening on the canvas is the obvious thing and it does not work: the
+   * "click anywhere to look around" prompt is a full-screen overlay sitting
+   * above the canvas, so the very click it asks for lands on the prompt and
+   * the canvas listener never fires. The prompt then never goes away, because
+   * it is shown precisely while the pointer is unlocked.
+   *
+   * So listen at the document and decide from where the click landed. Only
+   * the canvas and the prompt grab the pointer; controls and the HTML panels
+   * are left alone so their links and buttons still work.
+   */
+  const onClick = (e: MouseEvent) => {
+    if (move.locked) return
+    const target = e.target as HTMLElement | null
+    if (!target) return
+    if (target.closest('button, a, input, textarea, select, label, [role="button"]')) return
+    if (target === canvas || target.closest('.walk-prompt')) canvas.requestPointerLock()
   }
 
   const onLock = () => {
@@ -114,7 +131,7 @@ export function attachWalkInput(
     onLockChange(false)
   }
 
-  canvas.addEventListener('click', onClick)
+  document.addEventListener('click', onClick)
   document.addEventListener('pointerlockchange', onLock)
   document.addEventListener('pointerlockerror', onLockError)
   window.addEventListener('keydown', onKeyDown)
@@ -124,7 +141,7 @@ export function attachWalkInput(
   window.addEventListener('blur', releaseKeys)
 
   return () => {
-    canvas.removeEventListener('click', onClick)
+    document.removeEventListener('click', onClick)
     document.removeEventListener('pointerlockchange', onLock)
     document.removeEventListener('pointerlockerror', onLockError)
     window.removeEventListener('keydown', onKeyDown)

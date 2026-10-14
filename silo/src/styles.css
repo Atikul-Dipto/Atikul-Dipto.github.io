@@ -308,6 +308,9 @@ body:has(.fallback) { overflow: auto; }
    will not grant the lock without a gesture, so without this the visitor
    presses W and nothing happens. */
 .walk-prompt {
+  /* The whole overlay is the click target that takes the pointer, so it has
+     to look like one. */
+  cursor: pointer;
   position: fixed;
   inset: 0;
   z-index: 40;
@@ -319,6 +322,7 @@ body:has(.fallback) { overflow: auto; }
 }
 
 .walk-prompt__card {
+  cursor: default;
   max-width: 30rem;
   padding: 1.6rem 1.8rem;
   border: 1px solid rgba(201, 153, 107, 0.4);
