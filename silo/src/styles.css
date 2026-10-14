@@ -411,3 +411,25 @@ body:has(.fallback) { overflow: auto; }
     display: none;
   }
 }
+
+/* Contextual prompt, shown only where an action is actually available. Sits
+   above the legend rather than in it, so it reads as "here", not "always". */
+.walk-interact {
+  position: fixed;
+  left: 50%;
+  bottom: 18vh;
+  transform: translateX(-50%);
+  z-index: 35;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(201, 153, 107, 0.45);
+  border-radius: 2px;
+  background: rgba(20, 16, 23, 0.74);
+  color: #ede9e6;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}

@@ -17,6 +17,10 @@ export interface MoveState {
   left: boolean
   right: boolean
   sprint: boolean
+  /** Set on the frame E is pressed, and cleared by whoever consumes it. The
+   *  interact key is edge-triggered, not held: holding E must not re-open a
+   *  panel sixty times a second. */
+  interact: boolean
   /** Accumulated mouse delta since the last frame read, in radians. */
   yaw: number
   pitch: number
@@ -29,6 +33,7 @@ export const move: MoveState = {
   left: false,
   right: false,
   sprint: false,
+  interact: false,
   yaw: 0,
   pitch: 0,
   locked: false,
@@ -58,6 +63,7 @@ export function releaseKeys() {
   move.left = false
   move.right = false
   move.sprint = false
+  move.interact = false
   move.yaw = 0
   move.pitch = 0
 }
@@ -78,6 +84,10 @@ export function attachWalkInput(
 ): () => void {
   const onKeyDown = (e: KeyboardEvent) => {
     if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
+    if (e.code === 'KeyE') {
+      if (!e.repeat) move.interact = true
+      return
+    }
     const field = CODES[e.code]
     if (!field) return
     ;(move[field] as boolean) = true

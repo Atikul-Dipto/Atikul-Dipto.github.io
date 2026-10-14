@@ -11,9 +11,6 @@ import {
   PALETTE,
   SHAFT_RADIUS,
   SLOT,
-  STAIR_RADIUS,
-  STAIR_WIDTH,
-  STEP_RISE,
   TOP_MARGIN,
   WALL_ARC,
   WALL_CENTER,
@@ -26,6 +23,8 @@ import {
   inCut,
   levelY,
 } from '../content/floors'
+import { LANDING_HALF } from '../content/stairs'
+import Stairway from './Stairway'
 import { concreteSurface, plateSurface, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
@@ -329,14 +328,34 @@ function Decks() {
       soffit.position.y = y - 0.26
       group.add(soffit)
 
-      // Lip and handrail around the stairwell opening.
-      const lip = new THREE.Mesh(new THREE.TorusGeometry(DECK_INNER, 0.1, 8, 80), steel)
+      // Lip and handrail around the stairwell opening -- with a gap at the
+      // gangway, which is the one way off this deck. Closing the ring here
+      // would leave the stair and the lift visible but unreachable, which is
+      // what the first version of this did.
+      //
+      // A torus is drawn in XY from its own zero; after `rotation.z = -A` and
+      // `rotation.x = -PI/2` an arc of length L covers world angles [A-L, A].
+      // So starting at the gangway's leading edge and running the long way
+      // round lands the opening exactly on the gangway.
+      const gangway = contentAngle(floor.level)
+      const ringStart = -(gangway - LANDING_HALF)
+      const ringArc = Math.PI * 2 - LANDING_HALF * 2
+
+      const lip = new THREE.Mesh(
+        new THREE.TorusGeometry(DECK_INNER, 0.1, 8, 80, ringArc),
+        steel,
+      )
       lip.rotation.x = -Math.PI / 2
+      lip.rotation.z = ringStart
       lip.position.y = y + 0.05
       group.add(lip)
 
-      const rail = new THREE.Mesh(new THREE.TorusGeometry(DECK_INNER, 0.055, 6, 80), steel)
+      const rail = new THREE.Mesh(
+        new THREE.TorusGeometry(DECK_INNER, 0.055, 6, 80, ringArc),
+        steel,
+      )
       rail.rotation.x = -Math.PI / 2
+      rail.rotation.z = ringStart
       rail.position.y = y + 1.05
       group.add(rail)
 
@@ -346,13 +365,17 @@ function Decks() {
         steel,
         n,
       )
+      let p = 0
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2
+        const off = Math.abs(((a - gangway + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
+        if (off < LANDING_HALF) continue
         dummy.position.set(Math.cos(a) * DECK_INNER, y + 0.52, Math.sin(a) * DECK_INNER)
         dummy.rotation.set(0, 0, 0)
         dummy.updateMatrix()
-        posts.setMatrixAt(i, dummy.matrix)
+        posts.setMatrixAt(p++, dummy.matrix)
       }
+      posts.count = p
       posts.instanceMatrix.needsUpdate = true
       group.add(posts)
 
@@ -448,60 +471,6 @@ function Corridors() {
   return <primitive object={nodes} />
 }
 
-/** Spiral stair running the full depth, as one instanced mesh of treads. */
-function Stairs() {
-  const nodes = useMemo(() => {
-    const group = new THREE.Group()
-    const steps = Math.floor((TOP_MARGIN - BOTTOM) / STEP_RISE)
-    const treads = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(STAIR_WIDTH, 0.14, 1.0),
-      (() => {
-        const t = tiled(plateSurface(), 2, 1)
-        return new THREE.MeshStandardMaterial({
-          roughness: 0.7,
-          metalness: 0.25,
-          map: t.map,
-          normalMap: t.normalMap,
-          roughnessMap: t.roughnessMap,
-        })
-      })(),
-      steps,
-    )
-
-    // One continuous helix, independent of the per-level content rotation.
-    const turn = (y: number) => (-y / 11) * Math.PI * 0.52 + Math.PI * 0.5
-    for (let i = 0; i < steps; i++) {
-      const y = TOP_MARGIN - i * STEP_RISE
-      const a = turn(y)
-      faceAxis(treads, i, Math.cos(a) * STAIR_RADIUS, y, Math.sin(a) * STAIR_RADIUS)
-    }
-    treads.instanceMatrix.needsUpdate = true
-    group.add(treads)
-
-    const pts: THREE.Vector3[] = []
-    for (let i = 0; i <= steps; i += 2) {
-      const y = TOP_MARGIN - i * STEP_RISE
-      const a = turn(y)
-      pts.push(
-        new THREE.Vector3(
-          Math.cos(a) * (STAIR_RADIUS + 0.68),
-          y + 1.0,
-          Math.sin(a) * (STAIR_RADIUS + 0.68),
-        ),
-      )
-    }
-    group.add(
-      new THREE.Mesh(
-        new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length, 0.05, 6, false),
-        new THREE.MeshStandardMaterial({ color: PALETTE.brass, roughness: 0.34, metalness: 0.88 }),
-      ),
-    )
-    return group
-  }, [])
-
-  return <primitive object={nodes} />
-}
-
 /** Wall lamps. Emissive geometry only; the real lights follow the camera. */
 function Lamps() {
   const nodes = useMemo(() => {
@@ -570,7 +539,7 @@ export default function Structure() {
       <Ribs />
       <Decks />
       <Corridors />
-      <Stairs />
+      <Stairway />
       <Lamps />
       <Caps />
     </group>

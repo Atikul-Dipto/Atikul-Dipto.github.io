@@ -2,7 +2,8 @@ import { Suspense, lazy, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
-import { PALETTE, levelY, walkY } from '../content/floors'
+import { DECK_INNER, PALETTE, contentAngle, levelY, walkY } from '../content/floors'
+import * as stairs from '../content/stairs'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
@@ -112,6 +113,12 @@ export default function SiloScene() {
             scene,
             THREE,
             store: useSilo,
+            // The geometry an audit has to assert against. Exposed rather than
+            // mirrored in the test, so a test cannot quietly keep passing
+            // against numbers the scene has since moved on from.
+            contentAngle,
+            walkY,
+            geometry: { DECK_INNER, ...stairs },
           }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping

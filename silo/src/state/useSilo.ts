@@ -35,6 +35,9 @@ interface SiloState {
   mode: Mode
   /** Mirrors document.pointerLockElement, so the UI follows the browser. */
   pointerLocked: boolean
+  /** True while the walking body is standing inside the lift car. Drives the
+   *  contextual prompt; set from the frame loop, but only on a change. */
+  nearLift: boolean
 
   setPhase: (p: Phase) => void
   enter: () => void
@@ -52,9 +55,15 @@ interface SiloState {
   setQuality: (q: Quality) => void
   setWebglFailed: () => void
   setProgress: (v: number) => void
+  /** Report the level the walking body has reached, without starting a ride.
+   *  Walking between floors on the stair changes which level you are on; it
+   *  must not be routed through `goToLevel`, which is a scripted lift journey
+   *  and would yank the camera away mid-stride. */
+  setWalkLevel: (level: number) => void
   setMode: (m: Mode) => void
   toggleMode: () => void
   setPointerLocked: (v: boolean) => void
+  setNearLift: (v: boolean) => void
 }
 
 const clampLevel = (n: number) => Math.min(LEVEL_COUNT, Math.max(1, Math.round(n)))
@@ -76,6 +85,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   progress: 0,
   mode: 'cinematic',
   pointerLocked: false,
+  nearLift: false,
 
   setPhase: (phase) => set({ phase }),
 
@@ -119,15 +129,25 @@ export const useSilo = create<SiloState>((set, get) => ({
   setWebglFailed: () => set({ webglFailed: true }),
   setProgress: (progress) => set({ progress }),
 
+  setWalkLevel: (level) =>
+    set((s) => {
+      const next = clampLevel(level)
+      if (s.level === next) return {}
+      // `target` follows so the lift car, its landing light and the floor
+      // panel all track the level actually underfoot.
+      return { level: next, target: next }
+    }),
+
   setMode: (mode) => set({ mode }),
   // Walking only makes sense with both feet on a deck, so the toggle is a
   // no-op mid-ride or inside the airlock rather than dropping a body into
   // the shaft.
   toggleMode: () =>
     set((s) => {
-      if (s.mode === 'walk') return { mode: 'cinematic' as Mode }
+      if (s.mode === 'walk') return { mode: 'cinematic' as Mode, nearLift: false }
       if (s.phase !== 'onFloor') return {}
       return { mode: 'walk' as Mode, directoryOpen: false }
     }),
   setPointerLocked: (pointerLocked) => set({ pointerLocked }),
+  setNearLift: (nearLift) => set({ nearLift }),
 }))

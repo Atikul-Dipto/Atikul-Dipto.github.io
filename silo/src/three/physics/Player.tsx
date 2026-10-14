@@ -5,7 +5,11 @@ import type { RapierRigidBody } from '@react-three/rapier'
 import * as THREE from 'three'
 import {
   CAM_RADIUS,
+  DECK_DROP,
+  ELEVATOR_HALF,
   EYE_OFFSET,
+  FLOOR_HEIGHT,
+  LEVEL_COUNT,
   PLAYER_HALF,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
@@ -42,6 +46,23 @@ const GRAVITY = -18
 const MAX_FALL = -40
 const PITCH_LIMIT = 1.45
 
+/**
+ * Head bob. Small on purpose: the job is to make the body feel like it has
+ * weight, not to make the camera seasick. Amplitude is in metres of vertical
+ * travel and the roll is a third of a degree at full stride.
+ */
+const BOB_RISE = 0.045
+const BOB_ROLL = 0.006
+/** Strides per metre travelled, so the cadence follows speed rather than time. */
+const BOB_CADENCE = 1.05
+
+/**
+ * Standing inside the lift car. Measured from the shaft axis, a little inside
+ * the car floor, so the prompt appears once you are actually aboard rather
+ * than while still on the gangway.
+ */
+const IN_CAR_RADIUS = ELEVATOR_HALF - 0.1
+
 /** Rapier's controller works in its own small units of forgiveness. */
 const CONTROLLER_OFFSET = 0.02
 /** Step height. Generous enough for kerbs and door thresholds. */
@@ -57,6 +78,8 @@ export default function Player() {
   const level = useSilo((s) => s.level)
   const mode = useSilo((s) => s.mode)
   const setLocked = useSilo((s) => s.setPointerLocked)
+  const setWalkLevel = useSilo((s) => s.setWalkLevel)
+  const setNearLift = useSilo((s) => s.setNearLift)
 
   /** Smoothed horizontal velocity, and the vertical component separately --
    *  gravity must not be smoothed or the body floats. */
@@ -65,6 +88,10 @@ export default function Player() {
   const look = useRef({ yaw: 0, pitch: 0 })
   const controller = useRef<ReturnType<typeof world.createCharacterController> | null>(null)
   const grounded = useRef(false)
+  /** Stride phase, advanced by distance travelled rather than by time. */
+  const bob = useRef(0)
+  /** A placement waiting to be applied on the next frame, see below. */
+  const place = useRef<{ x: number; y: number; z: number } | null>(null)
 
   // The controller is a world resource, not a React one, so it is created once
   // and disposed explicitly.
@@ -92,21 +119,50 @@ export default function Player() {
   }, [mode, gl, setLocked])
 
   /**
-   * Place the body when walking starts, and whenever the level changes.
+   * Place the body when walking starts, and when a RIDE has moved the visitor.
    *
-   * Changing level while walking is a teleport, and is labelled as one in the
-   * UI: the lift does not yet carry the body. Putting the body down at the
-   * cinematic camera's standing pose means both modes start from the same spot
-   * and the handover is not jarring.
+   * Putting the body down at the cinematic camera's standing pose means both
+   * modes start from the same spot and the handover is not jarring. Walking
+   * down the stair also changes `level`, and that must not place anything --
+   * see `selfLevel` below.
    */
+  /** The level this component last moved the body to by itself. A level change
+   *  it caused -- by walking down the stair -- must not then teleport the body
+   *  back to the standing pose, which is what a naive [mode, level] effect does
+   *  the instant you reach the next deck. */
+  const selfLevel = useRef<number | null>(null)
+  const wasWalking = useRef(false)
+
   useEffect(() => {
-    if (mode !== 'walk' || !body.current) return
+    if (mode !== 'walk' || !body.current) {
+      wasWalking.current = mode === 'walk'
+      return
+    }
+    const entering = !wasWalking.current
+    wasWalking.current = true
+    // Entering walk mode always places the body. A level change while already
+    // walking only places it if something other than this component caused it,
+    // i.e. the lift ran and the visitor came back to walking somewhere new.
+    if (!entering && selfLevel.current === level) return
+    selfLevel.current = level
     const a = contentAngle(level)
-    body.current.setNextKinematicTranslation({
+    const at = {
       x: Math.cos(a) * CAM_RADIUS,
       y: walkY(level) + PLAYER_HEIGHT / 2,
       z: Math.sin(a) * CAM_RADIUS,
-    })
+    }
+    // Placing from an effect does not work, and the way it fails is quiet.
+    // Whether the placement survives depends on whether the physics world
+    // steps before or after this component's frame callback: step-after means
+    // the frame loop reads the body's CURRENT translation, queues
+    // `current + movement`, and overwrites the placement before it ever
+    // happens. The body then stays wherever the RigidBody's `position` prop
+    // put it -- angle zero -- which on a deck whose only opening is at
+    // `contentAngle` is against a blank handrail with no way off the floor.
+    //
+    // So the placement is handed to the frame loop instead, which applies it
+    // at a point where nothing can be queued on top of it.
+    place.current = at
     // Face the shaft, which is what the cinematic pose looks at.
     //
     // Forward is derived from yaw below as (-sin, -cos), so facing inward from
@@ -152,6 +208,22 @@ export default function Player() {
     const rb = body.current
     const c = controller.current
     if (!rb || !c) return
+
+    // Apply a pending placement before anything else can queue movement on
+    // top of it, and spend the frame standing still.
+    if (place.current) {
+      const at = place.current
+      place.current = null
+      rb.setTranslation(at, true)
+      rb.setNextKinematicTranslation(at)
+      vel.current.set(0, 0, 0)
+      fall.current = 0
+      bob.current = 0
+      camera.position.set(at.x, at.y + EYE_OFFSET, at.z)
+      camera.rotation.set(0, 0, 0)
+      camera.rotateY(look.current.yaw)
+      return
+    }
 
     // A long frame (a tab coming back, a slow load) must not be integrated in
     // one go, or the body moves metres between collision checks and tunnels.
@@ -213,11 +285,52 @@ export default function Player() {
     const wantedZ = Math.abs(vel.current.z * dt)
     if (wantedZ > 1e-5 && movedZ < wantedZ * 0.5) vel.current.z *= 0.3
 
+    const px = now.x + applied.x
+    const py = now.y + applied.y
+    const pz = now.z + applied.z
+
+    // ---- which level is underfoot ---------------------------------------
+    //
+    // The stair crosses a whole storey, so the level the visitor is "on" has
+    // to be read from where the body actually is, not from the last lift
+    // journey. Rounding alone would flap on the exact midpoint of a flight, so
+    // the change only commits once the body is comfortably past it.
+    const feet = py - PLAYER_HEIGHT / 2
+    const raw = (-feet - DECK_DROP) / FLOOR_HEIGHT + 1
+    if (Math.abs(raw - level) > 0.62) {
+      const next = Math.min(LEVEL_COUNT, Math.max(1, Math.round(raw)))
+      if (next !== level) {
+        selfLevel.current = next
+        setWalkLevel(next)
+      }
+    }
+
+    // ---- standing in the lift --------------------------------------------
+    const inCar = Math.hypot(px, pz) < IN_CAR_RADIUS
+    if (inCar !== useSilo.getState().nearLift) setNearLift(inCar)
+    if (move.interact) {
+      move.interact = false
+      if (inCar) {
+        // The directory is DOM, so the pointer has to come back first or the
+        // visitor is looking at a panel they cannot click.
+        if (document.pointerLockElement) document.exitPointerLock()
+        useSilo.getState().toggleDirectory(true)
+      }
+    }
+
+    // ---- head bob ---------------------------------------------------------
+    const horiz = Math.hypot(vel.current.x, vel.current.z)
+    const stride = Math.min(1, horiz / WALK_SPEED)
+    if (grounded.current) bob.current += horiz * dt * BOB_CADENCE * Math.PI
+    const rise = Math.sin(bob.current * 2) * BOB_RISE * stride
+    const roll = Math.sin(bob.current) * BOB_ROLL * stride
+
     // ---- camera sits on the body, never the other way round -------------
-    camera.position.set(now.x + applied.x, now.y + applied.y + EYE_OFFSET, now.z + applied.z)
+    camera.position.set(px, py + EYE_OFFSET + rise, pz)
     camera.rotation.set(0, 0, 0)
     camera.rotateY(look.current.yaw)
     camera.rotateX(look.current.pitch)
+    camera.rotateZ(roll)
   })
 
   // `rapier` is unused directly but keeping the hook's full result makes the

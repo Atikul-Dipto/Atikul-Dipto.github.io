@@ -14,9 +14,9 @@ export const DECK_DROP = 1.9
 export const ELEVATOR_HALF = 1.75
 /** Radius of the elevator shaft cage that encloses the car. */
 export const SHAFT_CAGE = ELEVATOR_HALF * 1.28
-export const STAIR_RADIUS = 3.8
-export const STAIR_WIDTH = 1.4
-export const STEP_RISE = 0.55
+/* The stair's own geometry lives in `content/stairs.ts`: it is shared by the
+   visible flights and by their collision, and keeping it here as loose
+   constants is how the two ended up describing different staircases. */
 /**
  * Where the camera stands when you step out onto a deck.
  *

@@ -17,6 +17,7 @@ export default function WalkHud() {
   const locked = useSilo((s) => s.pointerLocked)
   const level = useSilo((s) => s.level)
   const toggleMode = useSilo((s) => s.toggleMode)
+  const nearLift = useSilo((s) => s.nearLift)
 
   if (mode !== 'walk') return null
 
@@ -46,15 +47,22 @@ export default function WalkHud() {
               </div>
               <div>
                 <dt>
+                  <kbd>E</kbd>
+                </dt>
+                <dd>Lift controls, once aboard</dd>
+              </div>
+              <div>
+                <dt>
                   <kbd>Esc</kbd>
                 </dt>
                 <dd>Release the mouse</dd>
               </div>
             </dl>
             <p className="walk-prompt__note">
-              This level only. The lift does not carry you yet — use the
-              directory to change floors and the guided camera will take over
-              for the ride.
+              One gap in the handrail leads out to the gangway. From there the
+              stair runs the full depth of the silo and the lift is at the
+              inner end — both on foot. The lift itself still rides on the
+              guided camera.
             </p>
             <button type="button" className="chip" onClick={toggleMode}>
               Back to the guided camera
@@ -76,6 +84,11 @@ export default function WalkHud() {
           <span>
             <kbd>Esc</kbd> release
           </span>
+        </div>
+      )}
+      {locked && nearLift && (
+        <div className="walk-interact" role="status">
+          <kbd>E</kbd> call the lift
         </div>
       )}
     </>
