@@ -17,8 +17,22 @@ export const SHAFT_CAGE = ELEVATOR_HALF * 1.28
 export const STAIR_RADIUS = 3.8
 export const STAIR_WIDTH = 1.4
 export const STEP_RISE = 0.55
-/** Where the camera stands when you step out onto a deck. */
-export const CAM_RADIUS = 5.4
+/**
+ * Where the camera stands when you step out onto a deck.
+ *
+ * Must stay clear of DECK_INNER. At exactly DECK_INNER the viewer is standing
+ * on the lip of the central void with the stairwell handrail directly under
+ * their feet: a downward ray from eye height hit the handrail 0.52 m below,
+ * then the lip, and only then the deck 1.62 m below. Measured in the running
+ * scene, not assumed.
+ *
+ * A radial scan of level 1 puts the clean walkable band at 5.6 to 12.4 m:
+ * inboard of 5.6 is the lip and handrail, and beyond 12.4 the wall fit-out
+ * starts. 6.4 sits 0.8 m clear of the rail and leaves the airlock pose
+ * (SHAFT_RADIUS - 5.6 = 7.4) a metre further out, so stepping to the airlock
+ * still carries forward motion rather than being a pure rotation.
+ */
+export const CAM_RADIUS = 6.4
 export const EYE = 1.62
 /** Radial bays each deck is divided into — the corridor framing. */
 export const BAYS = 8

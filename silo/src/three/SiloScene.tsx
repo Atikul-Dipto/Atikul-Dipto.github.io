@@ -91,9 +91,17 @@ export default function SiloScene() {
       camera={{ fov: 55, near: 0.1, far: 400, position: [0, levelY(1) + 26, 46] }}
       onCreated={({ gl, camera, scene }) => {
         // Dev-only handle, so the scene can be probed from the console or a
-        // headless browser instead of guessed at.
+        // headless browser instead of guessed at. `store` is here so an audit
+        // can drive phases and read the camera's real position rather than
+        // inferring behaviour from the source.
         if (import.meta.env.DEV) {
-          ;(window as unknown as { __silo?: unknown }).__silo = { gl, camera, scene, THREE }
+          ;(window as unknown as { __silo?: unknown }).__silo = {
+            gl,
+            camera,
+            scene,
+            THREE,
+            store: useSilo,
+          }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 0.95
