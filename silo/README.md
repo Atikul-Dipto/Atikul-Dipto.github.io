@@ -151,6 +151,52 @@ Drags that start on an HTML panel are left alone so text stays selectable, and a
 drag of more than a few pixels suppresses the click it would otherwise end with,
 so turning past the airlock does not open it.
 
+## Walking
+
+The **Walk** control in the top bar swaps the camera on rails for a physical
+body: a 1.8 m capsule with a 0.3 m radius, moved by Rapier's character
+controller. Only offered while standing on a deck.
+
+| Input | Action |
+| --- | --- |
+| <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> | Walk |
+| <kbd>Shift</kbd> | Run |
+| Mouse | Look, once the pointer is taken |
+| <kbd>Esc</kbd> | Release the pointer |
+
+Walking is strictly optional and nothing in the portfolio is reachable only on
+foot, which is also why it is not the default.
+
+**The camera follows the body, never the other way round.** That inversion is
+the whole point: the cinematic rig *is* a position, and nothing stops it passing
+through a wall. Walking moves a capsule, lets the physics decide where it ended
+up, and puts the camera at the result.
+
+**Collision is three surfaces per level, not the visible geometry**: the deck
+annulus, a barrier ringing the central void on the handrail line, and the outer
+wall closed all the way round — including across the cutaway, where the only
+thing otherwise between the visitor and a 120 m drop is a decorative rail. All
+three derive from the same constants in `content/floors.ts` that the visible
+structure is built from, so collision cannot drift from the architecture.
+Colliders are built only for the level being stood on.
+
+Two things worth knowing if you change this:
+
+- **Declare colliders explicitly.** `colliders="trimesh"` on a `<mesh>` skips
+  meshes that are `visible={false}`, so the first version produced a rigid body
+  with no colliders at all and the visitor fell 1,800 m down the shaft without a
+  single error in the console.
+- **The physics is lazily imported.** Rapier inlines its engine as WebAssembly,
+  roughly 851 kB gzipped — more than everything else put together. It loads the
+  first time someone asks to walk. Do not add a manual rolldown chunk group for
+  it: two attempts at one left the entry chunk with a *static* import of the
+  physics bundle, and a plain visit downloaded the lot. Left alone, the lazy
+  import in `SiloScene` defines the boundary by itself. A plain visit downloads
+  450 kB of JavaScript, measured from the browser's own resource timings.
+
+Changing floors while walking is still a teleport, and the UI says so. The lift
+does not carry the body yet.
+
 ## Status
 
 Level 01 (Monitoring & Identity) is fitted out: the portrait window, the identity
@@ -158,8 +204,13 @@ console, service runs and the personnel airlock. Levels 02–12 exist
 architecturally and are navigable, but are not yet fitted out; each says so and
 links to the standard portfolio.
 
-Not built yet: audio, the recreation mini-game, per-level interiors for 02–12,
-and a contact form backend.
+Walking exists on every level: a physical body with collision against the deck,
+the central void barrier and the outer wall, verified by driving it into each of
+them in a headless browser.
+
+Not built yet: the lift carrying the body between floors, rooms and doors with
+real openings, the canteen, audio, the recreation mini-game, per-level interiors
+for 02–12, and a contact form backend.
 
 Content still needed from the portfolio owner is listed in `MISSING_CONTENT` in
 `src/content/portfolio.ts` and surfaced in the CV viewer. Nothing in this app

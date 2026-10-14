@@ -8,6 +8,7 @@ import { useSilo } from '../state/useSilo'
  */
 export default function FloorPanel() {
   const phase = useSilo((s) => s.phase)
+  const mode = useSilo((s) => s.mode)
   const level = useSilo((s) => s.level)
   const enterAirlock = useSilo((s) => s.enterAirlock)
   const floor = floorByLevel(level)
@@ -52,9 +53,20 @@ export default function FloorPanel() {
         </>
       )}
 
+      {/* The cinematic controls do not apply while walking: the arrows are
+          movement keys there, not the lift. */}
       <p className="panel__hint">
-        Drag to look around · <kbd>&larr;</kbd> <kbd>&rarr;</kbd> turn ·{' '}
-        <kbd>&uarr;</kbd> <kbd>&darr;</kbd> ride
+        {mode === 'walk' ? (
+          <>
+            <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk ·{' '}
+            <kbd>Shift</kbd> run · mouse to look
+          </>
+        ) : (
+          <>
+            Drag to look around · <kbd>&larr;</kbd> <kbd>&rarr;</kbd> turn ·{' '}
+            <kbd>&uarr;</kbd> <kbd>&darr;</kbd> ride
+          </>
+        )}
       </p>
     </main>
   )

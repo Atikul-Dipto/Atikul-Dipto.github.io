@@ -11,6 +11,14 @@ export type Phase =
 
 export type Quality = 'high' | 'low'
 
+/**
+ * How the visitor moves. 'cinematic' is the camera on rails that the whole
+ * site shipped with; 'walk' hands them a physical body. Walking is opt-in and
+ * only meaningful while standing on a deck -- nothing in the portfolio is
+ * reachable only by walking.
+ */
+export type Mode = 'cinematic' | 'walk'
+
 interface SiloState {
   phase: Phase
   level: number
@@ -24,6 +32,9 @@ interface SiloState {
   quality: Quality
   webglFailed: boolean
   progress: number
+  mode: Mode
+  /** Mirrors document.pointerLockElement, so the UI follows the browser. */
+  pointerLocked: boolean
 
   setPhase: (p: Phase) => void
   enter: () => void
@@ -41,6 +52,9 @@ interface SiloState {
   setQuality: (q: Quality) => void
   setWebglFailed: () => void
   setProgress: (v: number) => void
+  setMode: (m: Mode) => void
+  toggleMode: () => void
+  setPointerLocked: (v: boolean) => void
 }
 
 const clampLevel = (n: number) => Math.min(LEVEL_COUNT, Math.max(1, Math.round(n)))
@@ -60,6 +74,8 @@ export const useSilo = create<SiloState>((set, get) => ({
   quality: 'high',
   webglFailed: false,
   progress: 0,
+  mode: 'cinematic',
+  pointerLocked: false,
 
   setPhase: (phase) => set({ phase }),
 
@@ -72,7 +88,15 @@ export const useSilo = create<SiloState>((set, get) => ({
       set({ directoryOpen: false })
       return
     }
-    set({ phase: 'riding', target: next, doorsOpen: false, directoryOpen: false })
+    // The ride is a scripted camera move, so walking hands control back for
+    // the duration. The visitor re-enters walk mode on arrival.
+    set({
+      phase: 'riding',
+      target: next,
+      doorsOpen: false,
+      directoryOpen: false,
+      mode: 'cinematic',
+    })
   },
 
   arrive: () => set((s) => ({ phase: 'onFloor', level: s.target, doorsOpen: true })),
@@ -83,7 +107,8 @@ export const useSilo = create<SiloState>((set, get) => ({
 
   enterAirlock: () => {
     if (get().phase !== 'onFloor' || get().level !== 1) return
-    set({ phase: 'airlock', directoryOpen: false })
+    // The airlock walk is a scripted camera move, so hand control back.
+    set({ phase: 'airlock', directoryOpen: false, mode: 'cinematic' })
   },
 
   closeAirlock: () =>
@@ -93,4 +118,16 @@ export const useSilo = create<SiloState>((set, get) => ({
   setQuality: (quality) => set({ quality }),
   setWebglFailed: () => set({ webglFailed: true }),
   setProgress: (progress) => set({ progress }),
+
+  setMode: (mode) => set({ mode }),
+  // Walking only makes sense with both feet on a deck, so the toggle is a
+  // no-op mid-ride or inside the airlock rather than dropping a body into
+  // the shaft.
+  toggleMode: () =>
+    set((s) => {
+      if (s.mode === 'walk') return { mode: 'cinematic' as Mode }
+      if (s.phase !== 'onFloor') return {}
+      return { mode: 'walk' as Mode, directoryOpen: false }
+    }),
+  setPointerLocked: (pointerLocked) => set({ pointerLocked }),
 }))

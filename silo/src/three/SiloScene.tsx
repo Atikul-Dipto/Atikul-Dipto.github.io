@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from 'react'
+import { Suspense, lazy, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
@@ -11,6 +11,15 @@ import Rig from './Rig'
 import Effects from './Effects'
 import Level01 from './floors/Level01'
 import { Dust, LevelSigns, SkyShaft, TravellingLights } from './Atmosphere'
+
+/**
+ * Rapier inlines its engine as WebAssembly, which is about 850 kB gzipped --
+ * more than the rest of the site put together. Walking is opt-in, so the
+ * physics world is fetched the first time someone asks to walk and never for
+ * anyone who does not.
+ */
+const WalkMode = lazy(() => import('./physics/WalkMode'))
+
 
 /**
  * Only the floor you are on (and its neighbours) mounts its fit-out. With 12
@@ -78,6 +87,8 @@ function LoadGate() {
 
 export default function SiloScene() {
   const phase = useSilo((s) => s.phase)
+  const level = useSilo((s) => s.level)
+  const mode = useSilo((s) => s.mode)
   const setQuality = useSilo((s) => s.setQuality)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
   // Shared between the rig and the car so they stay locked while travelling.
@@ -131,6 +142,11 @@ export default function SiloScene() {
         <Preload all />
       </Suspense>
       <Rig carY={carY} />
+      {mode === 'walk' && (
+        <Suspense fallback={null}>
+          <WalkMode level={level} />
+        </Suspense>
+      )}
       <Effects />
     </Canvas>
   )

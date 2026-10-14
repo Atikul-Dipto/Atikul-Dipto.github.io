@@ -295,3 +295,115 @@ body:has(.fallback) { overflow: auto; }
   .mini__car { transition: none; }
   * { scroll-behavior: auto; }
 }
+
+/* ---------- walking ---------------------------------------------------- */
+
+.chip--on {
+  border-color: var(--camel);
+  color: #1b1410;
+  background: var(--camel);
+}
+
+/* Shown whenever walk mode is on but the pointer is not locked. The browser
+   will not grant the lock without a gesture, so without this the visitor
+   presses W and nothing happens. */
+.walk-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 1.5rem;
+  background: rgba(10, 8, 7, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.walk-prompt__card {
+  max-width: 30rem;
+  padding: 1.6rem 1.8rem;
+  border: 1px solid rgba(201, 153, 107, 0.4);
+  border-radius: 4px;
+  background: rgba(20, 16, 14, 0.94);
+  box-shadow: 0 30px 70px -30px #000;
+  text-align: left;
+}
+
+.walk-prompt__card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--camel);
+}
+
+.walk-prompt__card p {
+  margin: 0 0 1rem;
+  color: #d9d2cb;
+}
+
+.walk-prompt__note {
+  font-size: 0.86rem;
+  color: #9a8f86;
+}
+
+.walk-keys {
+  display: grid;
+  gap: 0.45rem;
+  margin: 0 0 1.1rem;
+}
+
+.walk-keys > div {
+  display: flex;
+  gap: 0.75rem;
+  align-items: baseline;
+}
+
+.walk-keys dt {
+  min-width: 9.5rem;
+  color: #d9d2cb;
+}
+
+.walk-keys dd {
+  margin: 0;
+  color: #9a8f86;
+  font-size: 0.9rem;
+}
+
+/* Thin reminder while the pointer is held. */
+.walk-legend {
+  position: fixed;
+  left: 50%;
+  bottom: 1.1rem;
+  transform: translateX(-50%);
+  z-index: 30;
+  display: flex;
+  gap: 1.1rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid rgba(201, 153, 107, 0.22);
+  border-radius: 999px;
+  background: rgba(16, 13, 11, 0.7);
+  font-size: 0.76rem;
+  color: #9a8f86;
+  pointer-events: none;
+}
+
+.walk-legend kbd,
+.walk-keys kbd {
+  display: inline-block;
+  min-width: 1.35rem;
+  margin-right: 0.15rem;
+  padding: 0.05rem 0.3rem;
+  border: 1px solid rgba(201, 153, 107, 0.34);
+  border-radius: 3px;
+  background: rgba(201, 153, 107, 0.1);
+  font: inherit;
+  font-size: 0.78em;
+  text-align: center;
+  color: #e4ded8;
+}
+
+@media (max-width: 640px) {
+  .walk-legend {
+    display: none;
+  }
+}

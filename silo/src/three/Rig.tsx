@@ -59,6 +59,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   const target = useSilo((s) => s.target)
   const arrive = useSilo((s) => s.arrive)
   const reduced = useSilo((s) => s.reducedMotion)
+  const mode = useSilo((s) => s.mode)
 
   const pose = useRef<Pose>({ ...EXTERIOR_START })
   /** Smoothed values actually applied to the camera each frame. */
@@ -81,6 +82,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   // cursor position straight onto an absolute angle capped at about 45
   // degrees, so half the floor was unreachable and touch did nothing at all.
   useEffect(() => {
+    if (mode === 'walk') return
     let active = false
     let touch = false
     let lastX = 0
@@ -161,7 +163,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
       window.removeEventListener('pointercancel', up)
       window.removeEventListener('keydown', key)
     }
-  }, [])
+  }, [mode])
 
   // Face the fit-out again on arrival, however far round you had turned.
   useEffect(() => {
@@ -292,6 +294,12 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
   const lookPos = useRef(new THREE.Vector3())
 
   useFrame((_, dt) => {
+    // While walking, the body owns the camera. Two writers would fight for it
+    // every frame and the visitor would see the view snap between them.
+    if (mode === 'walk') {
+      carY.current = walkY(useSilo.getState().level)
+      return
+    }
     const p = pose.current
     // While riding, the camera is in the car, so the car floor is one eye
     // height below it. Parked, the car sits on that level's walking surface --

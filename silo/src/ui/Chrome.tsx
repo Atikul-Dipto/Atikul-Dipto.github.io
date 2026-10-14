@@ -11,6 +11,8 @@ export function TopBar() {
   const toggleMute = useSilo((s) => s.toggleMute)
   const reduced = useSilo((s) => s.reducedMotion)
   const setReduced = useSilo((s) => s.setReducedMotion)
+  const mode = useSilo((s) => s.mode)
+  const toggleMode = useSilo((s) => s.toggleMode)
 
   if (phase === 'exterior' || phase === 'boot') return null
   const shown = phase === 'riding' ? target : level
@@ -29,6 +31,23 @@ export function TopBar() {
         </span>
         <button type="button" className="chip" onClick={() => toggleDirectory()}>
           Directory
+        </button>
+        {/* Walking is only offered with both feet on a deck. Mid-ride or in
+            the airlock the camera is on rails and the toggle would drop a body
+            into the shaft. */}
+        <button
+          type="button"
+          className={`chip${mode === 'walk' ? ' chip--on' : ''}`}
+          onClick={toggleMode}
+          disabled={phase !== 'onFloor' && mode !== 'walk'}
+          aria-pressed={mode === 'walk'}
+          title={
+            mode === 'walk'
+              ? 'Return to the guided camera'
+              : 'Walk this level on foot (W A S D, mouse to look)'
+          }
+        >
+          {mode === 'walk' ? 'Walking' : 'Walk'}
         </button>
         <button
           type="button"

@@ -5,6 +5,7 @@ import { DirectoryOverlay, MiniSilo } from './ui/Directory'
 import { CallPanel, CvViewer, Fallback, TopBar } from './ui/Chrome'
 import FloorPanel from './ui/FloorPanel'
 import Intro from './ui/Intro'
+import WalkHud from './ui/WalkHud'
 import './styles.css'
 
 // The engine is the bulk of the bundle; keep it out of the first paint so the
@@ -34,6 +35,10 @@ export default function App() {
         closeAirlock()
       }
       if (useSilo.getState().phase !== 'onFloor') return
+      // While walking, these are movement keys: D strafes right and the arrows
+      // are an alternative to WASD. Riding the lift or opening the directory
+      // from them here would fire on every other step.
+      if (useSilo.getState().mode === 'walk') return
       if (e.key === 'ArrowDown' || e.key === 'PageDown') {
         e.preventDefault()
         goToLevel(level + 1)
@@ -78,6 +83,7 @@ export default function App() {
       <CallPanel />
       <DirectoryOverlay />
       <CvViewer />
+      <WalkHud />
     </div>
   )
 }

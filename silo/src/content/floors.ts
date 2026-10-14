@@ -34,6 +34,33 @@ export const STEP_RISE = 0.55
  */
 export const CAM_RADIUS = 6.4
 export const EYE = 1.62
+
+/**
+ * The first-person body, to the dimensions in the walkable spec: a capsule
+ * 1.8 m tall and 0.3 m in radius. Rapier wants the half-height of the
+ * cylindrical section between the two hemispherical caps, not the total.
+ *
+ * The capsule's origin is its centre, so its feet are PLAYER_HEIGHT / 2 below
+ * it and the eye sits EYE_OFFSET above it. Keeping EYE at 1.62 means walking
+ * and the cinematic camera see the room from exactly the same height.
+ */
+export const PLAYER_HEIGHT = 1.8
+export const PLAYER_RADIUS = 0.3
+export const PLAYER_HALF = (PLAYER_HEIGHT - PLAYER_RADIUS * 2) / 2
+export const EYE_OFFSET = EYE - PLAYER_HEIGHT / 2
+
+/**
+ * The walkable annulus, measured rather than assumed: a radial scan of level 1
+ * put the clean band at 5.6 to 12.4 m. The deck plate itself runs from
+ * DECK_INNER to SHAFT_RADIUS - 0.06; the barrier radii below sit on the
+ * handrail and the wall, and the capsule's own radius keeps the body inside
+ * that band.
+ */
+export const DECK_OUTER = SHAFT_RADIUS - 0.06
+/** Height of the barrier ringing the central void, matching the handrail. */
+export const VOID_RAIL_H = 1.15
+/** Clear height from a walking surface up to the soffit of the deck above. */
+export const ROOM_HEIGHT = FLOOR_HEIGHT - DECK_DROP - 0.26
 /** Radial bays each deck is divided into — the corridor framing. */
 export const BAYS = 8
 
