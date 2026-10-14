@@ -220,9 +220,29 @@ export const BOTTOM = -DEPTH - 12
 export const WALL_HEIGHT = TOP_MARGIN - BOTTOM + 16
 export const WALL_CENTER = (TOP_MARGIN + BOTTOM) / 2
 
-/** y of a level's deck datum. Level 1 is the top at y = 0. */
+/**
+ * Structural datum for a level. Level 1 is the top at y = 0. Service runs,
+ * joists, hangers, wall bands and signage hang off this: it is the frame of
+ * the building, roughly 1.9 m above head height on the deck below it.
+ *
+ * It is NOT where anything stands. Use `walkY` for that.
+ */
 export const levelY = (level: number) => -(level - 1) * FLOOR_HEIGHT
-export const deckY = (level: number) => levelY(level) - DECK_DROP
+
+/**
+ * THE WALKING SURFACE, and the one elevation a level really has.
+ *
+ * Deck plate, elevator car floor, landing sill and the camera's feet are all
+ * on this and nothing else. They were not: the decks sat here while the shaft,
+ * car and landing portals were built on `levelY`, which put the car floor
+ * 1.89 m above the deck on all twelve levels. Nothing showed it, because the
+ * camera was tweened between poses and never had to step anywhere -- but it is
+ * a 1.89 m drop out of the lift the moment the visitor has a body.
+ *
+ * Anything a person can stand on, walk across or step over belongs on this
+ * datum. Anything structural overhead belongs on `levelY`.
+ */
+export const walkY = (level: number) => levelY(level) - DECK_DROP
 
 /**
  * Each level faces a different arc of the wall, so the silo reads as round as

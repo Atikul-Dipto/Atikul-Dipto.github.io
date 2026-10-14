@@ -10,7 +10,7 @@ import {
   SHAFT_CAGE,
   TOP_MARGIN,
   contentAngle,
-  levelY,
+  walkY,
 } from '../content/floors'
 import { plateSurface, steelSurface, tiled } from './materials'
 import { useSilo } from '../state/useSilo'
@@ -88,8 +88,10 @@ function ShaftCage() {
     )
     let b = 0
     FLOORS.forEach((floor) => {
+      // Sill and head of the landing opening, so both are measured from the
+      // surface you actually step across.
       for (const dy of [0, 2.9]) {
-        const y = levelY(floor.level) + dy
+        const y = walkY(floor.level) + dy
         for (const sz of [1, -1]) {
           dummy.position.set(0, y, sz * SHAFT_CAGE)
           dummy.rotation.set(0, 0, 0)
@@ -119,7 +121,7 @@ function ShaftCage() {
     )
     let d = 0
     FLOORS.forEach((floor) => {
-      const y = levelY(floor.level) - bayH / 2 - 0.4
+      const y = walkY(floor.level) - bayH / 2 - 0.4
       const faces: Array<[number, number, number]> = [
         [0, SHAFT_CAGE, 0],
         [0, -SHAFT_CAGE, 0],
@@ -151,7 +153,9 @@ function Landings() {
     () =>
       FLOORS.map((floor) => {
         const a = contentAngle(floor.level)
-        return { level: floor.level, a, y: levelY(floor.level) }
+        // The portal sill is the walking surface: step out of the car and you
+        // are on the deck, not 1.9 m above it.
+        return { level: floor.level, a, y: walkY(floor.level) }
       }),
     [],
   )
@@ -256,8 +260,10 @@ export default function Elevator({ carY }: { carY: React.RefObject<number> }) {
       <ShaftCage />
       <Landings />
       <group ref={car}>
-        {/* Floor grating */}
-        <mesh material={grate} position={[0, -0.08, 0]}>
+        {/* Floor grating. Positioned so its TOP face is exactly at the car
+            group origin: carY is then the floor you stand on, matching walkY
+            at the landing rather than sitting a centimetre under it. */}
+        <mesh material={grate} position={[0, -0.07, 0]}>
           <boxGeometry args={[S * 2, 0.14, S * 2]} />
         </mesh>
         {/* Roof */}

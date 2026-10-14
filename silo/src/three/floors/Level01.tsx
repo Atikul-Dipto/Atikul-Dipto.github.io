@@ -7,7 +7,7 @@ import {
   SHAFT_RADIUS,
   SLOT,
   contentAngle,
-  deckY,
+  walkY,
   levelY,
 } from '../../content/floors'
 import { identity } from '../../content/portfolio'
@@ -32,7 +32,7 @@ function makePanel(width: number, height: number) {
 
 function IdentityConsole({ angle }: { angle: number }) {
   const y = levelY(1)
-  const deck = deckY(1)
+  const deck = walkY(1)
   const panel = useMemo(() => makePanel(512, 320), [])
   const trace = useRef(0)
   const nextDraw = useRef(0)
@@ -316,7 +316,7 @@ function Airlock({ angle }: { angle: number }) {
  */
 function MonitoringRoom({ angle }: { angle: number }) {
   const y = levelY(1)
-  const deck = deckY(1)
+  const deck = walkY(1)
 
   const pipes = useMemo(() => {
     const group = new THREE.Group()

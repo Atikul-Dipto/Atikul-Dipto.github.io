@@ -22,7 +22,7 @@ import {
   WALL_THICK,
   cutTheta,
   contentAngle,
-  deckY,
+  walkY,
   inCut,
   levelY,
 } from '../content/floors'
@@ -316,7 +316,7 @@ function Decks() {
     })
 
     FLOORS.forEach((floor) => {
-      const y = deckY(floor.level)
+      const y = walkY(floor.level)
 
       const deck = new THREE.Mesh(deckGeo, deckMat)
       deck.rotation.x = -Math.PI / 2
@@ -424,7 +424,7 @@ function Corridors() {
     let n = 0
     FLOORS.forEach((floor) => {
       const base = contentAngle(floor.level)
-      const deck = deckY(floor.level)
+      const deck = walkY(floor.level)
       const mid = DECK_INNER + span / 2
       for (let k = 0; k < BAYS; k++) {
         const a = base + ((k + 0.5) / BAYS) * Math.PI * 2

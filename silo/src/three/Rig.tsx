@@ -5,12 +5,12 @@ import * as THREE from 'three'
 import {
   CAM_RADIUS,
   CUT_MID,
-  DECK_DROP,
   EYE,
   SHAFT_RADIUS,
   SLOT,
   contentAngle,
   levelY,
+  walkY,
 } from '../content/floors'
 import { gesture } from '../lib/drag'
 import { useSilo } from '../state/useSilo'
@@ -22,6 +22,11 @@ import { useSilo } from '../state/useSilo'
  *
  * radius 0 = inside the elevator car. radius CAM_RADIUS = out on the deck.
  * lookRadius 0 = looking at the shaft axis; SHAFT_RADIUS = looking at the wall.
+ *
+ * `y` is the CAMERA's elevation, in every phase. It used to be the floor
+ * elevation while riding -- with EYE added in useFrame -- and the eye
+ * elevation on a deck, which meant the same field meant two different things
+ * depending on radius. The car floor is now derived from it instead.
  */
 export interface Pose {
   y: number
@@ -199,7 +204,9 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     }
 
     if (phase === 'riding') {
-      const destY = levelY(target)
+      // Camera elevation at the destination: eye height above that level's
+      // walking surface, which is where the car floor will be too.
+      const destY = walkY(target) + EYE
       const distance = Math.abs(destY - p.y)
       // Travel time scales with distance, with a floor so one-level hops still
       // read as a ride rather than a cut.
@@ -227,7 +234,13 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
         0,
       )
       t.to(p, { y: destY, duration: ride, ease: reduced ? 'none' : 'power2.inOut' }, reduced ? 0 : 0.35)
-      t.to(p, { lookY: destY + 0.4, duration: ride, ease: reduced ? 'none' : 'power2.inOut' }, reduced ? 0 : 0.35)
+      // Settle looking slightly down the wall, the same 1.22 m below eye as
+      // before the datum change.
+      t.to(
+        p,
+        { lookY: walkY(target) + 0.4, duration: ride, ease: reduced ? 'none' : 'power2.inOut' },
+        reduced ? 0 : 0.35,
+      )
       tl.current = t
       return
     }
@@ -236,7 +249,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
       // Walk up to the airlock. The record only opens once the camera has
       // actually arrived, so the transition is the thing that reveals it.
       const a = contentAngle(1) + SLOT.airlock
-      const y = levelY(1) - DECK_DROP + EYE
+      const y = walkY(1) + EYE
       const t = gsap.timeline({ onComplete: () => useSilo.getState().setCvOpen(true) })
       t.to(
         p,
@@ -256,15 +269,15 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     }
 
     if (phase === 'onFloor') {
-      const y = levelY(target)
+      const floor = walkY(target)
       const t = gsap.timeline()
       t.to(
         p,
         {
           radius: CAM_RADIUS,
           angle: contentAngle(target),
-          y: y - DECK_DROP + EYE,
-          lookY: y - DECK_DROP + EYE + 0.2,
+          y: floor + EYE,
+          lookY: floor + EYE + 0.2,
           lookRadius: SHAFT_RADIUS,
           duration: reduced ? 0 : 1.5,
           ease: 'power3.out',
@@ -280,9 +293,11 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
 
   useFrame((_, dt) => {
     const p = pose.current
-    // While riding, the camera is the car: keep them locked together.
-    if (p.radius < 0.01) carY.current = p.y
-    else carY.current = levelY(useSilo.getState().level)
+    // While riding, the camera is in the car, so the car floor is one eye
+    // height below it. Parked, the car sits on that level's walking surface --
+    // the same datum as the deck outside its doors.
+    if (p.radius < 0.01) carY.current = p.y - EYE
+    else carY.current = walkY(useSilo.getState().level)
 
     const k = Math.min(1, dt * 8)
     const wantYaw = drag.current.yaw + parallax.current.yaw
@@ -290,11 +305,7 @@ export default function Rig({ carY }: { carY: React.RefObject<number> }) {
     look.current.yaw += (wantYaw - look.current.yaw) * k
     look.current.pitch += (wantPitch - look.current.pitch) * k
 
-    camPos.current.set(
-      Math.cos(p.angle) * p.radius,
-      p.y + (p.radius < 0.01 ? EYE : 0),
-      Math.sin(p.angle) * p.radius,
-    )
+    camPos.current.set(Math.cos(p.angle) * p.radius, p.y, Math.sin(p.angle) * p.radius)
     camera.position.copy(camPos.current)
 
     lookPos.current.set(

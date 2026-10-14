@@ -2,7 +2,7 @@ import { Suspense, useEffect, useRef } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
-import { PALETTE, levelY } from '../content/floors'
+import { PALETTE, levelY, walkY } from '../content/floors'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
@@ -81,7 +81,7 @@ export default function SiloScene() {
   const setQuality = useSilo((s) => s.setQuality)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
   // Shared between the rig and the car so they stay locked while travelling.
-  const carY = useRef(levelY(1))
+  const carY = useRef(walkY(1))
 
   return (
     <Canvas
