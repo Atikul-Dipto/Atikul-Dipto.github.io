@@ -54,7 +54,7 @@ export function TopBar() {
           className="chip"
           onClick={toggleMute}
           aria-pressed={!muted}
-          title="Ambient audio arrives in a later stage"
+          title="Ambient hum, footsteps and the lift. Synthesised live, so there is nothing to download."
         >
           {muted ? 'Sound off' : 'Sound on'}
         </button>

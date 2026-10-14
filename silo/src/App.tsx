@@ -5,6 +5,7 @@ import { DirectoryOverlay, MiniSilo } from './ui/Directory'
 import { CallPanel, CvViewer, Fallback, TopBar } from './ui/Chrome'
 import FloorPanel from './ui/FloorPanel'
 import Intro from './ui/Intro'
+import Soundscape from './ui/Soundscape'
 import WalkHud from './ui/WalkHud'
 import './styles.css'
 
@@ -84,6 +85,7 @@ export default function App() {
       <DirectoryOverlay />
       <CvViewer />
       <WalkHud />
+      <Soundscape />
     </div>
   )
 }

@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import {
   CAM_RADIUS,
   DECK_DROP,
+  DECK_INNER,
   ELEVATOR_HALF,
   EYE_OFFSET,
   FLOOR_HEIGHT,
@@ -16,6 +17,7 @@ import {
   contentAngle,
   walkY,
 } from '../../content/floors'
+import { footstep } from '../../lib/audio'
 import { attachWalkInput, move } from '../../lib/input'
 import { useSilo } from '../../state/useSilo'
 
@@ -53,8 +55,16 @@ const PITCH_LIMIT = 1.45
  */
 const BOB_RISE = 0.045
 const BOB_ROLL = 0.006
-/** Strides per metre travelled, so the cadence follows speed rather than time. */
-const BOB_CADENCE = 1.05
+/**
+ * Stride phase per metre travelled, so the cadence follows speed rather than
+ * time: slow to a crawl and the footfalls slow with you, sprint and they speed
+ * up, and standing still produces none at all without needing a special case.
+ *
+ * The phase advances `BOB_CADENCE * PI` radians per metre and a footfall lands
+ * every PI, so this is one footfall every 1/BOB_CADENCE metres -- 0.71 m here,
+ * which is a stride length for a body moving at a jog.
+ */
+const BOB_CADENCE = 1.4
 
 /**
  * Standing inside the lift car. Measured from the shaft axis, a little inside
@@ -90,6 +100,8 @@ export default function Player() {
   const grounded = useRef(false)
   /** Stride phase, advanced by distance travelled rather than by time. */
   const bob = useRef(0)
+  /** Which half-stride the last footfall was played on. */
+  const lastStep = useRef(0)
   /** A placement waiting to be applied on the next frame, see below. */
   const place = useRef<{ x: number; y: number; z: number } | null>(null)
 
@@ -219,6 +231,7 @@ export default function Player() {
       vel.current.set(0, 0, 0)
       fall.current = 0
       bob.current = 0
+      lastStep.current = 0
       camera.position.set(at.x, at.y + EYE_OFFSET, at.z)
       camera.rotation.set(0, 0, 0)
       camera.rotateY(look.current.yaw)
@@ -324,6 +337,18 @@ export default function Player() {
     if (grounded.current) bob.current += horiz * dt * BOB_CADENCE * Math.PI
     const rise = Math.sin(bob.current * 2) * BOB_RISE * stride
     const roll = Math.sin(bob.current) * BOB_ROLL * stride
+
+    // A footfall at each half-stride, from the same phase that drives the bob,
+    // so what you hear and what you feel are the same stride rather than two
+    // timers drifting apart. Standing still never fires one, because the phase
+    // only advances with distance travelled.
+    const half = Math.floor(bob.current / Math.PI)
+    if (half !== lastStep.current && grounded.current && horiz > 0.6) {
+      lastStep.current = half
+      // On the stair the body is inside the stairwell opening; on a deck it is
+      // outside it. One number tells the two surfaces apart.
+      footstep(Math.hypot(px, pz) < DECK_INNER, move.sprint)
+    }
 
     // ---- camera sits on the body, never the other way round -------------
     camera.position.set(px, py + EYE_OFFSET + rise, pz)

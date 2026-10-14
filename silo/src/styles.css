@@ -112,7 +112,14 @@ a { color: inherit; }
 
 /* ---------- top bar ---------- */
 .top {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 30;
+  position: fixed; top: 0; left: 0; right: 0;
+  /* Above .walk-prompt (40). The prompt is a full-screen overlay with a
+     translucent backdrop, so at a lower z-index the top bar stayed perfectly
+     visible through it and silently stopped responding to clicks -- the same
+     failure as the prompt swallowing the click meant for the canvas. These
+     are global controls: sound, reduced motion and the directory have to stay
+     reachable whatever mode you are in. */
+  z-index: 45;
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
   padding: 16px 20px; pointer-events: none;
 }
