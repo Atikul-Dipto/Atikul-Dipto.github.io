@@ -297,21 +297,26 @@ function Gangways() {
         const [sx, sz] = bridgePoint(level, f.parapetTo + 0.35, across * (BRIDGE_WIDTH / 2 + 0.45))
         addBox(0.12, 2.4, 0.12, sx, y + 1.2, sz, -a, m.steel)
         if (across === 1) {
-          const plate = new THREE.Mesh(
-            new THREE.PlaneGeometry(1.6, 0.625),
-            new THREE.MeshStandardMaterial({
-              map: signTexture(level, floor.name),
-              emissive: new THREE.Color('#ffffff'),
-              emissiveMap: signTexture(level, floor.name),
-              emissiveIntensity: 0.55,
-              roughness: 0.7,
-              side: THREE.DoubleSide,
-            }),
-          )
-          plate.position.set(sx, y + 2.05, sz)
-          // Face back along the bridge, towards whoever is arriving.
-          plate.rotation.y = Math.PI / 2 - a + Math.PI
-          group.add(plate)
+          // Two faces back to back, each one-sided. A single double-sided
+          // plane shows its text mirrored to anyone on the far side of it --
+          // which, for a sign at the end of a bridge, is everyone on the deck.
+          const tex = signTexture(level, floor.name)
+          const mat = new THREE.MeshStandardMaterial({
+            map: tex,
+            emissive: new THREE.Color('#ffffff'),
+            emissiveMap: tex,
+            emissiveIntensity: 0.55,
+            roughness: 0.7,
+          })
+          for (const flip of [0, Math.PI]) {
+            const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.625), mat)
+            plate.position.set(sx, y + 2.05, sz)
+            // flip 0 faces back along the bridge, towards whoever is arriving
+            // from the lift; flip PI faces out across the deck.
+            plate.rotation.y = Math.PI / 2 - a + Math.PI + flip
+            plate.translateZ(0.012)
+            group.add(plate)
+          }
         }
       }
     })

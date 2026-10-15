@@ -418,23 +418,28 @@ function Corridors() {
     const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.04, 0.3), steel, max)
     const hangers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 1.5, 0.1), steel, max)
 
-    let n = 0
+    // One counter PER MESH. Level 1 has no deck above it, so it gets kerbs
+    // but no joists or hangers -- and with a single shared counter the slots
+    // it skipped were never written, kept the identity matrix, and drew a
+    // 13.6 m joist and a hanger at the world origin: straight through the
+    // middle of the lift shaft.
+    let nk = 0
+    let nj = 0
     FLOORS.forEach((floor) => {
       const deck = walkY(floor.level)
       const mid = DECK_INNER + span / 2
       for (const a of bayAngles(floor.level)) {
-        // Level 1 has no deck above it, so nothing for a joist to carry.
         if (floor.level > 1) {
-          radial(joists, n, a, mid, levelY(floor.level) + 2.6)
-          radial(hangers, n, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
+          radial(joists, nj, a, mid, levelY(floor.level) + 2.6)
+          radial(hangers, nj, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
+          nj++
         }
-        radial(kerbs, n, a, mid, deck + 0.02)
-        n++
+        radial(kerbs, nk++, a, mid, deck + 0.02)
       }
     })
 
     for (const mesh of [joists, kerbs, hangers]) {
-      mesh.count = n
+      mesh.count = mesh === kerbs ? nk : nj
       mesh.instanceMatrix.needsUpdate = true
       mesh.castShadow = mesh !== kerbs
       mesh.receiveShadow = true

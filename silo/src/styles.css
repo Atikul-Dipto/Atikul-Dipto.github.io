@@ -473,7 +473,8 @@ body:has(.fallback) { overflow: auto; }
 .walk-hint {
   position: fixed;
   left: 50%;
-  bottom: 1.2rem;
+  /* Above the call panel, which also sits bottom centre. */
+  bottom: 5.4rem;
   transform: translateX(-50%);
   z-index: 35;
   padding: 0.55rem 0.9rem;

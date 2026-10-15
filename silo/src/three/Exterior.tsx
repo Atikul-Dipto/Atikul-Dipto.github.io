@@ -293,7 +293,7 @@ export default function Exterior() {
       ))}
 
       {/* Warm light inside the shaft, so the section stays the brightest thing
-          in frame. These unmount with the cavern; TravellingLights take over. */}
+          in frame. These unmount with the cavern; Lighting.tsx takes over. */}
       {[0, 1].map((i) => (
         <pointLight
           key={i}

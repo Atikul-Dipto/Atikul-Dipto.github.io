@@ -178,17 +178,22 @@ export default function Dome() {
 
     // ---- the column: the top of the lift core ---------------------------
     const colH = DISH.bottom - CABLE_TOP
-    const colConcrete = tiled(concreteSurface(), 2, 6)
+    // Tiled to the column's own proportions -- about 12 m round and 12 m
+    // tall -- and lit like the dome it holds up. It used to carry the wall's
+    // normal map at 2 x 6, which stretched each bump into a horizontal streak,
+    // and it took shadows from a sun hung right beside it, so most of it sat
+    // in its own shade and read as a black, glossy pillar.
+    const colConcrete = tiled(concreteSurface(), 4, 4)
     const colMat = new THREE.MeshStandardMaterial({
-      color: '#c0b6aa',
-      roughness: 0.9,
+      color: '#bdb3a7',
+      roughness: 0.95,
       map: colConcrete.map,
-      normalMap: colConcrete.normalMap,
+      emissive: new THREE.Color('#ffffff'),
+      emissiveIntensity: 0,
     })
     const column = new THREE.Mesh(new THREE.CylinderGeometry(DISH.neck, DISH.neck, colH, 48), colMat)
     column.position.y = CABLE_TOP + colH / 2
     column.castShadow = true
-    column.receiveShadow = true
     group.add(column)
     // Bands, and the hoist housing at its foot where the cables go in.
     for (const y of [CABLE_TOP + 0.2, CABLE_TOP + colH * 0.42, DISH.bottom - 0.4]) {
@@ -264,7 +269,7 @@ export default function Dome() {
     sky.position.y = domeY(DISH.rim + 0.6) + 0.05
 
     group.add(sky)
-    return { group, glassMat, louvreMat, shellMat, ribMat, skyMat: sky.material as THREE.MeshBasicMaterial }
+    return { group, glassMat, louvreMat, shellMat, ribMat, colMat, skyMat: sky.material as THREE.MeshBasicMaterial }
   }, [])
 
   useFrame(() => {
@@ -275,7 +280,7 @@ export default function Dome() {
     parts.skyMat.color.copy(d.sky).lerp(d.sun, 0.3).multiplyScalar(0.4 + d.glow * 1.1)
     parts.louvreMat.emissive.copy(d.sun).lerp(d.sky, 0.35)
     parts.louvreMat.emissiveIntensity = 0.12 + d.glow * 1.1
-    for (const m of [parts.shellMat, parts.ribMat]) {
+    for (const m of [parts.shellMat, parts.ribMat, parts.colMat]) {
       m.emissive.copy(d.sky).lerp(d.sun, 0.6)
       m.emissiveIntensity = 0.03 + d.glow * 0.13
     }

@@ -117,7 +117,7 @@ export default function Lighting() {
       if (!p) return
       const a = base + ((i + 0.5) / POOL) * Math.PI * 2
       p.position.set(Math.cos(a) * r, y + 3.8, Math.sin(a) * r)
-      p.intensity = top ? 30 + d.night * 26 : 38
+      p.intensity = top ? 55 + d.night * 35 : 62
     })
   })
 
@@ -146,8 +146,10 @@ export default function Lighting() {
             pool.current[i] = p
           }}
           color={PALETTE.brassHot}
-          intensity={34}
-          distance={24}
+          intensity={55}
+          // Far enough to reach the outer wall and the rooms' facades from
+          // the promenade: at 24 m the wall 11 m away was barely lit.
+          distance={32}
           decay={2}
         />
       ))}
