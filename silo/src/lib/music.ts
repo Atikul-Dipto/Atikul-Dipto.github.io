@@ -62,6 +62,8 @@ interface Music {
   /** Taps the bus so a test can tell notes are really sounding. */
   meter: AnalyserNode
   timer: number | null
+  /** Whether the score is meant to be playing. */
+  on: boolean
   /** Audio-clock time of the next bar to queue. */
   nextBar: number
   /** Bars queued since the start, which fixes the section and the chord. */
@@ -242,7 +244,7 @@ export function attachMusic(ctx: AudioContext, out: AudioNode) {
   const meter = ctx.createAnalyser()
   meter.fftSize = 2048
   bus.connect(meter)
-  music = { bus, meter, timer: null, nextBar: 0, bar: 0 }
+  music = { bus, meter, timer: null, on: false, nextBar: 0, bar: 0 }
 }
 
 /** The score's loudness against the rest of the soundscape. Soft. */
@@ -254,6 +256,7 @@ export function playMusic(on: boolean) {
   const g = music.bus.gain
   g.cancelScheduledValues(ctx.currentTime)
   g.setValueAtTime(g.value, ctx.currentTime)
+  music.on = on
   if (on) {
     if (music.timer === null) {
       music.nextBar = ctx.currentTime + 0.2
@@ -264,8 +267,11 @@ export function playMusic(on: boolean) {
   } else {
     g.linearRampToValueAtTime(0, ctx.currentTime + 1.2)
     const m = music
+    // Stop queueing once the fade is over -- unless it was turned back on
+    // meanwhile. Decided by the flag, not by reading the gain back: on a busy
+    // machine the audio thread lags and the gain can still read above zero.
     window.setTimeout(() => {
-      if (m.timer !== null && m.bus.gain.value < 0.001) {
+      if (m.timer !== null && !m.on) {
         window.clearInterval(m.timer)
         m.timer = null
       }

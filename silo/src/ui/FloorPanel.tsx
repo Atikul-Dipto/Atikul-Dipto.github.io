@@ -1,5 +1,6 @@
 import { floorByLevel } from '../content/floors'
 import { identity } from '../content/portfolio'
+import { levelRecord, type LevelRecord, type RecordItem } from '../content/records'
 import { useSilo } from '../state/useSilo'
 
 /**
@@ -14,6 +15,7 @@ export default function FloorPanel() {
   const recordOpen = useSilo((s) => s.recordOpen)
   const enterAirlock = useSilo((s) => s.enterAirlock)
   const floor = floorByLevel(level)
+  const rec = levelRecord(level)
   // Up on demand, or whenever the mouse is free on a desktop -- never over
   // the view while someone is actually walking. On a phone the pointer is
   // never "locked", so there it is the Record button alone.
@@ -33,38 +35,97 @@ export default function FloorPanel() {
           <h1>{identity.name}</h1>
           <p className="panel__role">{identity.headline}</p>
           <p className="panel__body">{identity.intro}</p>
-          <ul className="panel__tags">
-            {identity.specialisms.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-          <p className="panel__meta">{identity.location}</p>
           <div className="panel__actions">
             <button type="button" className="btn btn--primary" onClick={enterAirlock}>
               Open the records vault
             </button>
-            {identity.links.map((l) => (
-              <a key={l.href} className="btn" href={l.href} target="_blank" rel="noreferrer">
-                {l.label}
-              </a>
-            ))}
           </div>
+          <RecordBody rec={rec} />
         </>
       ) : (
         <>
-          <h2>{floor.name}</h2>
-          <p className="panel__body">{floor.blurb}</p>
-          <p className="panel__stub">
-            This level is built but not yet fitted out. Its content is live on the{' '}
-            <a href="/">standard portfolio</a>.
-          </p>
+          <h2>{rec.title}</h2>
+          {rec.subtitle && <p className="panel__role">{rec.subtitle}</p>}
+          {rec.empty ? (
+            <p className="panel__stub">
+              Nothing is on record for this level yet. Everything else in the portfolio is on the other
+              levels, and on the <a href="/">standard portfolio</a>.
+            </p>
+          ) : (
+            <RecordBody rec={rec} />
+          )}
         </>
       )}
 
       <p className="panel__hint">
-        The vault is in the sheriff's office, behind the round door. The lift
-        and the stair are across the bridge.
+        {floor.level === 1
+          ? "The vault is in the sheriff's office, behind the round door. The lift and the stair are across the bridge."
+          : 'This record is also on the wall the bridge faces. The lift and the stair are across the bridge.'}
       </p>
     </main>
+  )
+}
+
+function Item({ it }: { it: RecordItem }) {
+  return (
+    <div className="rec__item">
+      {it.title && <h3 className="rec__title">{it.title}</h3>}
+      {it.meta && <p className="rec__meta">{it.meta}</p>}
+      {it.text && <p className="panel__body">{it.text}</p>}
+      {it.figures && (
+        <dl className="rec__figures">
+          {it.figures.map(([v, l]) => (
+            <div key={l}>
+              <dt>{v}</dt>
+              <dd>{l}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {it.bullets && (
+        <ul className="rec__bullets">
+          {it.bullets.map((b) => (
+            <li key={b}>{b}</li>
+          ))}
+        </ul>
+      )}
+      {it.tags && (
+        <ul className="panel__tags">
+          {it.tags.map((t) => (
+            <li key={t}>{t}</li>
+          ))}
+        </ul>
+      )}
+      {it.code && (
+        <pre className="rec__code">
+          <code>{it.code}</code>
+        </pre>
+      )}
+      {it.links && it.links.length > 0 && (
+        <p className="rec__links">
+          {it.links.map((l) => (
+            <a key={l.href} className="btn" href={l.href} target="_blank" rel="noreferrer">
+              {l.label}
+            </a>
+          ))}
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Every section of a level's record -- the panel shows all of it. */
+function RecordBody({ rec }: { rec: LevelRecord }) {
+  return (
+    <>
+      {rec.sections.map((sec, i) => (
+        <section key={sec.heading ?? i} className="rec__section">
+          {sec.heading && <h3 className="rec__heading">{sec.heading}</h3>}
+          {sec.items.map((it, k) => (
+            <Item key={(it.title ?? '') + k} it={it} />
+          ))}
+        </section>
+      ))}
+    </>
   )
 }

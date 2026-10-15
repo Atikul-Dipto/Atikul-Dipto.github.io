@@ -38,7 +38,9 @@ procedural; the only downloaded asset is the portrait image.
 
 ```
 src/
-  content/      portfolio.ts   all real copy and records, typed
+  content/      portfolio.ts   all real copy and records, typed (copied from the
+                               standard portfolio's src/data.js)
+                records.ts     what each level holds, read by its wall AND its panel
                 floors.ts      the geometry contract + the twelve level definitions
                 stairs.ts      stair, landings, bridges: read by drawing AND collision
                 level1.ts      the level 1 floor plan: rooms, furniture, vault (same)
@@ -56,9 +58,11 @@ src/
                 LiftDriver.tsx moves the car: rides with the visitor, and empty calls
                 Rig.tsx        the opening camera only; GSAP tweens a pose object
                 Exterior.tsx   the opening approach (mounted only for that phase)
+                WallDisplay.tsx the curved glass display: the creed, and every
+                               level's record
                 Atmosphere.tsx dust
-                floors/        per-level fit-out; Level01 is the only one built,
-                               CreedWall is its curved display
+                floors/        Level01's fit-out, CreedWall, and RecordWall (each
+                               level's record on its display)
                 physics/       the body and its colliders (lazy: Rapier is 850 kB)
   ui/           React overlay: intro, top bar, record panel, directory, CV viewer,
                 walking HUD, soundscape binding
@@ -280,11 +284,34 @@ Built from the ideas in the reference images, not their assets: no geometry,
 texture, logo or sound here is copied. The one borrowed thing is the creed's
 short text, which is credited where it appears.
 
+## Where the portfolio is
+
+Everything on the standard portfolio is in the silo, by level. Each level's
+record is on a curved display on the wall the bridge lands facing, and in the
+**Record** panel; the display shows what can be read standing in front of it,
+the panel carries everything, including links and the full SQL.
+
+| Level | What is there |
+| --- | --- |
+| 01 | Identity: name, headline, tagline, the three figures, bio, links; the CV in the vault |
+| 02–04 | Cartup, Inspira, ARCED: role, dates, responsibilities, tools |
+| 05 | The postings in sequence, the degree, and the soft skills |
+| 06 | Nothing yet — no personal interests are on record |
+| 07 | The six projects and the two Power BI case studies |
+| 08 | The degree and its coursework, and the published op-ed |
+| 09 | The four certifications |
+| 10 | Every tool, in its six groups |
+| 11 | The analytical skills and the SQL showcase, with the queries in the panel |
+| 12 | Email, phone, LinkedIn, GitHub, the portfolio, location |
+
+`content/portfolio.ts` copies `src/data.js` word for word; when one changes,
+change the other.
+
 ## Status
 
-Level 1 is built. Levels 2–12 exist architecturally — deck, stair, bridge, lift
-landing — and are walkable, but are not fitted out; each says so and links to
-the standard portfolio.
+Level 1 is fitted out as rooms. Levels 2–12 are walkable — deck, stair, bridge,
+lift landing — and each carries its record on a wall display; their own fit-out
+is still to come.
 
 Verified by walking a body round it in a headless browser with held keys and a
 steering loop that only reads the body's real position, never teleporting it:

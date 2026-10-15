@@ -13,7 +13,7 @@ import {
   contentAngle,
   walkY,
 } from '../../content/floors'
-import { RIB, ribAngles } from '../../content/layout'
+import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
 import { level1Colliders } from '../../content/level1'
 import type { Box } from '../../content/level1'
 import {
@@ -206,6 +206,7 @@ function DeckColliders({ level }: { level: number }) {
     }
 
     if (level === 1) solids.push(...level1Colliders())
+    else solids.push(...recordWallSolids(level))
 
     return {
       floor: trimesh(f),

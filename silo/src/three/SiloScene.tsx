@@ -15,6 +15,7 @@ import Dome from './Dome'
 import Lighting from './Lighting'
 import LiftDriver from './LiftDriver'
 import Level01 from './floors/Level01'
+import RecordWalls from './floors/RecordWall'
 import { Dust } from './Atmosphere'
 
 /**
@@ -34,7 +35,12 @@ const WalkMode = lazy(loadWalk)
 function ActiveFloor() {
   const level = useSilo((s) => s.level)
   const near = Math.abs(1 - level) <= 1
-  return <>{near && <Level01 />}</>
+  return (
+    <>
+      {near && <Level01 />}
+      <RecordWalls />
+    </>
+  )
 }
 
 function Interior() {

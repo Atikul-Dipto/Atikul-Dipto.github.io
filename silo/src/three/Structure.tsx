@@ -23,7 +23,7 @@ import {
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
 import { CAFE, CREED, SHERIFF } from '../content/level1'
-import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, ribAngles } from '../content/layout'
+import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
 import { claddingSurface, concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
 
@@ -376,7 +376,11 @@ function Decks() {
               [CAFE.to, CREED.from - 0.03 + Math.PI * 2],
               [CREED.to + 0.03, SHERIFF.from],
             ]
-          : [[0, Math.PI * 2]]
+          : // Elsewhere it stops either side of the level's record display.
+            (() => {
+              const { from, to } = recordWallSpan(floor.level)
+              return [[to + 0.03, from - 0.03 + Math.PI * 2]] as Array<[number, number]>
+            })()
       for (const [from, to] of bandArcs) {
         const band = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.26, 0.1, 6, 80, to - from), steel)
         band.rotation.x = -Math.PI / 2

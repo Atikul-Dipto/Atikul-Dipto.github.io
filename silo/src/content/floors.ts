@@ -1,4 +1,4 @@
-import { certifications, education, experience, methods, projects, skillSystems } from './portfolio'
+import { certifications, dashboards, education, experience, projects, skillGroups, sqlQueries, writing } from './portfolio'
 
 /**
  * Geometry of the structure. Everything — stairs, decks, the camera rig, the
@@ -155,7 +155,7 @@ export const FLOORS: FloorDef[] = [
     kind: 'residence',
     blurb: experience[0].role,
     recordId: experience[0].id,
-    ready: false,
+    ready: true,
   },
   {
     level: 3,
@@ -164,7 +164,7 @@ export const FLOORS: FloorDef[] = [
     kind: 'residence',
     blurb: experience[1].role,
     recordId: experience[1].id,
-    ready: false,
+    ready: true,
   },
   {
     level: 4,
@@ -173,16 +173,16 @@ export const FLOORS: FloorDef[] = [
     kind: 'residence',
     blurb: experience[2].role,
     recordId: experience[2].id,
-    ready: false,
+    ready: true,
   },
   {
     level: 5,
     id: 'timeline',
     name: 'Career Corridor',
     kind: 'timeline',
-    blurb: 'The three postings in sequence.',
+    blurb: 'The postings in sequence, and the soft skills between them.',
     itemCount: experience.length,
-    ready: false,
+    ready: true,
   },
   {
     level: 6,
@@ -198,18 +198,18 @@ export const FLOORS: FloorDef[] = [
     id: 'laboratory',
     name: 'Project Laboratory',
     kind: 'laboratory',
-    blurb: 'The main body of work.',
-    itemCount: projects.length,
-    ready: false,
+    blurb: 'Projects, and the Power BI case studies.',
+    itemCount: projects.length + dashboards.length,
+    ready: true,
   },
   {
     level: 8,
     id: 'education',
     name: 'Education Archive',
     kind: 'education',
-    blurb: 'Economics, East West University.',
-    itemCount: education.length,
-    ready: false,
+    blurb: 'Economics, East West University, and published writing.',
+    itemCount: education.length + writing.length,
+    ready: true,
   },
   {
     level: 9,
@@ -218,25 +218,25 @@ export const FLOORS: FloorDef[] = [
     kind: 'certification',
     blurb: 'Credential drawers.',
     itemCount: certifications.length,
-    ready: false,
+    ready: true,
   },
   {
     level: 10,
     id: 'systems',
     name: 'Technical Systems',
     kind: 'systems',
-    blurb: 'Tooling, as running subsystems.',
-    itemCount: skillSystems.length,
-    ready: false,
+    blurb: 'The tools, by what they are for.',
+    itemCount: skillGroups.software.reduce((n, g) => n + g.items.length, 0),
+    ready: true,
   },
   {
     level: 11,
     id: 'methods',
     name: 'Analytical Methods',
     kind: 'methods',
-    blurb: 'How the analysis is actually done.',
-    itemCount: methods.length,
-    ready: false,
+    blurb: 'How the analysis is done, and the SQL behind it.',
+    itemCount: sqlQueries.length,
+    ready: true,
   },
   {
     level: 12,
@@ -245,7 +245,7 @@ export const FLOORS: FloorDef[] = [
     kind: 'core',
     accent: 'red',
     blurb: 'Where the structure converges. Communications terminal.',
-    ready: false,
+    ready: true,
   },
 ]
 
