@@ -22,10 +22,10 @@ import {
   levelY,
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
-import { CAFE, SHERIFF } from '../content/level1'
+import { CAFE, CREED, SHERIFF } from '../content/level1'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
-import { concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
+import { claddingSurface, concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
 function makeRandom(seed: number) {
@@ -73,7 +73,7 @@ function ConcreteWall() {
       // Near-white: these multiply the colour map, so a wide range here would
       // just crush the texture back into flat brown.
       const base = new THREE.Color('#ffffff')
-      const dark = new THREE.Color('#9d9289')
+      const dark = new THREE.Color('#b4b8bb')
       const pos = geo.attributes.position
       const colors = new Float32Array(pos.count * 3)
       for (let i = 0; i < pos.count; i++) {
@@ -90,18 +90,23 @@ function ConcreteWall() {
       return geo
     }
 
-    // Arc length is about 69 units and the wall is 157 tall, so this tiles the
-    // concrete at roughly four units a side.
-    const concrete = tiled(concreteSurface(), 17, 39)
+    // Precast cladding panels, one 4 m tile at a time round the arc and up
+    // the height. The repeat comes from the real dimensions: a fixed count
+    // stretched the old concrete to nearly 7 m wide when the shaft grew.
+    const clad = tiled(
+      claddingSurface(),
+      Math.round((SHAFT_RADIUS * WALL_ARC) / 4),
+      Math.round(WALL_HEIGHT / 4),
+    )
     const shell = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 1,
-      metalness: 0,
+      metalness: 0.08,
       side: THREE.DoubleSide,
-      map: concrete.map,
-      normalMap: concrete.normalMap,
-      roughnessMap: concrete.roughnessMap,
-      normalScale: new THREE.Vector2(0.8, 0.8),
+      map: clad.map,
+      normalMap: clad.normalMap,
+      roughnessMap: clad.roughnessMap,
+      normalScale: new THREE.Vector2(0.7, 0.7),
     })
 
     const inner = new THREE.Mesh(
@@ -276,6 +281,12 @@ function Decks() {
       roughness: 0.5,
       metalness: 0.4,
     })
+    const bandLight = new THREE.MeshStandardMaterial({
+      color: '#fff1d8',
+      emissive: new THREE.Color('#ffe0b0'),
+      emissiveIntensity: 2.2,
+      roughness: 0.5,
+    })
 
     FLOORS.forEach((floor) => {
       const y = walkY(floor.level)
@@ -357,11 +368,13 @@ function Decks() {
       // Structural band where the deck meets the wall. On level 1 it stops at
       // the rooms: it runs at 4 m, and carried on through it cut straight
       // across the cafeteria window.
+      // On level 1 it also stops either side of the creed wall.
       const bandArcs: Array<[number, number]> =
         floor.level === 1
           ? [
               [SHERIFF.to, CAFE.from],
-              [CAFE.to, SHERIFF.from + Math.PI * 2],
+              [CAFE.to, CREED.from - 0.03 + Math.PI * 2],
+              [CREED.to + 0.03, SHERIFF.from],
             ]
           : [[0, Math.PI * 2]]
       for (const [from, to] of bandArcs) {
@@ -371,6 +384,13 @@ function Decks() {
         band.rotation.z = -to
         band.position.y = levelY(floor.level) + 2.2
         group.add(band)
+        // A light line just under the band, right round the level: the one
+        // continuous line of light that says this wall is built, not dug.
+        const line = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.3, 0.022, 4, 160, to - from), bandLight)
+        line.rotation.x = -Math.PI / 2
+        line.rotation.z = -to
+        line.position.y = levelY(floor.level) + 2.2 - 0.14
+        group.add(line)
       }
     })
     return group

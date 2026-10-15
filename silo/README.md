@@ -31,8 +31,8 @@ builds the root site plus each sub-app and copies `silo/dist` to `/silo/`.
 
 React 19 · TypeScript · Vite · three.js · React Three Fiber · Drei ·
 @react-three/postprocessing · @react-three/rapier · GSAP · Zustand. All
-geometry, every texture and all the sound is procedural — the only downloaded
-asset is the portrait image.
+geometry, every texture and all the sound — the score included — is
+procedural; the only downloaded asset is the portrait image.
 
 ## Layout
 
@@ -57,7 +57,8 @@ src/
                 Rig.tsx        the opening camera only; GSAP tweens a pose object
                 Exterior.tsx   the opening approach (mounted only for that phase)
                 Atmosphere.tsx dust
-                floors/        per-level fit-out; Level01 is the only one built
+                floors/        per-level fit-out; Level01 is the only one built,
+                               CreedWall is its curved display
                 physics/       the body and its colliders (lazy: Rapier is 850 kB)
   ui/           React overlay: intro, top bar, record panel, directory, CV viewer,
                 walking HUD, soundscape binding
@@ -65,6 +66,7 @@ src/
                 lift.ts        where the car is, shared without re-rendering
                 daylight.ts    the hour outside: one clock for everything that shows it
                 audio.ts       the synthesised soundscape
+                music.ts       the score: an original piece, synthesised
                 capability.ts  WebGL probe for the 2D fallback
 ```
 
@@ -118,6 +120,15 @@ lighting or culling failure and is neither.
 plus a normal map at a grazing angle shimmers**; most of this structure is seen
 edge-on, so roughness stays high on architectural surfaces.
 
+**Nothing drawn at walking height may overlap anything else that is.** Two
+surfaces at the same height cannot win the depth test against each other, so
+they show through one another in stripes that crawl as you move. The bridge
+used to be a box laid over the landing at one end and the deck at the other,
+and that was the flickering floor by the lift. It is now cut to fit between
+them using their own polygon corners, and the deck, landing and bridge share
+one plate material mapped from world position (`planarUV`), so the pattern
+runs straight across the joins.
+
 **Fit-out parts belong on +Z.** A group rotated by `PI/2 - a + PI` has local +Z
 pointing back at the shaft axis, where the visitor stands. A solid box spanning
 an aperture occludes whatever is behind it — window casings are built from four
@@ -148,6 +159,18 @@ mouse is let go. Every floor is one click away in the **Directory**, which puts
 you aboard the lift if you are not standing in it. Devices without WebGL get a
 2D route to everything. `prefers-reduced-motion` is honoured and can be toggled
 in the top bar. Sound is off until asked for.
+
+### Sound and the score
+
+**Sound** turns on the hum, the air, footsteps, the lift and the score; once
+it is on, **Music** turns the score off and on by itself. The score is an
+original, light piece in F major — soft sine pads, a low line, glass bells on
+the five-note pentatonic scale and a slow harp-like arpeggio, in a generated
+hall — kept well under the rest of the sound. Nothing in it is a saw or square
+wave, so nothing buzzes. Eight chords of two bars each are played four ways in
+turn, so it runs about
+four and a half minutes before repeating. Notes are queued a little ahead on
+the audio clock, so a slow frame never makes it stumble.
 
 ## Walking
 
@@ -243,9 +266,19 @@ never rebuilds the ground underfoot.
   fluorescent tube that flickers, and the **records vault**: a round door in the
   back wall. <kbd>E</kbd> spins the wheel and swings it open, and behind it is
   the CV.
+- **The creed wall.** A curved display of dark glass set into the wall across
+  the atrium from the arrival, on a steel plinth between two lit fins. It
+  glows faintly from a distance and wakes as you approach, a scan line
+  running down the glass and leaving the text at full brightness. The text is
+  the creed from the series, quoted as the portfolio owner supplied it and
+  credited on the wall.
+- **The wall.** The shaft is clad in precast panels — joints, tie-holes and
+  ribbed service strips, in a cool grey — with a line of light round every
+  level under the structural band.
 
 Built from the ideas in the reference images, not their assets: no geometry,
-texture, logo or sound here is copied.
+texture, logo or sound here is copied. The one borrowed thing is the creed's
+short text, which is credited where it appears.
 
 ## Status
 
@@ -259,8 +292,11 @@ along the promenade, into the cafeteria to its window, into a table (which
 stops it), into the sheriff's office to the vault and open it, over the bridge
 into the lift, a ride to level 3 and out onto its deck, down the stair to level
 4, against the landing doors over an empty shaft (they hold), calling the car
-down and stepping in, and against the rail. Not verified: real GPU hardware,
-real phones and touch, and how the audio sounds.
+down and stepping in, and against the rail. W, A, S and D are each checked to
+move the body the way the camera faces. The audio graph is checked by reading
+it — the score starts with the sound, notes register on its bus, and the Music
+and Sound controls stop it. Not verified: real GPU hardware, real phones and
+touch, and how the audio sounds.
 
 Not built yet: interiors for levels 2–12, the recreation mini-game, and a
 contact form backend.

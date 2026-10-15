@@ -9,6 +9,8 @@ export function TopBar() {
   const toggleDirectory = useSilo((s) => s.toggleDirectory)
   const muted = useSilo((s) => s.muted)
   const toggleMute = useSilo((s) => s.toggleMute)
+  const music = useSilo((s) => s.music)
+  const toggleMusic = useSilo((s) => s.toggleMusic)
   const reduced = useSilo((s) => s.reducedMotion)
   const setReduced = useSilo((s) => s.setReducedMotion)
   const recordOpen = useSilo((s) => s.recordOpen)
@@ -48,13 +50,24 @@ export function TopBar() {
           className="chip"
           onClick={toggleMute}
           aria-pressed={!muted}
-          title="Ambient hum, footsteps and the lift. Synthesised live, so there is nothing to download."
+          title="Ambient hum, footsteps, the lift and the score. Synthesised live, so there is nothing to download."
         >
           {muted ? 'Sound off' : 'Sound on'}
         </button>
+        {!muted && (
+          <button
+            type="button"
+            className="chip chip--extra"
+            onClick={toggleMusic}
+            aria-pressed={music}
+            title="The score: an original piece, played softly under the sound of the silo."
+          >
+            {music ? 'Music on' : 'Music off'}
+          </button>
+        )}
         <button
           type="button"
-          className="chip"
+          className="chip chip--extra"
           onClick={() => setReduced(!reduced)}
           aria-pressed={reduced}
           title="Reduce motion"

@@ -8,6 +8,7 @@ import {
   enableAudio,
   setDepth,
   setLiftRunning,
+  setMusicWanted,
   stopAudio,
 } from '../lib/audio'
 
@@ -24,6 +25,7 @@ import {
  */
 export default function Soundscape() {
   const muted = useSilo((s) => s.muted)
+  const music = useSilo((s) => s.music)
   const level = useSilo((s) => s.level)
   const phase = useSilo((s) => s.phase)
   const doorsOpen = useSilo((s) => s.doorsOpen)
@@ -33,6 +35,10 @@ export default function Soundscape() {
     if (muted) disableAudio()
     else enableAudio()
   }, [muted])
+
+  useEffect(() => {
+    setMusicWanted(music)
+  }, [music])
 
   useEffect(() => {
     if (!muted) setDepth(level, LEVEL_COUNT)

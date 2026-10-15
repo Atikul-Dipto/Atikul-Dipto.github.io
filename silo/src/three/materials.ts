@@ -154,8 +154,10 @@ function buildConcrete(): Surface {
     }
   }
 
-  const base = new THREE.Color('#8b8279')
-  const dark = new THREE.Color('#4a423b')
+  // Neutral grey. It was a warm brown, which under the warm lamps went the
+  // colour of mud.
+  const base = new THREE.Color('#8c8e8e')
+  const dark = new THREE.Color('#4c5052')
   const map = colourTexture(S, (x, y, i) => {
     // Streaks run down the wall, so they follow v, not u.
     const run = streak[((y * 3) % S) * S + x] * 0.5 + streak[i] * 0.5
@@ -168,6 +170,98 @@ function buildConcrete(): Surface {
   for (let i = 0; i < rough.length; i++) rough[i] = 0.78 + grain[i] * 0.22
 
   return { map, normalMap: normalTexture(height, S, 36), roughnessMap: scalarTexture(rough, S) }
+}
+
+/**
+ * Precast cladding: the shaft wall as manufactured panels rather than poured
+ * concrete. One tile is 4 m square -- two columns of 2 m panels, each row a
+ * 1.6 m panel over a 0.4 m ribbed service strip -- with crisp recessed
+ * joints, four tie-holes a panel, and each panel a slightly different shade,
+ * which is what reads as made rather than poured.
+ *
+ * Cool grey on purpose. Under warm lamps the old concrete went the colour of
+ * mud; this goes a neutral, lit grey.
+ */
+function buildCladding(): Surface {
+  const S = 512
+  const PX = S / 4 // pixels a metre
+  const grain = fbm(S, 4, 8, 71)
+  const cloud = fbm(S, 3, 2, 83)
+  const rand = makeRandom(97)
+  // Per-panel shade: 2 columns x 2 rows.
+  const shade = Array.from({ length: 4 }, () => rand() * 2 - 1)
+
+  const PANEL = 1.6 * PX
+  const ROW = 2 * PX
+  const COL = 2 * PX
+  const JOINT = 3
+
+  const height = new Float32Array(S * S)
+  const kind = new Uint8Array(S * S) // 0 panel, 1 strip, 2 joint, 3 hole
+  const panelOf = new Int8Array(S * S)
+  for (let y = 0; y < S; y++) {
+    const ry = y % ROW
+    const row = Math.floor(y / ROW)
+    for (let x = 0; x < S; x++) {
+      const i = y * S + x
+      const cx = x % COL
+      const col = Math.floor(x / COL)
+      panelOf[i] = row * 2 + col
+      let h = grain[i] * 0.08
+      let k = 0
+      if (ry >= PANEL) {
+        // Service strip: fine horizontal ribs.
+        k = 1
+        h = 0.25 + Math.abs(((ry - PANEL) / 6) % 1 - 0.5) * 0.5
+      }
+      const inJoint =
+        cx < JOINT || cx >= COL - JOINT || ry < JOINT || Math.abs(ry - PANEL) < JOINT || ry >= ROW - JOINT
+      if (inJoint) {
+        k = 2
+        h = -0.6
+      }
+      if (k === 0) {
+        // Tie-holes, at 18% in from each corner.
+        for (const hx of [0.18, 0.82]) {
+          for (const hy of [0.18, 0.82]) {
+            const d = Math.hypot(cx - hx * COL, ry - hy * PANEL)
+            if (d < 4.5) {
+              k = 3
+              h = -0.45 * (1 - d / 4.5)
+            }
+          }
+        }
+      }
+      height[i] = h
+      kind[i] = k
+    }
+  }
+
+  const panel = new THREE.Color('#a3a8ab')
+  const panelDark = new THREE.Color('#878c90')
+  const strip = new THREE.Color('#5c6266')
+  const joint = new THREE.Color('#2f3437')
+  const map = colourTexture(S, (_x, _y, i) => {
+    const k = kind[i]
+    if (k === 2) return [joint.r, joint.g, joint.b]
+    if (k === 1) {
+      const c = strip.clone().multiplyScalar(0.92 + height[i] * 0.3)
+      return [c.r, c.g, c.b]
+    }
+    // Faint weathering running down from the joint above, and the panel's
+    // own shade.
+    const t = Math.min(1, Math.max(0, 0.35 + shade[panelOf[i]] * 0.22 + (cloud[i] - 0.5) * 0.35 + grain[i] * 0.12))
+    const c = panel.clone().lerp(panelDark, t)
+    if (k === 3) c.multiplyScalar(0.55)
+    return [c.r, c.g, c.b]
+  })
+
+  const rough = new Float32Array(S * S)
+  for (let i = 0; i < rough.length; i++) {
+    const k = kind[i]
+    rough[i] = k === 1 ? 0.42 : k === 2 ? 0.95 : 0.7 + grain[i] * 0.16
+  }
+  return { map, normalMap: normalTexture(height, S, 10), roughnessMap: scalarTexture(rough, S) }
 }
 
 /** Tread plate: staggered raised lozenges, worn smooth on top, grimy between. */
@@ -262,8 +356,10 @@ function buildSteel(): Surface {
 let concrete: Surface | null = null
 let plate: Surface | null = null
 let steel: Surface | null = null
+let cladding: Surface | null = null
 
 export const concreteSurface = () => (concrete ??= buildConcrete())
+export const claddingSurface = () => (cladding ??= buildCladding())
 export const plateSurface = () => (plate ??= buildDeckPlate())
 export const steelSurface = () => (steel ??= buildSteel())
 

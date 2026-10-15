@@ -17,6 +17,8 @@ import { SHAFT_RADIUS, contentAngle, walkY } from './floors'
  *                 personnel monitor and the portrait on the far wall
  *   3.32 - 4.32   SHERIFF'S OFFICE, with the records vault in its back wall
  *   4.56 - 6.22   CAFETERIA, with the long window onto the outside
+ *   0.20 - 0.80   THE CREED: a curved display set into the wall, across
+ *                 the atrium from the arrival
  *   the rest      open promenade round to the cutaway
  *
  * Rooms are built on the deck, against the silo wall, behind a curved facade
@@ -77,7 +79,61 @@ export const WINDOW = {
   head: 4.55,
 }
 
+/**
+ * The creed wall: a curved display in the silo wall, glass from `plinth` to
+ * `top` above the floor, its face at `r`. It wakes when someone comes within
+ * `wakeDistance`.
+ */
+export const CREED = {
+  from: 0.2,
+  to: 0.8,
+  r: SHAFT_RADIUS - 0.25,
+  plinth: 0.8,
+  top: 5.4,
+  wakeDistance: 24,
+}
+
+/**
+ * What the silo tells itself: the creed from the series, quoted as the site
+ * owner supplied it and credited on the wall. The two long sentences are
+ * broken in two so the text stays large on the glass.
+ */
+export const CREED_TEXT = {
+  title: 'WHAT WE KNOW',
+  subtitle: 'READ ALOUD AT THE AIRLOCK DOOR',
+  stanzas: [
+    ['WE DO NOT KNOW WHY WE ARE HERE.', 'WE DO NOT KNOW WHO BUILT THE SILO.'],
+    ['WE DO NOT KNOW WHY EVERYTHING OUTSIDE', 'THE SILO IS AS IT IS.'],
+    ['WE DO NOT KNOW…', 'WHEN IT WILL BE SAFE TO GO OUTSIDE.'],
+    ['WE ONLY KNOW THAT DAY IS NOT THIS DAY.'],
+  ] as string[][],
+  credit: 'FROM SILO · APPLE TV+',
+}
+
 const norm = (a: number) => ((a % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2)
+
+/** True if `angle` falls on the creed wall, padded by `pad`. */
+export function inCreed(angle: number, pad = 0) {
+  const a = norm(angle)
+  return a >= CREED.from - pad && a <= CREED.to + pad
+}
+
+/** The creed wall's housing as boxes along its arc, for the physics. */
+function creedSolids(): Box[] {
+  const out: Box[] = []
+  const from = CREED.from - 0.016
+  const to = CREED.to + 0.016
+  const n = 12
+  const r0 = CREED.r - 0.3
+  const r1 = SHAFT_RADIUS - 0.05
+  for (let i = 0; i < n; i++) {
+    const a = from + ((to - from) * (i + 0.5)) / n
+    // Chord long enough to overlap its neighbours.
+    const w = ((to - from) / n) * r0 + 0.04
+    out.push(tangential(a, (r0 + r1) / 2, w, CREED.top + 0.3, r1 - r0))
+  }
+  return out
+}
 
 /** True if `angle` falls inside any room on level 1, padded by `pad`. */
 export function inLevel1Room(angle: number, pad = 0) {
@@ -332,6 +388,7 @@ export function level1Colliders(): Box[] {
   // The vault door itself, shut: a slab across the portal.
   out.push(tangential(VAULT.angle, SHAFT_RADIUS - 0.25, VAULT.radius * 2 + 0.2, 3.6, 0.5))
   out.push(...arrivalSolids)
+  out.push(...creedSolids())
   return out
 }
 

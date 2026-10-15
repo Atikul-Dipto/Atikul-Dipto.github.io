@@ -41,6 +41,8 @@ interface SiloState {
   directoryOpen: boolean
   cvOpen: boolean
   muted: boolean
+  /** The score, which plays with the sound unless turned off on its own. */
+  music: boolean
   reducedMotion: boolean
   quality: Quality
   webglFailed: boolean
@@ -77,6 +79,7 @@ interface SiloState {
   /** Seal it again. */
   closeAirlock: () => void
   toggleMute: () => void
+  toggleMusic: () => void
   setReducedMotion: (v: boolean) => void
   setQuality: (q: Quality) => void
   setWebglFailed: () => void
@@ -109,6 +112,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   directoryOpen: false,
   cvOpen: false,
   muted: true, // never autoplay audio before an interaction (spec §8)
+  music: true,
   reducedMotion: Boolean(prefersReduced),
   quality: 'high',
   webglFailed: false,
@@ -189,6 +193,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   closeAirlock: () =>
     set((s) => ({ cvOpen: false, phase: s.phase === 'airlock' ? 'onFloor' : s.phase })),
   toggleMute: () => set((s) => ({ muted: !s.muted })),
+  toggleMusic: () => set((s) => ({ music: !s.music })),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setQuality: (quality) => set({ quality }),
   setWebglFailed: () => set({ webglFailed: true }),

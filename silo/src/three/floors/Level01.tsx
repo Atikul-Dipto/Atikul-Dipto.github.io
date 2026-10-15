@@ -31,7 +31,8 @@ import type { Box, Room, Seat } from '../../content/level1'
 import { identity } from '../../content/portfolio'
 import { daylight } from '../../lib/daylight'
 import { useSilo } from '../../state/useSilo'
-import { concreteSurface, plateSurface, steelSurface, tiled } from '../materials'
+import { claddingSurface, concreteSurface, plateSurface, steelSurface, tiled } from '../materials'
+import CreedWall from './CreedWall'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -294,10 +295,14 @@ function RoomShell({ room }: { room: Room }) {
   const parts = useMemo(() => {
     const group = new THREE.Group()
     const walls = roomWalls(room)
-    const c = tiled(concreteSurface(), 1, 4)
+    // The facades are the same precast cladding as the shaft wall. Each wall
+    // box is one 0.05 rad slice, about 0.7 m, and half a tile across it is
+    // one panel column -- so the joints land on the slices.
+    const c = tiled(claddingSurface(), 0.5, room.height / 4)
     const wallMat = new THREE.MeshStandardMaterial({
-      color: room.id === 'sheriff' ? '#7b7466' : '#9b9285',
-      roughness: 0.93,
+      color: room.id === 'sheriff' ? '#c9cbc6' : '#ffffff',
+      roughness: 0.9,
+      metalness: 0.08,
       map: c.map,
       normalMap: c.normalMap,
       roughnessMap: c.roughnessMap,
@@ -1369,6 +1374,7 @@ export default function Level01() {
     <group>
       <PortraitWindow />
       <IdentityConsole />
+      <CreedWall />
       <SheriffOffice />
       <Cafeteria />
     </group>

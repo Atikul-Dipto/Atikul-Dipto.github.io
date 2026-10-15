@@ -17,6 +17,8 @@
  * then, and `muted` starts true.
  */
 
+import { attachMusic, detachMusic, musicDebug, playMusic } from './music'
+
 interface Engine {
   ctx: AudioContext
   master: GainNode
@@ -30,6 +32,8 @@ interface Engine {
 
 let engine: Engine | null = null
 let wanted = false
+/** The score is on with the sound unless the visitor turns it off. */
+let musicWanted = true
 
 /** Dev-only counters, so an audit can assert sounds fired without listening. */
 export const audioStats = { footsteps: 0, doors: 0, started: 0 }
@@ -62,16 +66,18 @@ function build(): Engine | null {
   master.connect(ctx.destination)
 
   // --- the hum of a buried structure ------------------------------------
-  // Three detuned low oscillators rather than one: a single sine reads as a
-  // test tone, while three a few cents apart beat slowly against each other
-  // and read as machinery somewhere below you.
+  // Two sines a fraction of a hertz apart, so they swell and fade together
+  // about once every three seconds -- a slow breath rather than a drone --
+  // with the octave above for warmth. It used to add a slightly sharp fifth
+  // that beat against the rest and grated; everything here is consonant now,
+  // and quiet: felt more than heard.
   const humGain = ctx.createGain()
-  humGain.gain.value = 0.055
+  humGain.gain.value = 0.018
   const humFilter = ctx.createBiquadFilter()
   humFilter.type = 'lowpass'
-  humFilter.frequency.value = 220
+  humFilter.frequency.value = 180
   humGain.connect(humFilter).connect(master)
-  const osc = [48, 48.7, 72.4].map((f) => {
+  const osc = [55, 55.35, 110].map((f) => {
     const o = ctx.createOscillator()
     o.type = 'sine'
     o.frequency.value = f
@@ -86,11 +92,12 @@ function build(): Engine | null {
   airSrc.buffer = noise
   airSrc.loop = true
   const airFilter = ctx.createBiquadFilter()
-  airFilter.type = 'bandpass'
-  airFilter.frequency.value = 420
-  airFilter.Q.value = 0.7
+  // Low-passed, not band-passed: a soft movement of air, not a hiss.
+  airFilter.type = 'lowpass'
+  airFilter.frequency.value = 300
+  airFilter.Q.value = 0.2
   const airGain = ctx.createGain()
-  airGain.gain.value = 0.03
+  airGain.gain.value = 0.012
   airSrc.connect(airFilter).connect(airGain).connect(master)
   airSrc.start()
 
@@ -98,7 +105,7 @@ function build(): Engine | null {
   const lfo = ctx.createOscillator()
   lfo.frequency.value = 0.06
   const lfoGain = ctx.createGain()
-  lfoGain.gain.value = 110
+  lfoGain.gain.value = 70
   lfo.connect(lfoGain).connect(airFilter.frequency)
   lfo.start()
 
@@ -107,13 +114,17 @@ function build(): Engine | null {
   motorGain.gain.value = 0
   const motorFilter = ctx.createBiquadFilter()
   motorFilter.type = 'lowpass'
-  motorFilter.frequency.value = 900
+  motorFilter.frequency.value = 500
   motorGain.connect(motorFilter).connect(master)
   const motorOsc = ctx.createOscillator()
-  motorOsc.type = 'sawtooth'
+  // A triangle, not a saw: the motor is there to be noticed, not to buzz.
+  motorOsc.type = 'triangle'
   motorOsc.frequency.value = 62
   motorOsc.connect(motorGain)
   motorOsc.start()
+
+  // --- the score, on its own bus with its own hall ----------------------
+  attachMusic(ctx, master)
 
   audioStats.started++
   return {
@@ -133,12 +144,20 @@ export function enableAudio() {
   if (!engine) return
   if (engine.ctx.state === 'suspended') void engine.ctx.resume()
   ramp(engine.master.gain, 0.9, 0.6)
+  playMusic(musicWanted)
 }
 
 export function disableAudio() {
   wanted = false
   if (!engine) return
   ramp(engine.master.gain, 0, 0.35)
+  playMusic(false)
+}
+
+/** Music on or off, independently of the rest of the sound. */
+export function setMusicWanted(on: boolean) {
+  musicWanted = on
+  if (engine && wanted) playMusic(on)
 }
 
 export const audioReady = () => Boolean(engine) && wanted
@@ -161,17 +180,17 @@ function ramp(param: AudioParam, to: number, seconds: number) {
 export function setDepth(level: number, levels: number) {
   if (!engine || !wanted) return
   const t = Math.min(1, Math.max(0, (level - 1) / Math.max(1, levels - 1)))
-  ramp(engine.hum.gain.gain, 0.045 + t * 0.055, 1.6)
-  ramp(engine.air.gain.gain, 0.034 - t * 0.016, 1.6)
+  ramp(engine.hum.gain.gain, 0.018 + t * 0.022, 1.6)
+  ramp(engine.air.gain.gain, 0.013 - t * 0.006, 1.6)
   const f = engine.hum.osc[0].frequency
-  ramp(f, 48 - t * 9, 1.6)
+  ramp(f, 55 - t * 7, 1.6)
 }
 
 /** The lift motor, while the car is actually travelling. */
 export function setLiftRunning(running: boolean) {
   if (!engine || !wanted) return
-  ramp(engine.motor.gain.gain, running ? 0.05 : 0, running ? 0.5 : 0.9)
-  ramp(engine.motor.filter.frequency, running ? 1400 : 700, 0.8)
+  ramp(engine.motor.gain.gain, running ? 0.022 : 0, running ? 0.8 : 1.2)
+  ramp(engine.motor.filter.frequency, running ? 700 : 500, 0.8)
 }
 
 /** One short burst of filtered noise. The building block for everything
@@ -222,11 +241,11 @@ export function footstep(onStair: boolean, running: boolean) {
   if (!engine || !wanted) return
   const loud = running ? 1.5 : 1
   if (onStair) {
-    burst({ type: 'bandpass', freq: 1500, q: 1.4, gain: 0.1 * loud, attack: 0.002, decay: 0.16 })
-    burst({ type: 'bandpass', freq: 3100, q: 3, gain: 0.035 * loud, attack: 0.001, decay: 0.22 })
+    burst({ type: 'bandpass', freq: 1500, q: 1.4, gain: 0.06 * loud, attack: 0.002, decay: 0.16 })
+    burst({ type: 'bandpass', freq: 3100, q: 3, gain: 0.012 * loud, attack: 0.001, decay: 0.22 })
   } else {
     burst({
-      type: 'lowpass', freq: 900, q: 0.9, gain: 0.12 * loud,
+      type: 'lowpass', freq: 700, q: 0.7, gain: 0.08 * loud,
       attack: 0.003, decay: 0.1, sweepTo: 240,
     })
   }
@@ -237,7 +256,7 @@ export function doorSlide(open: boolean) {
   audioStats.doors++
   if (!engine || !wanted) return
   burst({
-    type: 'bandpass', freq: open ? 700 : 500, q: 1.1, gain: 0.07,
+    type: 'bandpass', freq: open ? 700 : 500, q: 1.1, gain: 0.045,
     attack: 0.04, decay: 0.75, sweepTo: open ? 1500 : 260,
   })
   if (open) chime()
@@ -285,12 +304,14 @@ export function audioDebug() {
     humFreq: +engine.hum.osc[0].frequency.value.toFixed(2),
     air: +engine.air.gain.gain.value.toFixed(4),
     motor: +engine.motor.gain.gain.value.toFixed(4),
+    ...musicDebug(),
     ...audioStats,
   }
 }
 
 /** Tear everything down. Only used on unmount. */
 export function stopAudio() {
+  detachMusic()
   if (!engine) return
   void engine.ctx.close()
   engine = null

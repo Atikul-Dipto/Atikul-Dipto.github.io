@@ -281,7 +281,11 @@ body:has(.fallback) { overflow: auto; }
   .mini__name { display: none; }
   .mini { right: 10px; }
   .top { padding: 12px; }
-  .top__right .chip:nth-child(n + 4) { display: none; }
+  /* Narrow screens keep Directory, Record and Sound -- Sound used to be the
+     first to go, which left phones no way to turn it on. The lift panel
+     names the floor, so the level readout is the one that gives way. */
+  .top__right .chip--read,
+  .top__right .chip--extra { display: none; }
   .intro__inner { padding: 0 20px; }
   .intro__blurb { font-size: 15px; }
   .directory__grid { grid-template-columns: 1fr; }

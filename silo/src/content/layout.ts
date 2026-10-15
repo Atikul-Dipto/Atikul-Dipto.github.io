@@ -1,5 +1,5 @@
 import { BAYS, SHAFT_RADIUS, SLOT, contentAngle, inCut } from './floors'
-import { CONSOLE_ANGLE, PORTRAIT_ANGLE, inLevel1Room } from './level1'
+import { CONSOLE_ANGLE, PORTRAIT_ANGLE, inCreed, inLevel1Room } from './level1'
 
 /**
  * Where the repeating wall furniture goes on each level -- ribs, lamps, the
@@ -24,7 +24,7 @@ const angDist = (a: number, b: number) => Math.abs(((a - b + Math.PI * 3) % (Mat
 export function wallFree(level: number, a: number, slotPad: number, cutPad = 0.08) {
   if (inCut(a, cutPad)) return false
   if (reserved(level).some((b) => angDist(a, b) < slotPad)) return false
-  if (level === 1 && inLevel1Room(a, 0.05)) return false
+  if (level === 1 && (inLevel1Room(a, 0.05) || inCreed(a, 0.06))) return false
   return true
 }
 
