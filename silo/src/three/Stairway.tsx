@@ -1,11 +1,15 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { FLOORS, PALETTE, contentAngle, walkY } from '../content/floors'
+import { CAR_RADIUS, DECK_INNER, DECK_SEGMENTS, FLOORS, PALETTE, contentAngle, walkY } from '../content/floors'
 import {
   BRIDGE_FROM,
   BRIDGE_TO,
   BRIDGE_WIDTH,
+  LANDING_HALF,
+  LANDING_OUTER,
+  LANDING_SEGMENTS,
   LANDING_T,
+  RAIL_GAP_HALF,
   RAIL_H,
   STAIR_INNER,
   STAIR_MID,
@@ -25,7 +29,7 @@ import {
   bridgeFrame,
   bridgePoint,
 } from '../content/stairs'
-import { plateSurface, steelSurface, tiled } from './materials'
+import { deckPlateMaterial, planarUV, plateSurface, steelSurface, tiled } from './materials'
 import { useSilo } from '../state/useSilo'
 
 /**
@@ -39,6 +43,66 @@ import { useSilo } from '../state/useSilo'
  */
 
 const dummy = new THREE.Object3D()
+
+/** The landing is drawn from just outside the car floor; see landingSurface. */
+const DRAWN_INNER = CAR_RADIUS + 0.012
+
+/**
+ * The bridge's walking plate, cut to fit exactly between the landing's outer
+ * arc and the deck's inner arc.
+ *
+ * It used to be a box from the landing's chord to just past the deck lip,
+ * which put two surfaces at the same height wherever they overlapped -- a
+ * crescent at each end. Neither can win the depth test there, so both show
+ * through each other in stripes that crawl as you move: the glitching floor
+ * by the lift. Nothing drawn at walking height may overlap anything else that
+ * is.
+ */
+function bridgePlate(level: number) {
+  const y = walkY(level)
+  const a = contentAngle(level)
+  const half = BRIDGE_WIDTH / 2
+  const shape = new THREE.Shape()
+  const pts: Array<[number, number]> = []
+  // Both arcs are polygons, so the plate takes their actual corners, not its
+  // own sampling of the same circle -- two different chordings of one arc
+  // leave a hairline crescent of gap and overlap between them.
+  //
+  // The landing arc, across from +half to -half: the landing's own 12
+  // segments, which span exactly the bridge's width.
+  for (let k = 0; k <= LANDING_SEGMENTS; k++) {
+    const phi = LANDING_HALF - (2 * LANDING_HALF * k) / LANDING_SEGMENTS
+    pts.push([LANDING_OUTER * Math.cos(phi), LANDING_OUTER * Math.sin(phi)])
+  }
+  // The deck's inner edge, across from -half to +half: its corners sit at
+  // every multiple of 2PI/DECK_SEGMENTS of world angle, and each side of the
+  // bridge cuts one of its edges.
+  const step = (Math.PI * 2) / DECK_SEGMENTS
+  const corner = (m: number): [number, number] => [
+    DECK_INNER * Math.cos(m * step - a),
+    DECK_INNER * Math.sin(m * step - a),
+  ]
+  const m0 = Math.floor((a - RAIL_GAP_HALF) / step)
+  const m1 = Math.ceil((a + RAIL_GAP_HALF) / step)
+  const cut = (p: [number, number], q: [number, number], c: number): [number, number] => {
+    const t = (c - p[1]) / (q[1] - p[1])
+    return [p[0] + (q[0] - p[0]) * t, c]
+  }
+  pts.push(cut(corner(m0), corner(m0 + 1), -half))
+  for (let m = m0 + 1; m < m1; m++) pts.push(corner(m))
+  pts.push(cut(corner(m1 - 1), corner(m1), half))
+  pts.forEach(([along, across], i) => {
+    const [x, z] = bridgePoint(level, along, across)
+    // Drawn in XY with Y = -Z; rotateX(-PI/2) below lays it flat.
+    if (i === 0) shape.moveTo(x, -z)
+    else shape.lineTo(x, -z)
+  })
+  const g = new THREE.ExtrudeGeometry(shape, { depth: LANDING_T, bevelEnabled: false })
+  g.rotateX(-Math.PI / 2)
+  g.translate(0, y - LANDING_T, 0)
+  // Caps (group 0) take the plate from world position; sides are steel.
+  return planarUV(g)
+}
 
 function materials() {
   const tread = tiled(plateSurface(), 2, 1)
@@ -251,10 +315,10 @@ function Gangways() {
       const y = walkY(level)
 
       // ---- landing ----------------------------------------------------
-      const top = new THREE.Mesh(landingSurface(level), m.tread)
+      const top = new THREE.Mesh(planarUV(landingSurface(level, DRAWN_INNER)), deckPlateMaterial())
       top.receiveShadow = true
       group.add(top)
-      const under = landingSurface(level)
+      const under = landingSurface(level, DRAWN_INNER)
       under.translate(0, -LANDING_T, 0)
       group.add(new THREE.Mesh(under, m.soffit))
 
@@ -275,7 +339,10 @@ function Gangways() {
 
       // ---- bridge -----------------------------------------------------
       const f = bridgeFrame(level)
-      addBox(f.length, LANDING_T, BRIDGE_WIDTH, f.cx, y - LANDING_T / 2, f.cz, -a, m.tread)
+      const plate = new THREE.Mesh(bridgePlate(level), [deckPlateMaterial(), m.steel])
+      plate.receiveShadow = true
+      plate.castShadow = true
+      group.add(plate)
       // Parapets, from the landing to the deck lip.
       const pLen = f.parapetTo - f.parapetFrom
       const pMid = (f.parapetTo + f.parapetFrom) / 2

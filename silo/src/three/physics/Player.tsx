@@ -295,8 +295,11 @@ export default function Player() {
       const speed = move.sprint ? SPRINT_SPEED : WALK_SPEED
       const sin = Math.sin(look.current.yaw)
       const cos = Math.cos(look.current.yaw)
-      const wx = -(s * cos + f * sin) * speed
-      const wz = -(s * -sin + f * cos) * speed
+      // Forward is (-sin, -cos) and right is (cos, -sin): the camera's own
+      // -Z and +X after rotateY(yaw). Right had its sign flipped, so A and D
+      // were swapped -- and the touch stick with them.
+      const wx = (s * cos - f * sin) * speed
+      const wz = (-s * sin - f * cos) * speed
       const rate = mag > 0.01 ? ACCEL : DECEL
       const k = 1 - Math.exp(-rate * dt)
       vel.current.x += (wx - vel.current.x) * k

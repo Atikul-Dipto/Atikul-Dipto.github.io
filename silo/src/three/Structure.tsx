@@ -6,6 +6,7 @@ import {
   CUT_HALF,
   CUT_MID,
   DECK_INNER,
+  DECK_SEGMENTS,
   FLOORS,
   FLOOR_HEIGHT,
   PALETTE,
@@ -24,7 +25,7 @@ import { RAIL_GAP_HALF } from '../content/stairs'
 import { CAFE, SHERIFF } from '../content/level1'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
-import { concreteSurface, plateSurface, steelSurface, tiled } from './materials'
+import { concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
 function makeRandom(seed: number) {
@@ -249,20 +250,11 @@ function Ribs() {
 function Decks() {
   const nodes = useMemo(() => {
     const group = new THREE.Group()
-    const deckGeo = new THREE.RingGeometry(DECK_INNER, SHAFT_RADIUS - 0.06, 80, 1)
-    const plate = tiled(plateSurface(), 18, 18)
-    const deckMat = new THREE.MeshStandardMaterial({
-      roughness: 0.9,
-      metalness: 0.12,
-      // Top face only. The underside of a deck is always seen at a grazing
-      // angle from the level below, which is the worst case for a tiled normal
-      // map — it shimmers into vertical streaks. The soffit below handles it.
-      side: THREE.FrontSide,
-      map: plate.map,
-      normalMap: plate.normalMap,
-      roughnessMap: plate.roughnessMap,
-      normalScale: new THREE.Vector2(0.35, 0.35),
-    })
+    const deckGeo = new THREE.RingGeometry(DECK_INNER, SHAFT_RADIUS - 0.06, DECK_SEGMENTS, 1)
+    // The walking face, laid flat in world space so its plate pattern can be
+    // mapped from world position and continue onto the bridge and landing.
+    const deckTop = planarUV(deckGeo.clone().rotateX(-Math.PI / 2))
+    const deckMat = deckPlateMaterial()
     const soffitMat = new THREE.MeshStandardMaterial({
       color: PALETTE.concreteDark,
       roughness: 1,
@@ -288,9 +280,8 @@ function Decks() {
     FLOORS.forEach((floor) => {
       const y = walkY(floor.level)
 
-      const deck = new THREE.Mesh(deckGeo, deckMat)
+      const deck = new THREE.Mesh(deckTop, deckMat)
       deck.receiveShadow = true
-      deck.rotation.x = -Math.PI / 2
       deck.position.y = y
       group.add(deck)
 

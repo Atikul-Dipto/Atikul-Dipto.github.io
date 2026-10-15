@@ -22,6 +22,9 @@ export const FLOOR_HEIGHT = 11
  * stair as it used to.
  */
 export const DECK_INNER = 8.4
+/** Segments round a deck's ring. Its inner edge is a polygon with a corner at
+ *  every multiple of 2PI/DECK_SEGMENTS, which the bridge plate meets exactly. */
+export const DECK_SEGMENTS = 80
 export const DECK_DROP = 1.9
 
 /**

@@ -267,6 +267,48 @@ export const concreteSurface = () => (concrete ??= buildConcrete())
 export const plateSurface = () => (plate ??= buildDeckPlate())
 export const steelSurface = () => (steel ??= buildSteel())
 
+/**
+ * Metres per repeat of the deck plate. Every walking surface that meets a deck
+ * -- the deck itself, the landings, the bridges -- maps the plate from its
+ * world position at this scale, so the pattern runs straight across the joins
+ * instead of changing size at each one.
+ */
+export const PLATE_TILE = 2.44
+
+/** UVs for a horizontal surface from its world X and Z. */
+export function planarUV(g: THREE.BufferGeometry, tile = PLATE_TILE) {
+  const p = g.attributes.position
+  const uv = new Float32Array(p.count * 2)
+  for (let i = 0; i < p.count; i++) {
+    uv[i * 2] = p.getX(i) / tile
+    uv[i * 2 + 1] = -p.getZ(i) / tile
+  }
+  g.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
+  return g
+}
+
+let deckPlate: THREE.MeshStandardMaterial | null = null
+
+/** The one material for every deck, landing and bridge top. Its UVs are
+ *  expected from `planarUV`, so it tiles once per unit. */
+export function deckPlateMaterial() {
+  if (deckPlate) return deckPlate
+  const plate = tiled(plateSurface(), 1, 1)
+  deckPlate = new THREE.MeshStandardMaterial({
+    roughness: 0.9,
+    metalness: 0.12,
+    // Top face only. The underside of a deck is always seen at a grazing
+    // angle from the level below, which is the worst case for a tiled normal
+    // map -- it shimmers into vertical streaks. The soffit below handles it.
+    side: THREE.FrontSide,
+    map: plate.map,
+    normalMap: plate.normalMap,
+    roughnessMap: plate.roughnessMap,
+    normalScale: new THREE.Vector2(0.35, 0.35),
+  })
+  return deckPlate
+}
+
 /** Clone the shared textures so one mesh can tile them differently. */
 export function tiled(surface: Surface, repeatX: number, repeatY: number): Surface {
   const clone = (t: THREE.Texture) => {

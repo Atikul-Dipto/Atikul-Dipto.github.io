@@ -63,6 +63,8 @@ export const RAIL_H = 1.02
 export const LANDING_HALF = 0.4
 export const LANDING_INNER = CAR_RADIUS - 0.08
 export const LANDING_OUTER = STAIR_OUTER
+/** Segments in the landing's arc; the bridge plate reuses its corners. */
+export const LANDING_SEGMENTS = 12
 export const LANDING_T = 0.18
 
 /**
@@ -270,12 +272,17 @@ export function railPath(level: number, radius: number, segments = 72): THREE.Ve
   return pts
 }
 
-/** The gangway deck of one level, as a flat ring sector at its walking height. */
-export function landingSurface(level: number): THREE.BufferGeometry {
+/**
+ * The gangway deck of one level, as a flat ring sector at its walking height.
+ * The collider runs in under the edge of the car floor so there is no crack to
+ * step over; drawn there it would fight the car floor for the same pixels, so
+ * the drawing passes its own `inner`.
+ */
+export function landingSurface(level: number, inner = LANDING_INNER): THREE.BufferGeometry {
   const g = new THREE.RingGeometry(
-    LANDING_INNER,
+    inner,
     LANDING_OUTER,
-    12,
+    LANDING_SEGMENTS,
     1,
     ringTheta(contentAngle(level) + LANDING_HALF),
     LANDING_HALF * 2,
