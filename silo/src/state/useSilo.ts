@@ -5,26 +5,39 @@ import { LEVEL_COUNT } from '../content/floors'
 export type Phase =
   | 'boot' // assets loading
   | 'exterior' // cinematic approach
-  | 'riding' // elevator in motion
-  | 'onFloor' // standing on a deck
-  | 'airlock' // stepped into the personnel airlock on level 1
+  | 'riding' // travelling: the opening flight in, or aboard the lift
+  | 'onFloor' // standing somewhere in the silo
+  | 'airlock' // the records vault on level 1 is open
 
 export type Quality = 'high' | 'low'
 
 /**
- * How the visitor moves. 'cinematic' is the camera on rails that the whole
- * site shipped with; 'walk' hands them a physical body. Walking is opt-in and
- * only meaningful while standing on a deck -- nothing in the portfolio is
- * reachable only by walking.
+ * How the camera is driven. 'cinematic' is the scripted camera, and it is now
+ * only used for the opening: the approach from outside and the flight in. The
+ * moment the visitor arrives on level 1 the mode becomes 'walk' and stays
+ * there -- there is no guided camera to switch back to, and nothing to drag.
  */
 export type Mode = 'cinematic' | 'walk'
 
+/** What pressing E would do, right here. Drives the on-screen prompt. */
+export type Interact = 'lift-controls' | 'call-lift' | 'vault' | null
+
 interface SiloState {
   phase: Phase
+  /** The level the visitor is on. */
   level: number
-  /** Level the elevator is travelling to; equals `level` when stationary. */
+  /** Where the current journey ends; equals `level` when not travelling. */
   target: number
+  /** Where the lift car is, or is heading. Independent of the visitor: you
+   *  can take the stair and leave the car behind. */
+  carLevel: number
+  carMoving: boolean
+  /** Car and landing doors at `carLevel`. */
   doorsOpen: boolean
+  /** A level the empty car has been called to, waiting for the lift to act. */
+  liftCall: number | null
+  /** Where the opening sequence should continue to after landing on level 1. */
+  pendingDest: number | null
   directoryOpen: boolean
   cvOpen: boolean
   muted: boolean
@@ -35,35 +48,48 @@ interface SiloState {
   mode: Mode
   /** Mirrors document.pointerLockElement, so the UI follows the browser. */
   pointerLocked: boolean
-  /** True while the walking body is standing inside the lift car. Drives the
-   *  contextual prompt; set from the frame loop, but only on a change. */
-  nearLift: boolean
+  interact: Interact
+  /** A short fade to black, for the one cut the walk mode makes: boarding the
+   *  lift from the directory when you are not standing in it. */
+  fading: boolean
+  /** The floor's record panel, opened on demand while walking. It covers a
+   *  third of the screen, so it is not left up while someone is moving. */
+  recordOpen: boolean
+  /** The body exists. Walk mode starts the moment the opening lands, but the
+   *  body needs the physics engine -- a separate download and a WebAssembly
+   *  compile -- and until then clicks and keys have nothing to move. */
+  bodyReady: boolean
 
   setPhase: (p: Phase) => void
-  enter: () => void
+  /** Leave the approach. `dest` is where to go once inside; level 1 by default. */
+  enter: (dest?: number) => void
   goToLevel: (level: number) => void
   arrive: () => void
   setDoors: (open: boolean) => void
+  setCar: (level: number, moving: boolean) => void
+  callLift: (level: number) => void
+  clearLiftCall: () => void
   toggleDirectory: (open?: boolean) => void
   setCvOpen: (open: boolean) => void
-  /** Walk into the airlock; the rig opens the record once the camera arrives. */
+  /** Open the records vault on level 1; the vault opens the record itself
+   *  once its door has swung. */
   enterAirlock: () => void
-  /** Seal it again and step back onto the deck. */
+  /** Seal it again. */
   closeAirlock: () => void
   toggleMute: () => void
   setReducedMotion: (v: boolean) => void
   setQuality: (q: Quality) => void
   setWebglFailed: () => void
   setProgress: (v: number) => void
-  /** Report the level the walking body has reached, without starting a ride.
-   *  Walking between floors on the stair changes which level you are on; it
-   *  must not be routed through `goToLevel`, which is a scripted lift journey
-   *  and would yank the camera away mid-stride. */
+  /** Report the level the walking body has reached on the stair, without
+   *  starting a journey. */
   setWalkLevel: (level: number) => void
   setMode: (m: Mode) => void
-  toggleMode: () => void
   setPointerLocked: (v: boolean) => void
-  setNearLift: (v: boolean) => void
+  setInteract: (v: Interact) => void
+  setFading: (v: boolean) => void
+  toggleRecord: (open?: boolean) => void
+  setBodyReady: (v: boolean) => void
 }
 
 const clampLevel = (n: number) => Math.min(LEVEL_COUNT, Math.max(1, Math.round(n)))
@@ -75,7 +101,11 @@ export const useSilo = create<SiloState>((set, get) => ({
   phase: 'boot',
   level: 1,
   target: 1,
+  carLevel: 1,
+  carMoving: false,
   doorsOpen: false,
+  liftCall: null,
+  pendingDest: null,
   directoryOpen: false,
   cvOpen: false,
   muted: true, // never autoplay audio before an interaction (spec §8)
@@ -85,40 +115,75 @@ export const useSilo = create<SiloState>((set, get) => ({
   progress: 0,
   mode: 'cinematic',
   pointerLocked: false,
-  nearLift: false,
+  interact: null,
+  fading: false,
+  recordOpen: false,
+  bodyReady: false,
 
   setPhase: (phase) => set({ phase }),
 
-  enter: () => set({ phase: 'riding', target: 1, doorsOpen: false }),
+  enter: (dest = 1) =>
+    set({
+      phase: 'riding',
+      target: 1,
+      doorsOpen: false,
+      pendingDest: clampLevel(dest) === 1 ? null : clampLevel(dest),
+    }),
 
   goToLevel: (level) => {
     const next = clampLevel(level)
-    const { level: current, phase } = get()
-    if (next === current && phase === 'onFloor') {
+    const s = get()
+    // From the approach, every route in starts on level 1.
+    if (s.phase === 'boot' || s.phase === 'exterior') {
+      get().enter(next)
+      return
+    }
+    if (s.phase === 'riding') return
+    if (next === s.level && s.carLevel === s.level && !s.carMoving) {
       set({ directoryOpen: false })
       return
     }
-    // The ride is a scripted camera move, so walking hands control back for
-    // the duration. The visitor re-enters walk mode on arrival.
-    set({
-      phase: 'riding',
-      target: next,
-      doorsOpen: false,
-      directoryOpen: false,
-      mode: 'cinematic',
-    })
+    // A journey by lift. The lift driver boards the visitor if they are not
+    // already aboard, shuts the doors and carries them; arrival comes from it.
+    set({ phase: 'riding', target: next, directoryOpen: false, interact: null })
   },
 
-  arrive: () => set((s) => ({ phase: 'onFloor', level: s.target, doorsOpen: true })),
+  arrive: () =>
+    set((s) => ({
+      phase: 'onFloor',
+      level: s.target,
+      carLevel: s.target,
+      carMoving: false,
+      doorsOpen: true,
+      // Arriving is the moment the visitor is handed a body.
+      mode: 'walk',
+    })),
 
   setDoors: (doorsOpen) => set({ doorsOpen }),
+  setCar: (carLevel, carMoving) => set({ carLevel, carMoving }),
+
+  callLift: (level) => {
+    const s = get()
+    if (s.carLevel === level && !s.carMoving) {
+      if (!s.doorsOpen) set({ doorsOpen: true })
+      return
+    }
+    set({ liftCall: clampLevel(level) })
+  },
+  clearLiftCall: () => set({ liftCall: null }),
+
   toggleDirectory: (open) => set((s) => ({ directoryOpen: open ?? !s.directoryOpen })),
   setCvOpen: (cvOpen) => set({ cvOpen }),
 
   enterAirlock: () => {
-    if (get().phase !== 'onFloor' || get().level !== 1) return
-    // The airlock walk is a scripted camera move, so hand control back.
-    set({ phase: 'airlock', directoryOpen: false, mode: 'cinematic' })
+    const s = get()
+    if (s.level !== 1 || (s.phase !== 'onFloor' && s.phase !== 'airlock')) {
+      // The record is never locked behind the walk: from anywhere else it
+      // opens directly.
+      set({ cvOpen: true, directoryOpen: false })
+      return
+    }
+    set({ phase: 'airlock', directoryOpen: false })
   },
 
   closeAirlock: () =>
@@ -133,21 +198,13 @@ export const useSilo = create<SiloState>((set, get) => ({
     set((s) => {
       const next = clampLevel(level)
       if (s.level === next) return {}
-      // `target` follows so the lift car, its landing light and the floor
-      // panel all track the level actually underfoot.
       return { level: next, target: next }
     }),
 
   setMode: (mode) => set({ mode }),
-  // Walking only makes sense with both feet on a deck, so the toggle is a
-  // no-op mid-ride or inside the airlock rather than dropping a body into
-  // the shaft.
-  toggleMode: () =>
-    set((s) => {
-      if (s.mode === 'walk') return { mode: 'cinematic' as Mode, nearLift: false }
-      if (s.phase !== 'onFloor') return {}
-      return { mode: 'walk' as Mode, directoryOpen: false }
-    }),
   setPointerLocked: (pointerLocked) => set({ pointerLocked }),
-  setNearLift: (nearLift) => set({ nearLift }),
+  setInteract: (interact) => set({ interact }),
+  setFading: (fading) => set({ fading }),
+  toggleRecord: (open) => set((s) => ({ recordOpen: open ?? !s.recordOpen })),
+  setBodyReady: (bodyReady) => set({ bodyReady }),
 }))

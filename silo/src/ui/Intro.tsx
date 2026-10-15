@@ -20,7 +20,7 @@ export default function Intro() {
         <p className="intro__blurb">{identity.intro}</p>
 
         <div className="intro__actions">
-          <button type="button" className="btn btn--primary" onClick={enter}>
+          <button type="button" className="btn btn--primary" onClick={() => enter()}>
             Enter the Silo
           </button>
           <button type="button" className="btn" onClick={() => setCvOpen(true)}>

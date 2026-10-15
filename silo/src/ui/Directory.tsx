@@ -3,12 +3,14 @@ import { useSilo } from '../state/useSilo'
 
 /**
  * Architectural cutaway overview (spec §4). Doubles as the floor directory —
- * clicking any level rides the elevator there, so nothing is ever more than
- * one interaction away.
+ * clicking any level takes the lift there, so nothing is ever more than one
+ * interaction away. If the visitor is not standing in the car, they are put
+ * aboard behind a short fade first.
  */
 export function MiniSilo() {
   const level = useSilo((s) => s.level)
   const target = useSilo((s) => s.target)
+  const carLevel = useSilo((s) => s.carLevel)
   const phase = useSilo((s) => s.phase)
   const goToLevel = useSilo((s) => s.goToLevel)
 
@@ -17,7 +19,9 @@ export function MiniSilo() {
       <span className="mini__shaft" aria-hidden="true">
         <span
           className="mini__car"
-          style={{ '--p': String((target - 1) / (LEVEL_COUNT - 1)) } as React.CSSProperties}
+          // The marker is the car, wherever it actually is -- you can take the
+          // stair and leave it behind.
+          style={{ '--p': String((carLevel - 1) / (LEVEL_COUNT - 1)) } as React.CSSProperties}
         />
       </span>
       <ol className="mini__levels">

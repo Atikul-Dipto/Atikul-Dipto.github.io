@@ -20,12 +20,14 @@ import {
  * and a full rock cavern. Both failed the same way. The silo is 26 units wide
  * and 157 tall, so from far enough back to take it in it is a needle, and any
  * surface large enough to stand behind it is also large enough to out-light
- * it. Starting near the cutaway, with the only lights in the scene close
+ * it. (Written when it was 26 wide; at 44 the argument only gets stronger.) Starting near the cutaway, with the only lights in the scene close
  * enough to reach the wall, is legible at every size and costs almost nothing.
  */
 /** The service gantry: a walkway ring around the head of the structure. */
 const GANTRY_Y = levelY(1) - 1.4
-const GANTRY_R = 19
+/** Sized from the structure: a fixed radius ended up inside the wall when
+ *  the atrium was widened. */
+const GANTRY_R = SHAFT_RADIUS + 6
 
 /**
  * Service gantry: the walkway ring around the head of the structure. The only
@@ -279,8 +281,8 @@ export default function Exterior() {
         <pointLight
           key={off}
           color={PALETTE.brassHot}
-          intensity={260}
-          distance={42}
+          intensity={420}
+          distance={56}
           decay={2}
           position={[
             Math.cos(CUT_MID + off) * (GANTRY_R - 3),

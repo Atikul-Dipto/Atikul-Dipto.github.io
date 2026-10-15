@@ -1,16 +1,10 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
+import { FLOORS, PALETTE, contentAngle, walkY } from '../content/floors'
 import {
-  FLOORS,
-  PALETTE,
-  SHAFT_CAGE,
-  contentAngle,
-  walkY,
-} from '../content/floors'
-import {
-  LANDING_HALF,
-  LANDING_INNER,
-  LANDING_OUTER,
+  BRIDGE_FROM,
+  BRIDGE_TO,
+  BRIDGE_WIDTH,
   LANDING_T,
   RAIL_H,
   STAIR_INNER,
@@ -28,6 +22,8 @@ import {
   landingEdgeSpans,
   landingSurface,
   railPath,
+  bridgeFrame,
+  bridgePoint,
 } from '../content/stairs'
 import { plateSurface, steelSurface, tiled } from './materials'
 import { useSilo } from '../state/useSilo'
@@ -189,13 +185,39 @@ function FlightRails() {
   return <primitive object={nodes} />
 }
 
+/** A sign plate for a level: the number, large, and the floor's name. */
+function signTexture(level: number, name: string) {
+  const c = document.createElement('canvas')
+  c.width = 512
+  c.height = 200
+  const ctx = c.getContext('2d')!
+  ctx.fillStyle = 'rgba(24,20,17,0.97)'
+  ctx.fillRect(0, 0, c.width, c.height)
+  ctx.strokeStyle = 'rgba(201,153,107,0.55)'
+  ctx.lineWidth = 5
+  ctx.strokeRect(10, 10, c.width - 20, c.height - 20)
+  ctx.fillStyle = PALETTE.brassHot
+  ctx.font = 'bold 104px "Segoe UI", system-ui, sans-serif'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(String(level).padStart(2, '0'), c.width / 2, 88)
+  ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif'
+  ctx.fillStyle = 'rgba(237,233,230,0.75)'
+  ctx.fillText(name.toUpperCase().slice(0, 30), c.width / 2, 162)
+  const tex = new THREE.CanvasTexture(c)
+  tex.colorSpace = THREE.SRGBColorSpace
+  tex.anisotropy = 4
+  return tex
+}
+
 /**
- * The gangways: one per level, running from the lift threshold out to the deck.
+ * The landings and bridges: one of each per level.
  *
- * Each is a lit platform. The light matters more than it sounds — it is the
- * only thing marking which of the twelve near-identical decks you are standing
- * on when you look up or down the shaft, and it is what you aim for coming
- * down the stair in the dark.
+ * The landing wraps the core where the lift doors open and the stair arrives;
+ * the bridge spans the void from it to the deck. Each bridge carries the level
+ * sign on a post at its deck end -- it used to be bolted to the wall at a fixed
+ * offset from the content angle, which on level 1 put it in the cutaway, where
+ * there is no wall, floating in mid-air.
  */
 function Gangways() {
   const nodes = useMemo(() => {
@@ -209,71 +231,88 @@ function Gangways() {
       metalness: 0.4,
     })
 
+    const addBox = (
+      w: number, h: number, d: number,
+      x: number, y: number, z: number, rotY: number,
+      mat: THREE.Material, shadow = true,
+    ) => {
+      const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat)
+      mesh.position.set(x, y, z)
+      mesh.rotation.y = rotY
+      mesh.castShadow = shadow
+      mesh.receiveShadow = true
+      group.add(mesh)
+      return mesh
+    }
+
     FLOORS.forEach((floor) => {
       const level = floor.level
       const a = contentAngle(level)
       const y = walkY(level)
 
-      // Deck plate. Drawn as a thin solid rather than a plane so it has an
-      // underside when you walk beneath it on the flight below.
-      const top = landingSurface(level)
-      group.add(new THREE.Mesh(top, m.tread))
+      // ---- landing ----------------------------------------------------
+      const top = new THREE.Mesh(landingSurface(level), m.tread)
+      top.receiveShadow = true
+      group.add(top)
       const under = landingSurface(level)
       under.translate(0, -LANDING_T, 0)
-      const underMesh = new THREE.Mesh(under, m.soffit)
-      group.add(underMesh)
+      group.add(new THREE.Mesh(under, m.soffit))
 
-      // Edge beams along both sides, and the barrier panels where the stair
-      // does NOT meet the edge.
+      // Barrier panels on the landing's radial edges, wherever a flight does
+      // NOT meet them.
       for (const side of [-1, 1] as const) {
         const ea = landingEdgeAngle(level, side)
-        const c = Math.cos(ea)
-        const s = Math.sin(ea)
-
-        const beamLen = LANDING_OUTER - LANDING_INNER
-        const beamR = (LANDING_OUTER + LANDING_INNER) / 2
-        const beam = new THREE.Mesh(new THREE.BoxGeometry(beamLen, 0.16, 0.1), m.steel)
-        beam.position.set(c * beamR, y - 0.08, s * beamR)
-        beam.rotation.y = -ea
-        group.add(beam)
-
         for (const [r0, r1] of landingEdgeSpans(level, side)) {
           const len = r1 - r0
           if (len < 0.05) continue
           const mid = (r0 + r1) / 2
-          const panel = new THREE.Mesh(new THREE.BoxGeometry(len, RAIL_H, 0.06), m.steel)
-          panel.position.set(Math.cos(ea) * mid, y + RAIL_H / 2, Math.sin(ea) * mid)
-          panel.rotation.y = -ea
-          group.add(panel)
-
-          const cap = new THREE.Mesh(new THREE.BoxGeometry(len, 0.05, 0.1), edgeMat)
-          cap.position.set(Math.cos(ea) * mid, y + RAIL_H, Math.sin(ea) * mid)
-          cap.rotation.y = -ea
-          group.add(cap)
+          const x = Math.cos(ea) * mid
+          const z = Math.sin(ea) * mid
+          addBox(len, RAIL_H, 0.06, x, y + RAIL_H / 2, z, -ea, m.steel)
+          addBox(len, 0.05, 0.1, x, y + RAIL_H, z, -ea, edgeMat, false)
         }
       }
 
-      // Threshold strip at the lift end: the line you cross to board.
-      const sill = new THREE.Mesh(
-        new THREE.BoxGeometry(0.18, 0.04, SHAFT_CAGE * 1.3),
-        edgeMat,
-      )
-      sill.position.set(Math.cos(a) * (SHAFT_CAGE + 0.1), y + 0.02, Math.sin(a) * (SHAFT_CAGE + 0.1))
-      sill.rotation.y = -a
-      group.add(sill)
+      // ---- bridge -----------------------------------------------------
+      const f = bridgeFrame(level)
+      addBox(f.length, LANDING_T, BRIDGE_WIDTH, f.cx, y - LANDING_T / 2, f.cz, -a, m.tread)
+      // Parapets, from the landing to the deck lip.
+      const pLen = f.parapetTo - f.parapetFrom
+      const pMid = (f.parapetTo + f.parapetFrom) / 2
+      for (const across of [-1, 1]) {
+        const [px, pz] = bridgePoint(level, pMid, across * (BRIDGE_WIDTH / 2 - 0.03))
+        addBox(pLen, RAIL_H, 0.06, px, y + RAIL_H / 2, pz, -a, m.steel)
+        addBox(pLen, 0.05, 0.1, px, y + RAIL_H, pz, -a, edgeMat, false)
+        // A deep edge beam under each side, so the span reads as structure.
+        const [bx, bz] = bridgePoint(level, (BRIDGE_FROM + BRIDGE_TO) / 2, across * (BRIDGE_WIDTH / 2 - 0.12))
+        addBox(f.length, 0.42, 0.2, bx, y - LANDING_T - 0.21, bz, -a, m.steel)
+      }
 
-      // Underslung support, so the platform is not floating.
-      const strutLen = LANDING_OUTER - LANDING_INNER
-      for (const side of [-0.55, 0.55]) {
-        const sa = a + side * LANDING_HALF
-        const strut = new THREE.Mesh(
-          new THREE.BoxGeometry(strutLen, 0.1, 0.1),
-          m.steel,
-        )
-        const r = (LANDING_OUTER + LANDING_INNER) / 2
-        strut.position.set(Math.cos(sa) * r, y - LANDING_T - 0.3, Math.sin(sa) * r)
-        strut.rotation.set(0, -sa, 0.09)
-        group.add(strut)
+      // Threshold strip where the bridge meets the landing.
+      const [tx, tz] = bridgePoint(level, BRIDGE_FROM + 0.1, 0)
+      addBox(0.12, 0.02, BRIDGE_WIDTH - 0.2, tx, y + 0.01, tz, -a, edgeMat, false)
+
+      // ---- level sign on a post at the deck end of the bridge ----------
+      for (const across of [-1, 1]) {
+        const [sx, sz] = bridgePoint(level, f.parapetTo + 0.35, across * (BRIDGE_WIDTH / 2 + 0.45))
+        addBox(0.12, 2.4, 0.12, sx, y + 1.2, sz, -a, m.steel)
+        if (across === 1) {
+          const plate = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.6, 0.625),
+            new THREE.MeshStandardMaterial({
+              map: signTexture(level, floor.name),
+              emissive: new THREE.Color('#ffffff'),
+              emissiveMap: signTexture(level, floor.name),
+              emissiveIntensity: 0.55,
+              roughness: 0.7,
+              side: THREE.DoubleSide,
+            }),
+          )
+          plate.position.set(sx, y + 2.05, sz)
+          // Face back along the bridge, towards whoever is arriving.
+          plate.rotation.y = Math.PI / 2 - a + Math.PI
+          group.add(plate)
+        }
       }
     })
     return group
@@ -283,25 +322,27 @@ function Gangways() {
 }
 
 /**
- * A warm light over each gangway, so the route reads from anywhere in the shaft.
+ * A warm light over each landing, so the route reads from anywhere in the
+ * shaft.
  *
  * The emissive housing is drawn on all twelve levels; the actual point light
  * only follows the three you could be standing on. three.js compiles the light
- * count into the material, so twelve live point lights on top of the lamps and
- * the travelling rig lights would recompile every shader in the scene and cost
- * far more than it could ever show at once.
+ * count into the material, so twelve live point lights on top of everything
+ * else would recompile every shader in the scene and cost far more than it
+ * could ever show at once.
  */
 function GangwayLamps() {
   const level = useSilo((s) => s.level)
   const lamps = useMemo(
     () =>
       FLOORS.map((f) => {
-        const a = contentAngle(f.level)
-        const r = (LANDING_INNER + LANDING_OUTER) / 2
-        return {
-          level: f.level,
-          p: [Math.cos(a) * r, walkY(f.level) + 2.7, Math.sin(a) * r] as [number, number, number],
-        }
+        const fr = bridgeFrame(f.level)
+        const posts = [-1, 1].map((across) => {
+          const [x, z] = bridgePoint(f.level, fr.parapetTo + 0.35, across * (BRIDGE_WIDTH / 2 + 0.45))
+          return [x, walkY(f.level) + 2.5, z] as [number, number, number]
+        })
+        const [lx, lz] = bridgePoint(f.level, (BRIDGE_FROM + BRIDGE_TO) / 2, 0)
+        return { level: f.level, posts, light: [lx, walkY(f.level) + 2.6, lz] as [number, number, number] }
       }),
     [],
   )
@@ -309,18 +350,21 @@ function GangwayLamps() {
   return (
     <group>
       {lamps.map((lamp) => (
-        <group key={lamp.level} position={lamp.p}>
-          <mesh>
-            <boxGeometry args={[0.9, 0.12, 0.26]} />
-            <meshStandardMaterial
-              color={PALETTE.brassHot}
-              emissive={PALETTE.brassHot}
-              emissiveIntensity={1.8}
-              roughness={0.4}
-            />
-          </mesh>
+        <group key={lamp.level}>
+          {/* A lantern on top of each sign post at the deck end. */}
+          {lamp.posts.map((p, i) => (
+            <mesh key={i} position={p}>
+              <boxGeometry args={[0.22, 0.2, 0.22]} />
+              <meshStandardMaterial
+                color={PALETTE.brassHot}
+                emissive={PALETTE.brassHot}
+                emissiveIntensity={2.2}
+                roughness={0.4}
+              />
+            </mesh>
+          ))}
           {Math.abs(lamp.level - level) <= 1 && (
-            <pointLight color={PALETTE.brassHot} intensity={3.4} distance={9} decay={2} />
+            <pointLight position={lamp.light} color={PALETTE.brassHot} intensity={9} distance={12} decay={2} />
           )}
         </group>
       ))}

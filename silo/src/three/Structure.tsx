@@ -10,8 +10,6 @@ import {
   FLOOR_HEIGHT,
   PALETTE,
   SHAFT_RADIUS,
-  SLOT,
-  TOP_MARGIN,
   WALL_ARC,
   WALL_CENTER,
   WALL_HEIGHT,
@@ -20,10 +18,11 @@ import {
   cutTheta,
   contentAngle,
   walkY,
-  inCut,
   levelY,
 } from '../content/floors'
-import { LANDING_HALF } from '../content/stairs'
+import { RAIL_GAP_HALF } from '../content/stairs'
+import { CAFE, SHERIFF } from '../content/level1'
+import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
 import { concreteSurface, plateSurface, steelSurface, tiled } from './materials'
 
@@ -54,24 +53,6 @@ function radial(mesh: THREE.InstancedMesh, i: number, angle: number, radius: num
   dummy.rotation.set(0, -angle, 0)
   dummy.updateMatrix()
   mesh.setMatrixAt(i, dummy.matrix)
-}
-
-/** Every angle a level's fit-out occupies — nothing structural may stand here. */
-function fitOutAngles() {
-  const out: number[] = []
-  FLOORS.forEach((f) => {
-    const base = contentAngle(f.level)
-    Object.values(SLOT).forEach((off) => out.push(base + off))
-  })
-  return out
-}
-
-/** Clear of every fit-out slot on every level, by `pad` radians. */
-function clearOfFitOut(angles: number[], a: number, pad: number) {
-  return angles.every((b) => {
-    const d = Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-    return d > pad
-  })
 }
 
 /**
@@ -233,10 +214,9 @@ function StrataBackdrop() {
  */
 function Ribs() {
   const ref = useMemo(() => {
-    const perFloor = 14
     const height = FLOOR_HEIGHT - 0.4
     const mesh = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(0.8, height, 0.6),
+      new THREE.BoxGeometry(RIB.w, height, RIB.d),
       (() => {
         const c = tiled(concreteSurface(), 1, 10)
         return new THREE.MeshStandardMaterial({
@@ -247,29 +227,20 @@ function Ribs() {
           roughnessMap: c.roughnessMap,
         })
       })(),
-      FLOORS.length * perFloor,
+      FLOORS.length * RIBS_PER_FLOOR,
     )
 
     let n = 0
     FLOORS.forEach((floor) => {
-      const base = contentAngle(floor.level)
-      const slots = Object.values(SLOT).map((off) => base + off)
       const y = levelY(floor.level) + 1.4
-      for (let i = 0; i < perFloor; i++) {
-        const a = base + (i / perFloor) * Math.PI * 2
-        if (inCut(a, 0.12) || !clearOfFitOut(slots, a, 0.3)) continue
-        faceAxis(
-          mesh,
-          n,
-          Math.cos(a) * (SHAFT_RADIUS - 0.32),
-          y,
-          Math.sin(a) * (SHAFT_RADIUS - 0.32),
-        )
-        n++
+      for (const a of ribAngles(floor.level)) {
+        faceAxis(mesh, n++, Math.cos(a) * RIB.r, y, Math.sin(a) * RIB.r)
       }
     })
     mesh.count = n
     mesh.instanceMatrix.needsUpdate = true
+    mesh.castShadow = true
+    mesh.receiveShadow = true
     return mesh
   }, [])
   return <primitive object={ref} />
@@ -318,6 +289,7 @@ function Decks() {
       const y = walkY(floor.level)
 
       const deck = new THREE.Mesh(deckGeo, deckMat)
+      deck.receiveShadow = true
       deck.rotation.x = -Math.PI / 2
       deck.position.y = y
       group.add(deck)
@@ -338,8 +310,8 @@ function Decks() {
       // So starting at the gangway's leading edge and running the long way
       // round lands the opening exactly on the gangway.
       const gangway = contentAngle(floor.level)
-      const ringStart = -(gangway - LANDING_HALF)
-      const ringArc = Math.PI * 2 - LANDING_HALF * 2
+      const ringStart = -(gangway - RAIL_GAP_HALF)
+      const ringArc = Math.PI * 2 - RAIL_GAP_HALF * 2
 
       const lip = new THREE.Mesh(
         new THREE.TorusGeometry(DECK_INNER, 0.1, 8, 80, ringArc),
@@ -359,7 +331,7 @@ function Decks() {
       rail.position.y = y + 1.05
       group.add(rail)
 
-      const n = 52
+      const n = 84
       const posts = new THREE.InstancedMesh(
         new THREE.CylinderGeometry(0.03, 0.03, 1.05, 6),
         steel,
@@ -369,7 +341,7 @@ function Decks() {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2
         const off = Math.abs(((a - gangway + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
-        if (off < LANDING_HALF) continue
+        if (off < RAIL_GAP_HALF + 0.02) continue
         dummy.position.set(Math.cos(a) * DECK_INNER, y + 0.52, Math.sin(a) * DECK_INNER)
         dummy.rotation.set(0, 0, 0)
         dummy.updateMatrix()
@@ -391,11 +363,24 @@ function Decks() {
       edge.position.y = y + 1.0
       group.add(edge)
 
-      // Structural band where the deck meets the wall.
-      const band = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.26, 0.1, 6, 80), steel)
-      band.rotation.x = -Math.PI / 2
-      band.position.y = levelY(floor.level) + 2.2
-      group.add(band)
+      // Structural band where the deck meets the wall. On level 1 it stops at
+      // the rooms: it runs at 4 m, and carried on through it cut straight
+      // across the cafeteria window.
+      const bandArcs: Array<[number, number]> =
+        floor.level === 1
+          ? [
+              [SHERIFF.to, CAFE.from],
+              [CAFE.to, SHERIFF.from + Math.PI * 2],
+            ]
+          : [[0, Math.PI * 2]]
+      for (const [from, to] of bandArcs) {
+        const band = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.26, 0.1, 6, 80, to - from), steel)
+        band.rotation.x = -Math.PI / 2
+        // Torus arc [0, L] lands on world angles [A - L, A] for rotation.z = -A.
+        band.rotation.z = -to
+        band.position.y = levelY(floor.level) + 2.2
+        group.add(band)
+      }
     })
     return group
   }, [])
@@ -404,10 +389,13 @@ function Decks() {
 }
 
 /**
- * Radial corridors. Each deck is divided into BAYS bays by a floor kerb, a
- * waist-high bulkhead and an overhead joist, which is what turns a bare ring
- * into circulation space. Bays holding a fit-out slot, and bays in the
- * cutaway, are left open.
+ * Radial framing. Each deck is divided into bays by a flush floor kerb and an
+ * overhead joist with a hanger -- what turns a bare ring into a structure.
+ *
+ * There used to be a waist-high bulkhead across every bay as well. With a
+ * guided camera that was set dressing; with a body it was a row of radial
+ * walls across the only way round the ring, every one of which a visitor
+ * would either walk into or, having no collision, walk straight through.
  */
 function Corridors() {
   const nodes = useMemo(() => {
@@ -423,46 +411,33 @@ function Corridors() {
       normalMap: brushed.normalMap,
       roughnessMap: brushed.roughnessMap,
     })
-    // Tiling must follow the proportions of the thing it is on. Stretching a
-    // patterned texture across a long, short face turns it into stripes.
-    const panelSteel = tiled(steelSurface(), 6, 1.5)
-    const panel = new THREE.MeshStandardMaterial({
-      roughness: 0.78,
-      metalness: 0.18,
-      map: panelSteel.map,
-      normalMap: panelSteel.normalMap,
-      roughnessMap: panelSteel.roughnessMap,
-    })
 
     const joists = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.34, 0.46), steel, max)
-    const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.12, 0.34), steel, max)
-    const bulkheads = new THREE.InstancedMesh(
-      new THREE.BoxGeometry(span * 0.62, 1.15, 0.14),
-      panel,
-      max,
-    )
+    // Flush with the deck: 2 cm proud, so it reads as a seam without being a
+    // step the body has to climb at every bay.
+    const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.04, 0.3), steel, max)
     const hangers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 1.5, 0.1), steel, max)
 
-    const slots = fitOutAngles()
     let n = 0
     FLOORS.forEach((floor) => {
-      const base = contentAngle(floor.level)
       const deck = walkY(floor.level)
       const mid = DECK_INNER + span / 2
-      for (let k = 0; k < BAYS; k++) {
-        const a = base + ((k + 0.5) / BAYS) * Math.PI * 2
-        if (inCut(a, 0.06) || !clearOfFitOut(slots, a, 0.26)) continue
-        radial(joists, n, a, mid, levelY(floor.level) + 2.6)
-        radial(kerbs, n, a, mid, deck + 0.1)
-        radial(bulkheads, n, a, mid, deck + 0.64)
-        radial(hangers, n, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
+      for (const a of bayAngles(floor.level)) {
+        // Level 1 has no deck above it, so nothing for a joist to carry.
+        if (floor.level > 1) {
+          radial(joists, n, a, mid, levelY(floor.level) + 2.6)
+          radial(hangers, n, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
+        }
+        radial(kerbs, n, a, mid, deck + 0.02)
         n++
       }
     })
 
-    for (const mesh of [joists, kerbs, bulkheads, hangers]) {
+    for (const mesh of [joists, kerbs, hangers]) {
       mesh.count = n
       mesh.instanceMatrix.needsUpdate = true
+      mesh.castShadow = mesh !== kerbs
+      mesh.receiveShadow = true
       group.add(mesh)
     }
     return group
@@ -475,8 +450,7 @@ function Corridors() {
 function Lamps() {
   const nodes = useMemo(() => {
     const group = new THREE.Group()
-    const perFloor = 6
-    const total = FLOORS.length * perFloor
+    const total = FLOORS.length * LAMPS_PER_FLOOR
     const bulbs = new THREE.InstancedMesh(
       new THREE.BoxGeometry(1.1, 0.18, 0.34),
       new THREE.MeshStandardMaterial({
@@ -496,9 +470,7 @@ function Lamps() {
     let n = 0
     FLOORS.forEach((floor) => {
       const y = levelY(floor.level)
-      for (let k = 0; k < perFloor; k++) {
-        const a = (k / perFloor) * Math.PI * 2 + contentAngle(floor.level)
-        if (inCut(a, 0.06)) continue
+      for (const a of lampAngles(floor.level)) {
         const r = SHAFT_RADIUS - 0.62
         faceAxis(bulbs, n, Math.cos(a) * r, y + 1.5, Math.sin(a) * r)
         faceAxis(housings, n, Math.cos(a) * r, y + 1.68, Math.sin(a) * r)
@@ -516,18 +488,13 @@ function Lamps() {
   return <primitive object={nodes} />
 }
 
+/** The floor of the pit, below level 12. The top is the dome (Dome.tsx). */
 function Caps() {
   return (
-    <>
-      <mesh rotation={[Math.PI / 2, 0, 0]} position={[0, TOP_MARGIN + 9, 0]}>
-        <circleGeometry args={[SHAFT_RADIUS, 56]} />
-        <meshStandardMaterial color={PALETTE.concreteDark} roughness={1} side={THREE.DoubleSide} />
-      </mesh>
-      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, BOTTOM + 1, 0]}>
-        <circleGeometry args={[SHAFT_RADIUS, 56]} />
-        <meshStandardMaterial color={PALETTE.concreteDark} roughness={1} side={THREE.DoubleSide} />
-      </mesh>
-    </>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, BOTTOM + 1, 0]} receiveShadow>
+      <circleGeometry args={[SHAFT_RADIUS, 56]} />
+      <meshStandardMaterial color={PALETTE.concreteDark} roughness={1} side={THREE.DoubleSide} />
+    </mesh>
   )
 }
 

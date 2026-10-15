@@ -11,8 +11,8 @@ export function TopBar() {
   const toggleMute = useSilo((s) => s.toggleMute)
   const reduced = useSilo((s) => s.reducedMotion)
   const setReduced = useSilo((s) => s.setReducedMotion)
-  const mode = useSilo((s) => s.mode)
-  const toggleMode = useSilo((s) => s.toggleMode)
+  const recordOpen = useSilo((s) => s.recordOpen)
+  const toggleRecord = useSilo((s) => s.toggleRecord)
 
   if (phase === 'exterior' || phase === 'boot') return null
   const shown = phase === 'riding' ? target : level
@@ -32,22 +32,16 @@ export function TopBar() {
         <button type="button" className="chip" onClick={() => toggleDirectory()}>
           Directory
         </button>
-        {/* Walking is only offered with both feet on a deck. Mid-ride or in
-            the airlock the camera is on rails and the toggle would drop a body
-            into the shaft. */}
+        {/* The record panel for this floor. It used to be up all the time;
+            on foot it covered a third of the view, so it comes up on demand
+            -- and on its own whenever the mouse is let go. */}
         <button
           type="button"
-          className={`chip${mode === 'walk' ? ' chip--on' : ''}`}
-          onClick={toggleMode}
-          disabled={phase !== 'onFloor' && mode !== 'walk'}
-          aria-pressed={mode === 'walk'}
-          title={
-            mode === 'walk'
-              ? 'Return to the guided camera'
-              : 'Walk this level on foot (W A S D, mouse to look)'
-          }
+          className={`chip${recordOpen ? ' chip--on' : ''}`}
+          onClick={() => toggleRecord()}
+          aria-pressed={recordOpen}
         >
-          {mode === 'walk' ? 'Walking' : 'Walk'}
+          Record
         </button>
         <button
           type="button"
@@ -77,7 +71,9 @@ export function CallPanel() {
   const phase = useSilo((s) => s.phase)
   const level = useSilo((s) => s.level)
   const goToLevel = useSilo((s) => s.goToLevel)
-  if (phase !== 'onFloor') return null
+  const locked = useSilo((s) => s.pointerLocked)
+  // Out of the way while walking with the mouse held; back when it is let go.
+  if (phase !== 'onFloor' || locked) return null
   const floor = floorByLevel(level)
 
   return (

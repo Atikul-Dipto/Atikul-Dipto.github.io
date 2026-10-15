@@ -1,76 +1,132 @@
+import { useEffect, useRef, useState } from 'react'
+import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
+import type { Interact } from '../state/useSilo'
 
 /**
- * The walking overlay: a prompt to take the pointer, and the control legend.
+ * The walking overlay.
  *
- * Without the prompt, walk mode looks broken. The browser will not grant
- * pointer lock without a user gesture, so entering walk mode leaves the mouse
- * free and WASD apparently doing nothing until the visitor happens to click.
- * This says so.
+ * DESKTOP. Until the pointer is taken, a small card at the foot of the screen
+ * says how. It does not cover the screen -- the overlay it sits in lets clicks
+ * fall through to the canvas, which is what takes the pointer, and to the
+ * record panel and the top bar, which must keep working. The first version
+ * was a full-screen click target, and it swallowed the very click it asked
+ * for; a later one sat over the top bar and quietly disabled it.
  *
- * It also follows the browser rather than assuming: `pointerLocked` mirrors
- * `document.pointerLockElement`, so pressing Escape -- which never reaches us
- * as a keydown -- brings the prompt straight back.
+ * TOUCH. No pointer lock exists, so there is no prompt: a one-off hint, a
+ * ring under the left thumb while it walks, and the interact prompt is a
+ * button you tap.
+ *
+ * EVERYWHERE. What E would do right here, said in words, and the state of a
+ * lift journey while one is under way.
  */
+
+const LABEL: Record<Exclude<Interact, null>, string> = {
+  'lift-controls': 'Lift controls',
+  'call-lift': 'Call the lift',
+  vault: 'Open the records vault',
+}
+
+function ThumbRing() {
+  const ring = useRef<HTMLDivElement>(null)
+  const knob = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let id = 0
+    const tick = () => {
+      if (ring.current && knob.current) {
+        ring.current.style.opacity = stick.active ? '1' : '0'
+        ring.current.style.transform = `translate(${stick.ox - 56}px, ${stick.oy - 56}px)`
+        knob.current.style.transform = `translate(${stick.x - stick.ox}px, ${stick.y - stick.oy}px)`
+      }
+      id = requestAnimationFrame(tick)
+    }
+    id = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(id)
+  }, [])
+  return (
+    <div ref={ring} className="thumb" aria-hidden="true">
+      <div ref={knob} className="thumb__knob" />
+    </div>
+  )
+}
+
 export default function WalkHud() {
   const mode = useSilo((s) => s.mode)
+  const phase = useSilo((s) => s.phase)
   const locked = useSilo((s) => s.pointerLocked)
   const level = useSilo((s) => s.level)
-  const toggleMode = useSilo((s) => s.toggleMode)
-  const nearLift = useSilo((s) => s.nearLift)
+  const target = useSilo((s) => s.target)
+  const interact = useSilo((s) => s.interact)
+  const directoryOpen = useSilo((s) => s.directoryOpen)
+  const cvOpen = useSilo((s) => s.cvOpen)
+  const bodyReady = useSilo((s) => s.bodyReady)
+  const [touch] = useState(isTouchDevice)
+  const [hintSeen, setHintSeen] = useState(false)
 
   if (mode !== 'walk') return null
+  const riding = phase === 'riding'
+  const modal = directoryOpen || cvOpen
 
   return (
     <>
-      {!locked && (
+      {riding && (
+        <div className="walk-status" role="status">
+          Lift · travelling to level <strong>{String(target).padStart(2, '0')}</strong>
+        </div>
+      )}
+
+      {!touch && !locked && !modal && (
         <div className="walk-prompt">
           <div className="walk-prompt__card">
-            <h2>Walking level {String(level).padStart(2, '0')}</h2>
-            <p>Click anywhere to take the mouse and look around.</p>
+            <p className="walk-prompt__lead">
+              {bodyReady ? (
+                <>
+                  <strong>Click</strong> to walk level {String(level).padStart(2, '0')}
+                </>
+              ) : (
+                // Said plainly, because otherwise a click here does nothing
+                // and looks broken.
+                <>Starting the physics…</>
+              )}
+            </p>
             <dl className="walk-keys">
               <div>
                 <dt>
-                  <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd>
+                  <kbd>W</kbd>
+                  <kbd>A</kbd>
+                  <kbd>S</kbd>
+                  <kbd>D</kbd>
                 </dt>
-                <dd>Walk</dd>
+                <dd>walk</dd>
+              </div>
+              <div>
+                <dt>Mouse</dt>
+                <dd>look</dd>
               </div>
               <div>
                 <dt>
                   <kbd>Shift</kbd>
                 </dt>
-                <dd>Run</dd>
-              </div>
-              <div>
-                <dt>Mouse</dt>
-                <dd>Look</dd>
+                <dd>run</dd>
               </div>
               <div>
                 <dt>
                   <kbd>E</kbd>
                 </dt>
-                <dd>Lift controls, once aboard</dd>
+                <dd>use</dd>
               </div>
               <div>
                 <dt>
                   <kbd>Esc</kbd>
                 </dt>
-                <dd>Release the mouse</dd>
+                <dd>let go of the mouse</dd>
               </div>
             </dl>
-            <p className="walk-prompt__note">
-              One gap in the handrail leads out to the gangway. From there the
-              stair runs the full depth of the silo and the lift is at the
-              inner end — both on foot. The lift itself still rides on the
-              guided camera.
-            </p>
-            <button type="button" className="chip" onClick={toggleMode}>
-              Back to the guided camera
-            </button>
           </div>
         </div>
       )}
-      {locked && (
+
+      {!touch && locked && (
         <div className="walk-legend" aria-hidden="true">
           <span>
             <kbd>W</kbd>
@@ -82,14 +138,37 @@ export default function WalkHud() {
             <kbd>Shift</kbd> run
           </span>
           <span>
+            <kbd>E</kbd> use
+          </span>
+          <span>
             <kbd>Esc</kbd> release
           </span>
         </div>
       )}
-      {locked && nearLift && (
-        <div className="walk-interact" role="status">
-          <kbd>E</kbd> call the lift
-        </div>
+
+      {touch && (
+        <>
+          <ThumbRing />
+          {!hintSeen && !modal && (
+            <button type="button" className="walk-hint" onClick={() => setHintSeen(true)}>
+              Left thumb walks · right thumb looks · tap to close
+            </button>
+          )}
+        </>
+      )}
+
+      {interact && !riding && !modal && (
+        // A button, so it works without a keyboard. On desktop it is only
+        // clickable while the pointer is free; with the pointer held, E does it.
+        <button
+          type="button"
+          className="walk-interact"
+          onClick={() => {
+            move.interact = true
+          }}
+        >
+          {!touch && <kbd>E</kbd>} {LABEL[interact]}
+        </button>
       )}
     </>
   )

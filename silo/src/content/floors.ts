@@ -5,34 +5,42 @@ import { certifications, education, experience, methods, projects, skillSystems 
  * mini-silo overview — derives from these, so the whole silo stays vertically
  * aligned when any one of them changes (spec §4).
  */
-export const SHAFT_RADIUS = 13
+/**
+ * The atrium. 44 m across, up from 26: at the old size the deck was a 7.5 m
+ * ring that a walking body crossed in two seconds, and the shaft read as a
+ * corridor rather than a buried building. The core at the centre -- the lift
+ * and the stair coiled round it -- is people-sized and does NOT scale with
+ * this; only the void around it and the deck beyond grow.
+ */
+export const SHAFT_RADIUS = 22
 export const WALL_THICK = 1.1
 export const FLOOR_HEIGHT = 11
-/** Opening in each deck that the elevator and stair run through. */
-export const DECK_INNER = 5.4
-export const DECK_DROP = 1.9
-export const ELEVATOR_HALF = 1.75
-/** Radius of the elevator shaft cage that encloses the car. */
-export const SHAFT_CAGE = ELEVATOR_HALF * 1.28
-/* The stair's own geometry lives in `content/stairs.ts`: it is shared by the
-   visible flights and by their collision, and keeping it here as loose
-   constants is how the two ended up describing different staircases. */
 /**
- * Where the camera stands when you step out onto a deck.
- *
- * Must stay clear of DECK_INNER. At exactly DECK_INNER the viewer is standing
- * on the lip of the central void with the stairwell handrail directly under
- * their feet: a downward ray from eye height hit the handrail 0.52 m below,
- * then the lip, and only then the deck 1.62 m below. Measured in the running
- * scene, not assumed.
- *
- * A radial scan of level 1 puts the clean walkable band at 5.6 to 12.4 m:
- * inboard of 5.6 is the lip and handrail, and beyond 12.4 the wall fit-out
- * starts. 6.4 sits 0.8 m clear of the rail and leaves the airlock pose
- * (SHAFT_RADIUS - 5.6 = 7.4) a metre further out, so stepping to the airlock
- * still carries forward motion rather than being a pure rotation.
+ * The open void at the centre of every deck. Wide enough that the core stands
+ * free in the middle of the atrium with the stair coiled round it and a bridge
+ * reaching out to each deck, rather than the deck lapping right up to the
+ * stair as it used to.
  */
-export const CAM_RADIUS = 6.4
+export const DECK_INNER = 8.4
+export const DECK_DROP = 1.9
+
+/**
+ * The lift: a round glass capsule riding the axis, and the ring of steel it
+ * runs inside. CAR_RADIUS is the car floor; SHAFT_RING is the landing ring at
+ * each level, where the landing doors close the shaft off when the car is
+ * elsewhere.
+ */
+export const CAR_RADIUS = 1.5
+export const SHAFT_RING = 1.86
+/** Clear height of the car's glass, floor to ceiling. */
+export const CAR_HEIGHT = 2.6
+
+/**
+ * Where the guided camera stands on a deck. Only the opening sequence uses
+ * the guided camera now -- once you arrive you have a body -- but the rig
+ * still needs somewhere on the deck to aim at, clear of the rail.
+ */
+export const CAM_RADIUS = DECK_INNER + 1.6
 export const EYE = 1.62
 
 /**
@@ -50,11 +58,9 @@ export const PLAYER_HALF = (PLAYER_HEIGHT - PLAYER_RADIUS * 2) / 2
 export const EYE_OFFSET = EYE - PLAYER_HEIGHT / 2
 
 /**
- * The walkable annulus, measured rather than assumed: a radial scan of level 1
- * put the clean band at 5.6 to 12.4 m. The deck plate itself runs from
- * DECK_INNER to SHAFT_RADIUS - 0.06; the barrier radii below sit on the
- * handrail and the wall, and the capsule's own radius keeps the body inside
- * that band.
+ * The walkable annulus. The deck plate runs from DECK_INNER to
+ * SHAFT_RADIUS - 0.06; the barrier radii below sit on the handrail and the
+ * wall, and the capsule's own radius keeps the body inside that band.
  */
 export const DECK_OUTER = SHAFT_RADIUS - 0.06
 /** Height of the barrier ringing the central void, matching the handrail. */
@@ -62,7 +68,7 @@ export const VOID_RAIL_H = 1.15
 /** Clear height from a walking surface up to the soffit of the deck above. */
 export const ROOM_HEIGHT = FLOOR_HEIGHT - DECK_DROP - 0.26
 /** Radial bays each deck is divided into — the corridor framing. */
-export const BAYS = 8
+export const BAYS = 10
 
 /** Angular slots within a level, measured from its content angle. Keeping
  *  these apart is what stops the fit-out piling up in the centre of the view. */

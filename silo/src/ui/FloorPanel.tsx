@@ -10,9 +10,17 @@ export default function FloorPanel() {
   const phase = useSilo((s) => s.phase)
   const mode = useSilo((s) => s.mode)
   const level = useSilo((s) => s.level)
+  const locked = useSilo((s) => s.pointerLocked)
+  const recordOpen = useSilo((s) => s.recordOpen)
   const enterAirlock = useSilo((s) => s.enterAirlock)
   const floor = floorByLevel(level)
-  const visible = phase === 'onFloor'
+  // Up on demand, or whenever the mouse is free on a desktop -- never over
+  // the view while someone is actually walking. On a phone the pointer is
+  // never "locked", so there it is the Record button alone.
+  const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
+  const visible =
+    (phase === 'onFloor' || phase === 'airlock') &&
+    (mode !== 'walk' || recordOpen || (!locked && !touch))
 
   return (
     <main className={`panel${visible ? ' is-visible' : ''}`} aria-hidden={!visible}>
@@ -33,7 +41,7 @@ export default function FloorPanel() {
           <p className="panel__meta">{identity.location}</p>
           <div className="panel__actions">
             <button type="button" className="btn btn--primary" onClick={enterAirlock}>
-              Enter the personnel airlock
+              Open the records vault
             </button>
             {identity.links.map((l) => (
               <a key={l.href} className="btn" href={l.href} target="_blank" rel="noreferrer">
@@ -53,20 +61,9 @@ export default function FloorPanel() {
         </>
       )}
 
-      {/* The cinematic controls do not apply while walking: the arrows are
-          movement keys there, not the lift. */}
       <p className="panel__hint">
-        {mode === 'walk' ? (
-          <>
-            <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> walk ·{' '}
-            <kbd>Shift</kbd> run · mouse to look
-          </>
-        ) : (
-          <>
-            Drag to look around · <kbd>&larr;</kbd> <kbd>&rarr;</kbd> turn ·{' '}
-            <kbd>&uarr;</kbd> <kbd>&darr;</kbd> ride
-          </>
-        )}
+        The vault is in the sheriff's office, behind the round door. The lift
+        and the stair are across the bridge.
       </p>
     </main>
   )

@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import {
+  CAR_RADIUS,
   DECK_INNER,
   FLOOR_HEIGHT,
   LEVEL_COUNT,
@@ -18,15 +19,20 @@ import {
  *
  * The arrangement, reading a level from the outside in:
  *
- *   deck  ──gap in the rail──  GANGWAY  ──  lift threshold
- *                                 │
- *                          stair up / stair down
+ *   deck ─gap in the rail─ BRIDGE ── LANDING ── lift doors
+ *                                       │
+ *                               stair up / stair down
  *
- * The gangway is a radial sector of floor at the level's content angle. It is
- * simultaneously the lift landing, the stair landing, and the way off the
- * deck — one platform doing all three jobs, so there is exactly one place per
- * level where the ring of handrail is open, and standing on it you can see
- * every route out.
+ * The LANDING is a sector of floor wrapped round the core at the level's
+ * content angle: the lift doors open onto its inner edge and the stair
+ * arrives and leaves across its two radial edges. The BRIDGE is a straight
+ * span from the landing out across the void to the deck. Together they are
+ * the only break in the ring of handrail, so standing on the landing you can
+ * see every route out of the level.
+ *
+ * The bridge is straight rather than a continuation of the sector on purpose:
+ * at the atrium's new size a sector reaching the deck would be 6 m wide where
+ * it met it, which is a plaza, not a bridge.
  *
  * THE PITCH IS NOT ARBITRARY. Each level's gangway sits at `contentAngle`,
  * and consecutive content angles differ by a fixed step. A flight therefore
@@ -50,14 +56,28 @@ export const TREAD_T = 0.1
 export const RAIL_H = 1.02
 
 /**
- * The gangway. It runs from inside the lift car's floor edge (so there is no
- * gap to fall through at the threshold) out past the deck lip (so there is no
- * gap to fall through there either). Both overlaps are deliberate.
+ * The landing. It runs from inside the lift car's floor edge, so there is no
+ * gap to fall through at the threshold, out to the stair's outer edge, where
+ * the bridge takes over.
  */
 export const LANDING_HALF = 0.4
-export const LANDING_INNER = 1.62
-export const LANDING_OUTER = DECK_INNER + 0.12
+export const LANDING_INNER = CAR_RADIUS - 0.08
+export const LANDING_OUTER = STAIR_OUTER
 export const LANDING_T = 0.18
+
+/**
+ * The bridge: exactly as wide as the landing's chord at its outer edge, so its
+ * corners land on the ends of that edge and there is no sliver of void between
+ * the curved landing and the straight bridge. It starts on that chord, inside
+ * the landing, and runs out past the deck lip.
+ */
+export const BRIDGE_WIDTH = 2 * LANDING_OUTER * Math.sin(LANDING_HALF)
+export const BRIDGE_FROM = LANDING_OUTER * Math.cos(LANDING_HALF)
+export const BRIDGE_TO = DECK_INNER + 0.25
+/** Where the bridge's side edges meet the deck lip -- the end of its parapets. */
+export const BRIDGE_LIP = Math.sqrt(DECK_INNER ** 2 - (BRIDGE_WIDTH / 2) ** 2)
+/** The opening the bridge needs in the deck's handrail, as a half-angle. */
+export const RAIL_GAP_HALF = Math.asin(BRIDGE_WIDTH / 2 / DECK_INNER)
 
 /** Angular step between one level's gangway and the next. */
 const LEVEL_STEP = contentAngle(2) - contentAngle(1)
@@ -280,9 +300,35 @@ export function landingSurface(level: number): THREE.BufferGeometry {
 export function landingEdgeSpans(level: number, side: -1 | 1): Array<[number, number]> {
   const connected = side === -1 ? hasFlightUp(level) : hasFlightDown(level)
   if (!connected) return [[LANDING_INNER, LANDING_OUTER]]
+  return [[LANDING_INNER, STAIR_INNER]]
+}
+
+/**
+ * The bridge as a box: centre, length along the radial axis, and the axis
+ * angle. One description for the deck plate, both parapets and the colliders.
+ */
+export function bridgeFrame(level: number) {
+  const a = contentAngle(level)
+  const mid = (BRIDGE_FROM + BRIDGE_TO) / 2
+  return {
+    angle: a,
+    y: walkY(level),
+    cx: Math.cos(a) * mid,
+    cz: Math.sin(a) * mid,
+    length: BRIDGE_TO - BRIDGE_FROM,
+    /** Parapets run from the landing to the deck lip, not past it. */
+    parapetFrom: BRIDGE_FROM,
+    parapetTo: BRIDGE_LIP,
+  }
+}
+
+/** World position of a point given in a bridge's own frame: `along` the axis
+ *  from the shaft centre, and `across` it (positive is increasing angle). */
+export function bridgePoint(level: number, along: number, across: number): [number, number] {
+  const a = contentAngle(level)
   return [
-    [LANDING_INNER, STAIR_INNER],
-    [STAIR_OUTER, LANDING_OUTER],
+    Math.cos(a) * along - Math.sin(a) * across,
+    Math.sin(a) * along + Math.cos(a) * across,
   ]
 }
 
@@ -313,16 +359,11 @@ export function radialPanel(
 }
 
 /**
- * The lift car's floor, as a collider box half-extent and transform.
- *
- * The car is drawn in `Elevator.tsx` and yaws to face the level it serves; on
- * the level being walked it is always parked and open, so its collision can be
- * placed statically from the same two numbers the car is drawn from. Without
- * it the gangway simply ends at the shaft mouth and stepping into an open,
- * lit, stationary lift drops the visitor down the shaft.
+ * Where the lift car's doorway faces on a level: straight out along the
+ * landing. `rotY` matches `rotation.y = PI/2 - angle`, under which a car's
+ * local +Z points at world angle `angle`.
  */
 export const carTransform = (level: number) => ({
   y: walkY(level),
-  /** Matches `rotation.y = PI/2 - angle` in Elevator.tsx. */
   rotY: Math.PI / 2 - contentAngle(level),
 })

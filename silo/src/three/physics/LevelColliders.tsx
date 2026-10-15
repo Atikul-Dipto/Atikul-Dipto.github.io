@@ -1,22 +1,29 @@
 import { useMemo } from 'react'
-import { CuboidCollider, RigidBody, TrimeshCollider } from '@react-three/rapier'
+import { CuboidCollider, CylinderCollider, RigidBody, TrimeshCollider } from '@react-three/rapier'
 import * as THREE from 'three'
 import {
+  CAR_HEIGHT,
+  CAR_RADIUS,
   DECK_INNER,
   DECK_OUTER,
-  ELEVATOR_HALF,
   LEVEL_COUNT,
   ROOM_HEIGHT,
+  SHAFT_RING,
   VOID_RAIL_H,
   contentAngle,
   walkY,
 } from '../../content/floors'
+import { RIB, ribAngles } from '../../content/layout'
+import { level1Colliders } from '../../content/level1'
+import type { Box } from '../../content/level1'
 import {
-  LANDING_HALF,
+  BRIDGE_WIDTH,
+  RAIL_GAP_HALF,
   RAIL_H,
   STAIR_INNER,
   STAIR_OUTER,
-  carTransform,
+  bridgeFrame,
+  bridgePoint,
   flightSkirt,
   flightSurface,
   hasFlightDown,
@@ -25,50 +32,45 @@ import {
   landingSurface,
   radialPanel,
 } from '../../content/stairs'
+import { useSilo } from '../../state/useSilo'
+import { DOOR_HALF } from '../Elevator'
 
 /**
  * Static collision for the part of the silo a body can currently reach.
  *
  * Deliberately far simpler than what is drawn, and derived from exactly the
- * same constants, so collision cannot drift away from the architecture. Using
- * the decorative meshes as colliders would make every rib, service run, railing
- * and tread into an obstacle, which is both slow and wrong.
+ * same data, so collision cannot drift away from the architecture.
  *
- * WHAT IS BUILT, PER DECK
- *   floor     the deck annulus, exactly as drawn: DECK_INNER to DECK_OUTER
- *   void      a barrier ringing the central opening, ON THE HANDRAIL LINE,
- *             with a gap at the gangway so the one way off the deck is the
- *             way the architecture says it is
- *   wall      the outer boundary, a full circle including across the cutaway
- *   gangway   the platform out to the lift, its two edge barriers, and the
- *             lift car's own floor and three walls
+ * PER DECK
+ *   floor     the deck annulus, DECK_INNER to DECK_OUTER
+ *   void      a barrier on the handrail line round the central opening, open
+ *             only where the bridge meets the deck
+ *   wall      the outer boundary, closed right round -- across the cutaway it
+ *             is the difference between leaning on the edge rail and falling
+ *             120 m into the cavern
+ *   ribs      the pilasters standing 0.6 m proud of the wall
+ *   bridge    deck plate and both parapets
+ *   landing   the sector round the core, and its edge barriers
+ *   shaft     depends on the lift: if the car is parked here, its floor and
+ *             glass; if it is anywhere else, the shut landing doors
+ *   level 1   every wall, table, chair, desk and cabinet in content/level1.ts
  *
- * The wall is closed all the way round on purpose. The cutaway sector has no
- * built wall, only the lit edge rail, and an invisible barrier a few
- * centimetres outboard of that rail is the difference between leaning over the
- * edge and falling 120 m into the cavern.
+ * BETWEEN DECKS
+ *   the flight ramp, with a skirt along each edge.
  *
- * WHAT IS BUILT BETWEEN DECKS
- *   the flight ramp, plus a skirt at each edge of it.
+ * THE WINDOW. Three decks are built -- the one being stood on and its two
+ * neighbours -- with the two flights that join them, keyed by level so React
+ * keeps the ones that survive a move. Walking from L to L+1 changes the window
+ * from {L-1, L, L+1} to {L, L+1, L+2}: the ground underfoot is never rebuilt.
  *
- * THE WINDOW. Three decks are built — the one being stood on and its two
- * neighbours — together with the two flights that join them. That is the
- * minimum that lets someone walk off a deck, down a whole flight, and arrive
- * on the next one without the ground they are standing on ever being rebuilt
- * under them: when `level` ticks over from L to L+1 the window moves from
- * {L-1, L, L+1} to {L, L+1, L+2}, and both L and L+1 survive the move. Each
- * deck is keyed by its own level number so React reuses the ones that stay.
- *
- * The colliders are declared explicitly rather than with `colliders="trimesh"`
- * on a mesh. Automatic generation walks the children looking for meshes and
- * skips ones that are `visible={false}`, so the first version of this produced
- * a rigid body with zero colliders and the visitor fell 1,800 m down the
- * shaft. Building the vertex and index arrays here means the collider cannot
- * silently fail to exist.
+ * Colliders are declared explicitly rather than generated from meshes.
+ * Automatic generation skips meshes that are `visible={false}`, and the first
+ * version of this produced a rigid body with zero colliders and a visitor who
+ * fell 1,800 m down the shaft.
  */
 
 /** Radial segments. Enough that the capsule never catches on a facet. */
-const SEGMENTS = 72
+const SEGMENTS = 96
 
 /** Pull world-space triangles out of a geometry for Rapier. */
 function trimesh(geo: THREE.BufferGeometry): [Float32Array, Uint32Array] {
@@ -76,7 +78,6 @@ function trimesh(geo: THREE.BufferGeometry): [Float32Array, Uint32Array] {
   const vertices = new Float32Array(pos.array)
   const index = geo.getIndex()
   if (!index) {
-    // Non-indexed: every three vertices are a triangle.
     const indices = new Uint32Array(pos.count)
     for (let i = 0; i < pos.count; i++) indices[i] = i
     return [vertices, indices]
@@ -85,20 +86,19 @@ function trimesh(geo: THREE.BufferGeometry): [Float32Array, Uint32Array] {
 }
 
 /**
- * three.js measures cylinder theta from +Z; this project measures angles from
- * +X. A cylinder arc that must avoid the world-angle range [a0, a1] therefore
- * starts at `PI/2 - a1` and runs the rest of the way round.
+ * An open cylinder with one angular gap in it. three.js measures theta from
+ * +Z and in the opposite sense to world angles, so a cylinder that must avoid
+ * world angles [gapFrom, gapTo] starts at PI/2 - gapFrom and runs the rest of
+ * the way round.
  */
-function archedRail(y: number, height: number, gapFrom: number, gapTo: number) {
+function gappedRing(radius: number, y: number, height: number, gapFrom: number, gapTo: number) {
   const g = new THREE.CylinderGeometry(
-    DECK_INNER,
-    DECK_INNER,
+    radius,
+    radius,
     height,
     SEGMENTS,
     1,
     true,
-    // Theta runs opposite to world angle, so the arc starts where the gap
-    // ends in theta terms -- at `PI/2 - gapFrom` -- and runs the long way.
     Math.PI / 2 - gapFrom,
     Math.PI * 2 - (gapTo - gapFrom),
   )
@@ -106,12 +106,61 @@ function archedRail(y: number, height: number, gapFrom: number, gapTo: number) {
   return trimesh(g)
 }
 
+/** A cuboid collider from a plan box. */
+function Cuboid({ b }: { b: Box }) {
+  return (
+    <CuboidCollider
+      args={[b.w / 2, b.h / 2, b.d / 2]}
+      position={[b.x, b.y, b.z]}
+      rotation={[0, b.rotY, 0]}
+    />
+  )
+}
+
+/** A box standing on the floor, tangential to the ring at (a, r). */
+function tangentialBox(a: number, r: number, y: number, w: number, h: number, d: number): Box {
+  return { x: Math.cos(a) * r, y: y + h / 2, z: Math.sin(a) * r, w, h, d, rotY: -a - Math.PI / 2 }
+}
+
+/**
+ * The lift's part of a deck. Its own component, subscribed to the lift state,
+ * so the car opening or leaving rebuilds three colliders and not the deck.
+ */
+function ShaftColliders({ level }: { level: number }) {
+  const carHere = useSilo((s) => s.carLevel === level && !s.carMoving)
+  const doorsOpen = useSilo((s) => s.doorsOpen)
+  const y = walkY(level)
+  const a = contentAngle(level)
+
+  const carWall = useMemo(
+    () => gappedRing(CAR_RADIUS + 0.03, y, CAR_HEIGHT, a - DOOR_HALF, a + DOOR_HALF),
+    [y, a],
+  )
+
+  if (!carHere) {
+    // The car is elsewhere: the landing doors are shut across the shaft.
+    const b = tangentialBox(a, SHAFT_RING - 0.03, y, 2 * SHAFT_RING * Math.sin(0.42) + 0.12, 2.85, 0.12)
+    return (
+      <RigidBody type="fixed" colliders={false}>
+        <Cuboid b={b} />
+      </RigidBody>
+    )
+  }
+
+  return (
+    <RigidBody type="fixed" colliders={false}>
+      <CylinderCollider args={[0.07, CAR_RADIUS]} position={[0, y - 0.07, 0]} />
+      <TrimeshCollider args={carWall} />
+      {!doorsOpen && (
+        <Cuboid b={tangentialBox(a, CAR_RADIUS - 0.02, y, 2 * CAR_RADIUS * Math.sin(DOOR_HALF) + 0.12, CAR_HEIGHT, 0.08)} />
+      )}
+    </RigidBody>
+  )
+}
+
 function DeckColliders({ level }: { level: number }) {
   const y = walkY(level)
 
-  // Geometries are baked into their final position here rather than being
-  // positioned by the collider's transform, so what Rapier receives is exactly
-  // what the numbers in floors.ts and stairs.ts describe.
   const parts = useMemo(() => {
     const a = contentAngle(level)
 
@@ -119,12 +168,8 @@ function DeckColliders({ level }: { level: number }) {
     f.rotateX(-Math.PI / 2)
     f.translate(0, y, 0)
 
-    const w = new THREE.CylinderGeometry(
-      DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true,
-    )
+    const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
     w.translate(0, y + ROOM_HEIGHT / 2, 0)
-
-    const landing = landingSurface(level)
 
     const edges: Array<[Float32Array, Uint32Array]> = []
     for (const side of [-1, 1] as const) {
@@ -135,42 +180,59 @@ function DeckColliders({ level }: { level: number }) {
       }
     }
 
+    // The bridge: deck plate and two parapets, as boxes in its own frame.
+    const fr = bridgeFrame(level)
+    const solids: Box[] = [
+      { x: fr.cx, y: y - 0.09, z: fr.cz, w: fr.length, h: 0.18, d: BRIDGE_WIDTH, rotY: -a },
+    ]
+    const pLen = fr.parapetTo - fr.parapetFrom
+    const pMid = (fr.parapetTo + fr.parapetFrom) / 2
+    for (const across of [-1, 1]) {
+      const [px, pz] = bridgePoint(level, pMid, across * (BRIDGE_WIDTH / 2 - 0.03))
+      solids.push({ x: px, y: y + RAIL_H / 2, z: pz, w: pLen, h: RAIL_H, d: 0.08, rotY: -a })
+    }
+
+    // Ribs on the wall.
+    for (const ra of ribAngles(level)) {
+      solids.push({
+        x: Math.cos(ra) * RIB.r,
+        y: y + 2,
+        z: Math.sin(ra) * RIB.r,
+        w: RIB.w,
+        h: 4,
+        d: RIB.d,
+        rotY: Math.atan2(-Math.cos(ra), -Math.sin(ra)),
+      })
+    }
+
+    if (level === 1) solids.push(...level1Colliders())
+
     return {
       floor: trimesh(f),
       wall: trimesh(w),
-      // The void barrier is open only across the gangway.
-      voidRail: archedRail(y, VOID_RAIL_H, a - LANDING_HALF, a + LANDING_HALF),
-      landing: trimesh(landing),
+      voidRail: gappedRing(DECK_INNER, y, VOID_RAIL_H, a - RAIL_GAP_HALF, a + RAIL_GAP_HALF),
+      landing: trimesh(landingSurface(level)),
       edges,
+      solids,
     }
   }, [level, y])
 
-  const car = carTransform(level)
-
   return (
-    <RigidBody type="fixed" colliders={false}>
-      <TrimeshCollider args={parts.floor} />
-      <TrimeshCollider args={parts.voidRail} />
-      <TrimeshCollider args={parts.wall} />
-      <TrimeshCollider args={parts.landing} />
-      {parts.edges.map((e, i) => (
-        <TrimeshCollider key={i} args={e} />
-      ))}
-
-      {/*
-        The lift car. It is drawn in Elevator.tsx and, on the level being
-        walked, is always parked at this height with its doors open — so a
-        visitor who follows the lit gangway walks straight into it. Without a
-        floor under it that walk ends 120 m down the shaft. Three walls, no
-        fourth: the doorway stays open, which is also how you get back out.
-      */}
-      <group position={[0, car.y, 0]} rotation={[0, car.rotY, 0]}>
-        <CuboidCollider args={[ELEVATOR_HALF, 0.07, ELEVATOR_HALF]} position={[0, -0.07, 0]} />
-        <CuboidCollider args={[ELEVATOR_HALF, 1.3, 0.05]} position={[0, 1.3, -ELEVATOR_HALF]} />
-        <CuboidCollider args={[0.05, 1.3, ELEVATOR_HALF]} position={[-ELEVATOR_HALF, 1.3, 0]} />
-        <CuboidCollider args={[0.05, 1.3, ELEVATOR_HALF]} position={[ELEVATOR_HALF, 1.3, 0]} />
-      </group>
-    </RigidBody>
+    <>
+      <RigidBody type="fixed" colliders={false}>
+        <TrimeshCollider args={parts.floor} />
+        <TrimeshCollider args={parts.voidRail} />
+        <TrimeshCollider args={parts.wall} />
+        <TrimeshCollider args={parts.landing} />
+        {parts.edges.map((e, i) => (
+          <TrimeshCollider key={i} args={e} />
+        ))}
+        {parts.solids.map((b, i) => (
+          <Cuboid key={i} b={b} />
+        ))}
+      </RigidBody>
+      <ShaftColliders level={level} />
+    </>
   )
 }
 
@@ -194,9 +256,6 @@ function FlightColliders({ level }: { level: number }) {
 }
 
 export function LevelColliders({ level }: { level: number }) {
-  // The deck being stood on and its two neighbours, and the two flights that
-  // join them. Anything further away cannot be reached before `level` ticks
-  // over and the window moves with it.
   const decks = [level - 1, level, level + 1].filter((n) => n >= 1 && n <= LEVEL_COUNT)
   const stairs = [level - 1, level].filter((n) => n >= 1 && hasFlightDown(n))
 

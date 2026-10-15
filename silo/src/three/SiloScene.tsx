@@ -1,64 +1,82 @@
 import { Suspense, lazy, useEffect, useRef } from 'react'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useThree } from '@react-three/fiber'
 import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import { DECK_INNER, PALETTE, contentAngle, levelY, walkY } from '../content/floors'
 import * as stairs from '../content/stairs'
+import { dayPhase, daylight, setDayPhase } from '../lib/daylight'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
 import Exterior from './Exterior'
 import Rig from './Rig'
 import Effects from './Effects'
+import Dome from './Dome'
+import Lighting from './Lighting'
+import LiftDriver from './LiftDriver'
 import Level01 from './floors/Level01'
-import { Dust, LevelSigns, SkyShaft, TravellingLights } from './Atmosphere'
+import { Dust } from './Atmosphere'
 
 /**
  * Rapier inlines its engine as WebAssembly, which is about 850 kB gzipped --
- * more than the rest of the site put together. Walking is opt-in, so the
- * physics world is fetched the first time someone asks to walk and never for
- * anyone who does not.
+ * more than the rest of the site put together. It is fetched while the
+ * visitor watches the approach, so it has usually arrived by the time they
+ * are handed a body, and never blocks the first frame.
  */
-const WalkMode = lazy(() => import('./physics/WalkMode'))
-
+const loadWalk = () => import('./physics/WalkMode')
+const WalkMode = lazy(loadWalk)
 
 /**
- * Only the floor you are on (and its neighbours) mounts its fit-out. With 12
- * levels of consoles, screens and canvas textures, mounting everything would
- * cost far more than it could ever show at once.
+ * Only the floor you are on (and its neighbours) mounts its fit-out. With
+ * twelve levels of rooms, screens and canvas textures, mounting everything
+ * would cost far more than it could ever show at once.
  */
 function ActiveFloor() {
   const level = useSilo((s) => s.level)
-  const target = useSilo((s) => s.target)
-  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - target) <= 1
-  return <>{near(1) && <Level01 />}</>
+  const near = Math.abs(1 - level) <= 1
+  return <>{near && <Level01 />}</>
 }
 
-function Interior({ carY }: { carY: React.RefObject<number> }) {
+function Interior() {
   const phase = useSilo((s) => s.phase)
-  // Fog is scene-wide, so the interior's density was swallowing the exterior
-  // approach entirely. Thin it right out until we are inside the shaft.
-  const density = phase === 'exterior' ? 0.0012 : 0.0155
+  // Fog is scene-wide; thin it right out for the approach. Inside, it is
+  // kept thin enough that the far side of a 44 m atrium still reads.
+  const density = phase === 'exterior' ? 0.0011 : 0.0072
   return (
     <>
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
-      <ambientLight color="#44525e" intensity={0.55} />
-      <directionalLight color={PALETTE.brassHot} intensity={0.22} position={[0, 60, 10]} />
-      <TravellingLights carY={carY} />
+      <Lighting />
       <Structure />
-      <LevelSigns />
-      <SkyShaft />
+      <Dome />
       <Dust />
-      <Elevator carY={carY} />
+      <Elevator />
       <ActiveFloor />
     </>
   )
 }
 
 /**
+ * Field of view, held constant HORIZONTALLY so a tall phone does not lose the
+ * sides of the room. Wider on foot than for the opening shot: a first-person
+ * view at the old 64 degrees made every room feel smaller than it is.
+ */
+function FovControl() {
+  const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const size = useThree((s) => s.size)
+  const mode = useSilo((s) => s.mode)
+  useEffect(() => {
+    const horizontal = mode === 'walk' ? 86 : 64
+    const aspect = size.width / Math.max(1, size.height)
+    const v = (2 * Math.atan(Math.tan((horizontal * Math.PI) / 360) / aspect) * 180) / Math.PI
+    camera.fov = Math.min(100, Math.max(44, v))
+    camera.updateProjectionMatrix()
+  }, [camera, size, mode])
+  return null
+}
+
+/**
  * Holds the boot screen until the scene's assets have actually resolved, and
- * reports real progress while they load. Lives outside the inner Suspense
- * boundary so it keeps rendering while that boundary is still suspended.
+ * reports real progress while they load.
  */
 function LoadGate() {
   const { progress, active } = useProgress()
@@ -72,8 +90,7 @@ function LoadGate() {
     if (!active && started.current && useSilo.getState().phase === 'boot') setPhase('exterior')
   }, [active, progress, setPhase, setProgress])
 
-  // Nothing may hold the boot screen up indefinitely: if no loader ever ran, or
-  // one failed outright, open up anyway.
+  // Nothing may hold the boot screen up indefinitely.
   useEffect(() => {
     const id = window.setTimeout(() => {
       if (useSilo.getState().phase !== 'boot') return
@@ -90,22 +107,27 @@ export default function SiloScene() {
   const phase = useSilo((s) => s.phase)
   const level = useSilo((s) => s.level)
   const mode = useSilo((s) => s.mode)
+  const quality = useSilo((s) => s.quality)
   const setQuality = useSilo((s) => s.setQuality)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
-  // Shared between the rig and the car so they stay locked while travelling.
-  const carY = useRef(walkY(1))
+
+  // Start fetching the physics while the visitor watches the approach.
+  useEffect(() => {
+    if (phase === 'exterior') void loadWalk()
+  }, [phase])
 
   return (
     <Canvas
       className="silo__canvas"
       dpr={[1, 1.9]}
+      // PCF. The soft variant was removed from this version of three.js and
+      // it says so on every load; asking for it only produced the warning.
+      shadows={quality === 'high' ? 'percentage' : false}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
-      camera={{ fov: 55, near: 0.1, far: 400, position: [0, levelY(1) + 26, 46] }}
+      camera={{ fov: 55, near: 0.08, far: 500, position: [0, levelY(1) + 26, 46] }}
       onCreated={({ gl, camera, scene }) => {
         // Dev-only handle, so the scene can be probed from the console or a
-        // headless browser instead of guessed at. `store` is here so an audit
-        // can drive phases and read the camera's real position rather than
-        // inferring behaviour from the source.
+        // headless browser instead of guessed at.
         if (import.meta.env.DEV) {
           ;(window as unknown as { __silo?: unknown }).__silo = {
             gl,
@@ -113,28 +135,16 @@ export default function SiloScene() {
             scene,
             THREE,
             store: useSilo,
-            // The geometry an audit has to assert against. Exposed rather than
-            // mirrored in the test, so a test cannot quietly keep passing
-            // against numbers the scene has since moved on from.
             contentAngle,
             walkY,
+            daylight,
+            dayPhase,
+            setDayPhase,
             geometry: { DECK_INNER, ...stairs },
           }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping
-        gl.toneMappingExposure = 0.95
-        // Hold the HORIZONTAL fov constant: three.js fov is vertical, so on a
-        // tall phone the horizontal view narrows and off-axis content leaves
-        // the frame entirely.
-        const cam = camera as THREE.PerspectiveCamera
-        const applyFov = () => {
-          const aspect = gl.domElement.clientWidth / gl.domElement.clientHeight
-          const v = (2 * Math.atan(Math.tan((64 * Math.PI) / 360) / aspect) * 180) / Math.PI
-          cam.fov = Math.min(100, Math.max(44, v))
-          cam.updateProjectionMatrix()
-        }
-        applyFov()
-        window.addEventListener('resize', applyFov)
+        gl.toneMappingExposure = 1.08
       }}
       fallback={null}
       onError={() => setWebglFailed()}
@@ -142,13 +152,15 @@ export default function SiloScene() {
       <color attach="background" args={[PALETTE.void]} />
       <PerformanceMonitor onDecline={() => setQuality('low')} />
       <AdaptiveDpr pixelated={false} />
+      <FovControl />
       <LoadGate />
       <Suspense fallback={null}>
         {phase === 'exterior' && <Exterior />}
-        <Interior carY={carY} />
+        <Interior />
         <Preload all />
       </Suspense>
-      <Rig carY={carY} />
+      <Rig />
+      <LiftDriver />
       {mode === 'walk' && (
         <Suspense fallback={null}>
           <WalkMode level={level} />

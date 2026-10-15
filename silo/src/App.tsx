@@ -19,40 +19,25 @@ export default function App() {
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
   const toggleDirectory = useSilo((s) => s.toggleDirectory)
   const closeAirlock = useSilo((s) => s.closeAirlock)
-  const goToLevel = useSilo((s) => s.goToLevel)
-  const level = useSilo((s) => s.level)
+  const fading = useSilo((s) => s.fading)
   const progress = useSilo((s) => s.progress)
 
   useEffect(() => {
     if (!supportsWebGL()) setWebglFailed()
   }, [setWebglFailed])
 
-  // Keyboard navigation (spec §11): arrows ride, D opens the directory.
+  // Escape closes whatever is open. The arrow keys and D used to ride the
+  // lift and open the directory; on foot they are movement keys, and the
+  // directory is one click away in the top bar.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA'].includes(e.target.tagName)) return
-      if (e.key === 'Escape') {
-        toggleDirectory(false)
-        closeAirlock()
-      }
-      if (useSilo.getState().phase !== 'onFloor') return
-      // While walking, these are movement keys: D strafes right and the arrows
-      // are an alternative to WASD. Riding the lift or opening the directory
-      // from them here would fire on every other step.
-      if (useSilo.getState().mode === 'walk') return
-      if (e.key === 'ArrowDown' || e.key === 'PageDown') {
-        e.preventDefault()
-        goToLevel(level + 1)
-      }
-      if (e.key === 'ArrowUp' || e.key === 'PageUp') {
-        e.preventDefault()
-        goToLevel(level - 1)
-      }
-      if (e.key.toLowerCase() === 'd') toggleDirectory()
+      if (e.key !== 'Escape') return
+      toggleDirectory(false)
+      closeAirlock()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [goToLevel, level, toggleDirectory, closeAirlock])
+  }, [toggleDirectory, closeAirlock])
 
   if (webglFailed) return <Fallback />
 
@@ -86,6 +71,7 @@ export default function App() {
       <CvViewer />
       <WalkHud />
       <Soundscape />
+      <div className={`fade${fading ? ' is-on' : ''}`} aria-hidden="true" />
     </div>
   )
 }
