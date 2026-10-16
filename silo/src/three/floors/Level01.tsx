@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
+import { wastelandMaterial } from '../wasteland'
 import { PALETTE, SHAFT_RADIUS } from '../../content/floors'
 import {
   CAFE,
@@ -583,149 +584,27 @@ function TableProps() {
 // The cafeteria
 // ===========================================================================
 
-const windowVertex = /* glsl */ `
-  varying vec3 vWorld;
-  void main() {
-    vec4 w = modelMatrix * vec4(position, 1.0);
-    vWorld = w.xyz;
-    gl_Position = projectionMatrix * viewMatrix * w;
-  }
-`
-
 /**
- * The view out of the cafeteria window.
+ * The view out of the cafeteria window: the surface, as the silo's cameras
+ * show it -- a scorched plain, dead trees, ash sky by day and stars by night.
  *
- * Painted as a panorama at infinity and sampled by the direction from the eye
- * through each pixel -- so the hills slide past the frame as you walk along
- * the glass exactly as they would through a real window. A picture on the
- * wall would just be a picture on the wall.
- *
- * Every colour comes from lib/daylight: it is the same hour out there as in
- * the dome.
+ * It is a screen, not a window, and it is static: an image mapped onto the
+ * glass, not a scene sampled by the direction from the eye, so it does not
+ * slide past as you walk along it. The hour still comes from lib/daylight, so
+ * it is the same time out there as in the dome.
  */
-const windowFragment = /* glsl */ `
-  uniform vec3 uCam;
-  uniform float uTime;
-  uniform vec3 uSky;
-  uniform vec3 uHorizon;
-  uniform vec3 uSun;
-  uniform float uGlow;
-  uniform float uNight;
-  uniform float uPhase;
-  varying vec3 vWorld;
-
-  float hash(float n) { return fract(sin(n) * 43758.5453123); }
-  float hash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
-  float noise(float x) {
-    float i = floor(x); float f = fract(x);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(hash(i), hash(i + 1.0), f);
-  }
-  float noise2(vec2 p) {
-    vec2 i = floor(p); vec2 f = fract(p);
-    f = f * f * (3.0 - 2.0 * f);
-    return mix(mix(hash2(i), hash2(i + vec2(1, 0)), f.x), mix(hash2(i + vec2(0, 1)), hash2(i + vec2(1, 1)), f.x), f.y);
-  }
-  float fbm(float x) {
-    float v = 0.0; float a = 0.5;
-    for (int i = 0; i < 5; i++) { v += a * noise(x); x *= 2.03; a *= 0.5; }
-    return v;
-  }
-  float fbm2(vec2 p) {
-    float v = 0.0; float a = 0.5;
-    for (int i = 0; i < 4; i++) { v += a * noise2(p); p *= 2.07; a *= 0.5; }
-    return v;
-  }
-
-  void main() {
-    vec3 dir = normalize(vWorld - uCam);
-    float az = atan(dir.z, dir.x);
-    float el = asin(clamp(dir.y, -1.0, 1.0));
-
-    // Sky.
-    vec3 col = mix(uHorizon, uSky, smoothstep(-0.02, 0.45, el));
-
-    // The sun crosses the window's arc during the day; the moon at night.
-    float sunAz = 5.1 + (uPhase - 0.5) * 3.2;
-    float sunEl = sin((uPhase - 0.25) * 6.2831853) * 0.55;
-    vec2 d = vec2(az - sunAz, el - sunEl);
-    float sd = length(d);
-    col += uSun * (smoothstep(0.05, 0.0, sd) * 2.2 + exp(-sd * 9.0) * 0.35) * (1.0 - uNight);
-    vec2 md = vec2(az - (sunAz - 3.14159), el - (-sunEl));
-    col += vec3(0.85, 0.9, 1.0) * smoothstep(0.03, 0.022, length(md)) * uNight;
-
-    // Stars, only in a dark sky.
-    vec2 sp = floor(vec2(az, el) * 220.0);
-    float star = step(0.9965, hash2(sp)) * smoothstep(0.02, 0.2, el);
-    col += vec3(star) * uNight * (0.6 + 0.4 * sin(uTime * 2.0 + hash2(sp) * 30.0));
-
-    // Clouds drifting along the arc.
-    float cl = fbm2(vec2(az * 3.0 + uTime * 0.004, el * 9.0));
-    float cloud = smoothstep(0.55, 0.78, cl) * smoothstep(0.02, 0.12, el) * smoothstep(0.6, 0.25, el);
-    vec3 cloudCol = mix(uHorizon * 0.9, vec3(1.0), 0.5) * (0.35 + uGlow * 0.75);
-    col = mix(col, cloudCol, cloud * 0.75);
-
-    // Far mountains, hazed into the sky.
-    float hFar = 0.06 + 0.13 * fbm(az * 2.6 + 3.0);
-    if (el < hFar) {
-      vec3 far = mix(uHorizon, vec3(0.30, 0.38, 0.46), 0.55) * (0.35 + uGlow * 0.65);
-      col = mix(far, col, 0.35);
-    }
-    // Rolling green hills.
-    float hMid = 0.015 + 0.06 * fbm(az * 6.0 + 11.0);
-    if (el < hMid) {
-      vec3 mid = mix(vec3(0.18, 0.32, 0.17), uHorizon * 0.5, 0.25) * (0.2 + uGlow * 0.8);
-      col = mid;
-    }
-    // Treeline: small round crowns along the near ridge.
-    float hNear = -0.01 + 0.03 * fbm(az * 14.0 + 2.0);
-    float crown = 0.022 * pow(abs(sin(az * 140.0)), 0.6) * step(0.45, noise(az * 30.0));
-    if (el < hNear + crown) {
-      col = vec3(0.07, 0.17, 0.08) * (0.15 + uGlow * 0.85);
-    }
-    // The meadow in front, with a little wind in it.
-    if (el < hNear - 0.02) {
-      float g = fbm2(vec2(az * 60.0 + sin(uTime * 0.6 + az * 20.0) * 0.4, el * 120.0));
-      vec3 grass = mix(vec3(0.20, 0.36, 0.12), vec3(0.36, 0.48, 0.18), g);
-      col = grass * (0.15 + uGlow * 0.85);
-    }
-    // Night: everything under the sky drops away, the sky keeps its stars.
-    col *= mix(1.0, 0.55, uNight * step(el, 0.06));
-
-    gl_FragColor = vec4(col, 1.0);
-    #include <tonemapping_fragment>
-    #include <colorspace_fragment>
-  }
-`
-
 function CafeWindow() {
-  const uniforms = useMemo(
-    () => ({
-      uCam: { value: new THREE.Vector3() },
-      uTime: { value: 0 },
-      uSky: { value: new THREE.Color() },
-      uHorizon: { value: new THREE.Color() },
-      uSun: { value: new THREE.Color() },
-      uGlow: { value: 1 },
-      uNight: { value: 0 },
-      uPhase: { value: 0.5 },
-    }),
-    [],
-  )
+  const view = useMemo(() => wastelandMaterial(), [])
+  const uniforms = view.uniforms
   const light = useRef<THREE.PointLight>(null)
   const light2 = useRef<THREE.PointLight>(null)
   const geo = useMemo(() => band(SHAFT_RADIUS - 0.08, WINDOW.from, WINDOW.to, FLOOR + WINDOW.sill, WINDOW.head - WINDOW.sill), [])
 
-  useFrame(({ camera, clock }) => {
+  useFrame(() => {
     const d = daylight()
-    uniforms.uCam.value.copy(camera.position)
-    uniforms.uTime.value = clock.elapsedTime
-    uniforms.uSky.value.copy(d.sky)
     uniforms.uHorizon.value.copy(d.horizon)
-    uniforms.uSun.value.copy(d.sun)
     uniforms.uGlow.value = d.glow
     uniforms.uNight.value = d.night
-    uniforms.uPhase.value = d.phase
     for (const l of [light.current, light2.current]) {
       if (!l) continue
       l.color.copy(d.horizon).lerp(d.sky, 0.4)
@@ -763,15 +642,7 @@ function CafeWindow() {
 
   return (
     <group>
-      <mesh geometry={geo}>
-        <shaderMaterial
-          uniforms={uniforms}
-          vertexShader={windowVertex}
-          fragmentShader={windowFragment}
-          side={THREE.DoubleSide}
-          toneMapped
-        />
-      </mesh>
+      <mesh geometry={geo} material={view.material} />
       <primitive object={frame} />
       {/* Light coming in through the glass. */}
       {[-0.32, 0.32].map((off, i) => {
