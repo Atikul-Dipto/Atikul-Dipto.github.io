@@ -214,12 +214,20 @@ function useShell() {
       group.add(vbox(s0, s0 + (P.outer - P.inner), P.front, 0, 0, P.top, portalMat))
     }
     group.add(vbox(-P.inner, P.inner, P.front, 0, P.head, P.top, portalMat))
-    // A steel lining round the opening, so the jambs read as a frame.
+    // A steel lining round the opening, so the jambs read as a frame. It
+    // stands 5 cm proud of the jambs' inner faces: flush with them, the two
+    // faces shared a plane and flickered through each other.
     for (const side of [-1, 1]) {
-      const s = side * (P.inner + 0.03)
-      group.add(vbox(s - 0.03, s + 0.03, P.front - 0.02, -0.2, 0, P.head, steel))
+      const s0 = side > 0 ? P.inner - 0.05 : -P.inner - 0.01
+      group.add(vbox(s0, s0 + 0.06, P.front - 0.02, -0.2, 0.04, P.head - 0.05, steel))
     }
-    group.add(vbox(-P.inner - 0.06, P.inner + 0.06, P.front - 0.02, -0.2, P.head - 0.06, P.head, steel))
+    group.add(vbox(-P.inner - 0.01, P.inner + 0.01, P.front - 0.02, -0.2, P.head - 0.05, P.head + 0.01, steel))
+    // The floor of the recess, between the jambs: a dark steel plate the door
+    // stands on, so the office floor does not run on under the door.
+    group.add(vbox(-P.inner + 0.01, P.inner - 0.01, P.front - 0.02, T.from, 0, 0.04, dark))
+    group.add(vbox(-P.inner + 0.01, P.inner - 0.01, P.front - 0.05, P.front - 0.01, 0, 0.045, new THREE.MeshStandardMaterial({
+      color: PALETTE.brass, emissive: new THREE.Color(PALETTE.brass), emissiveIntensity: 0.5, roughness: 0.5, metalness: 0.5,
+    })))
 
     // ---- the bulkhead the door seats against, and its ring -----------------
     group.add(holedPlate(P.inner + 0.01, 0, P.head + 0.01, VAULT.centre, R, T.from, -0.02, steel))

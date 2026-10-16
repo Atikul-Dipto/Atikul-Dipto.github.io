@@ -1046,14 +1046,25 @@ function OfficeLights() {
   )
 }
 
+/** Radians a second for the fan: about one turn every 1.6 s. */
+const FAN_SPEED = 4
+
 /** Round wall lamps, cabinets, the notice board, a clock and a fan. */
 function OfficeFittings() {
   const fan = useRef<THREE.Group>(null)
+  const fanDt = useRef(1 / 60)
   const clockTex = useMemo(() => makePanel(128, 128), [])
   const lastSecond = useRef(-1)
 
   useFrame((_, dt) => {
-    if (fan.current && !useSilo.getState().reducedMotion) fan.current.rotation.z += dt * 9
+    // A steady turn. The step is taken from a smoothed frame time, so a
+    // dropped frame does not kick the blades forward, and the speed is low
+    // enough that at any frame rate each frame moves a blade a small part of
+    // the 120 degrees between blades -- fast, and the eye pairs each blade
+    // with the wrong one in the next frame and sees the fan stutter or run
+    // backwards.
+    fanDt.current += (Math.min(dt, 1 / 20) - fanDt.current) * 0.1
+    if (fan.current && !useSilo.getState().reducedMotion) fan.current.rotation.z -= fanDt.current * FAN_SPEED
     // The clock tells the visitor's real time.
     const now = new Date()
     if (now.getSeconds() === lastSecond.current) return
@@ -1190,14 +1201,27 @@ function OfficeFittings() {
           <torusGeometry args={[0.36, 0.02, 6, 24]} />
           <meshStandardMaterial color="#3a3833" roughness={0.5} metalness={0.7} />
         </mesh>
-        <group ref={fan}>
+        {/* Three blades from a hub -- each its own blade, not a bar through
+            the middle, which made six and doubled the strobing. */}
+        <group ref={fan} position={[0, 0, 0.03]}>
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <cylinderGeometry args={[0.06, 0.06, 0.05, 16]} />
+            <meshStandardMaterial color="#3a3833" roughness={0.5} metalness={0.7} />
+          </mesh>
           {[0, 1, 2].map((i) => (
-            <mesh key={i} rotation={[0, 0.35, (i / 3) * Math.PI * 2]} position={[0, 0, 0.02]}>
-              <boxGeometry args={[0.6, 0.12, 0.01]} />
-              <meshStandardMaterial color="#6f6c63" roughness={0.6} metalness={0.4} />
-            </mesh>
+            <group key={i} rotation={[0, 0, (i / 3) * Math.PI * 2]}>
+              <mesh position={[0.18, 0, 0]} rotation={[0.35, 0, 0]}>
+                <boxGeometry args={[0.26, 0.11, 0.01]} />
+                <meshStandardMaterial color="#6f6c63" roughness={0.6} metalness={0.4} />
+              </mesh>
+            </group>
           ))}
         </group>
+        {/* The blur a turning fan leaves: a faint disc over the blades. */}
+        <mesh position={[0, 0, 0.045]}>
+          <circleGeometry args={[0.33, 32]} />
+          <meshBasicMaterial color="#6f6c63" transparent opacity={0.16} depthWrite={false} />
+        </mesh>
       </group>
     </group>
   )
