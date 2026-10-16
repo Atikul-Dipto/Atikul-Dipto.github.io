@@ -669,3 +669,7 @@ body:has(.fallback) { overflow: auto; }
 .drone-hud__reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #bff3f7; border-radius: 50%; }
 .drone-hud__bottom { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: auto; }
 @media (prefers-reduced-motion: reduce) { .drone-hud__rec { animation: none; } }
+
+/* ---------- the maze map ---------- */
+.mazemap { display: grid; place-items: center; }
+.mazemap canvas { width: 100%; max-width: 640px; height: auto; border-radius: 50%; }

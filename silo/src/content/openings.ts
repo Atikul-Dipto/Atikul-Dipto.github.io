@@ -1,6 +1,6 @@
 import { DECK_OUTER, walkY } from './floors'
 import { FLOOR, HALL_F, HALL_GATE, HALL_PASS, OFFICE_F, OFFICE_GATE, OFFICE_PASS } from './level1'
-import { CH_GAP, CH_OPENING, FLOOR6, MAZE } from './level6'
+import { CH_GAP, CH_OPENING, FLOOR6, ROOMS6 } from './level6'
 import { CX_FRAME, FLOOR12, PASSAGE, PASS_HALF, RX_FRAME } from './level12'
 
 /**
@@ -54,7 +54,7 @@ export const OPENINGS: WallOpening[] = [
     radius: HALL_GATE.radius,
     gap: (HALL_PASS + 0.04) / DECK_OUTER,
   },
-  round(6, MAZE.mid, FLOOR6 + CH_OPENING.centre, CH_OPENING.radius, CH_GAP),
+  ...ROOMS6.map((r) => round(6, r.frame.angle, FLOOR6 + CH_OPENING.centre, CH_OPENING.radius, CH_GAP)),
   ...[RX_FRAME, CX_FRAME].map((f) => round(12, f.angle, FLOOR12 + PASSAGE.centre, PASSAGE.radius, (PASS_HALF + 0.07) / DECK_OUTER)),
 ]
 

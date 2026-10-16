@@ -19,6 +19,7 @@ import * as plan12 from '../content/level12'
 import { useSilo, viewLevel } from '../state/useSilo'
 import FloorGuard from './FloorGuard'
 import Structure from './Structure'
+import LevelLife from './LevelLife'
 import Elevator from './Elevator'
 import Exterior from './Exterior'
 import Rig from './Rig'
@@ -87,6 +88,7 @@ function Interior() {
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
       <Lighting />
       <Structure />
+      <LevelLife />
       <Dome />
       <Dust />
       <Elevator />

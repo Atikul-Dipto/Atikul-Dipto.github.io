@@ -9,6 +9,7 @@ import Soundscape from './ui/Soundscape'
 import WalkHud from './ui/WalkHud'
 import JukeboxPanel from './ui/JukeboxPanel'
 import ArcadePanel from './ui/ArcadePanel'
+import MazeMapPanel from './ui/MazeMapPanel'
 import DronePanel, { DroneHud } from './ui/DronePanel'
 import './styles.css'
 
@@ -76,6 +77,7 @@ export default function App() {
       <WalkHud />
       <JukeboxPanel />
       <ArcadePanel />
+      <MazeMapPanel />
       <DronePanel />
       <DroneHud />
       <Soundscape />

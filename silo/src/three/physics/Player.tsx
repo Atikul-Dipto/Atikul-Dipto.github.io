@@ -29,6 +29,7 @@ import { footstep, reactorSurge, sealedKnock } from '../../lib/audio'
 import { attachWalkInput, inputGate, move, releaseKeys } from '../../lib/input'
 import { lift } from '../../lib/lift'
 import { vaultDoor } from '../../lib/vault'
+import { bodyAt } from '../../lib/chamber'
 import { useSilo } from '../../state/useSilo'
 import type { Interact } from '../../state/useSilo'
 
@@ -387,7 +388,7 @@ export default function Player() {
           here = st.vaultOpen ? 'vault-close' : 'vault'
         }
       } else if (st.level === LEVEL6 && onDeckOf) {
-        here = level6Interact(px, pz, st.chamberOpen) as Interact
+        here = level6Interact(px, pz, st.chambersOpen) as Interact
       } else if (st.level === LEVEL12 && onDeckOf) {
         here = level12Interact(px, pz) as Interact
       }
@@ -409,8 +410,12 @@ export default function Player() {
       } else if (here === 'sealed') {
         vaultDoor.knock = performance.now()
         sealedKnock()
-      } else if (here === 'chamber') st.openChamber()
-      else if (here === 'chamber-close') st.closeChamber()
+      } else if (here?.startsWith('chamber:')) st.openChamber(Number(here.slice('chamber:'.length)))
+      else if (here?.startsWith('chamber-close:')) st.closeChamber(Number(here.slice('chamber-close:'.length)))
+      else if (here === 'maze-map') {
+        if (document.pointerLockElement) document.exitPointerLock()
+        st.openPanel('map')
+      }
       else if (here === 'reactor') {
         reactor.surgeAt = performance.now()
         reactorSurge()
@@ -445,6 +450,9 @@ export default function Player() {
     if (camY.current === null || Math.abs(eye - camY.current) > 1.2 || riding) camY.current = eye
     else camY.current += (eye - camY.current) * (1 - Math.exp(-STEP_RATE * dt))
     camera.position.set(px, camY.current + rise, pz)
+    bodyAt.x = px
+    bodyAt.z = pz
+    bodyAt.yaw = look.current.yaw
     camera.rotation.set(0, 0, 0)
     camera.rotateY(look.current.yaw)
     camera.rotateX(look.current.pitch)

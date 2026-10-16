@@ -1,5 +1,5 @@
 import { CLAD_JOINT, SHAFT_RADIUS, WALL_START, contentAngle, inCut, walkY } from './floors'
-import { MAZE } from './level6'
+import { ROOMS6 } from './level6'
 import { CX_FRAME, RX_FRAME } from './level12'
 import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential, type Box } from './level1'
 
@@ -20,7 +20,7 @@ import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential
 function reserved(level: number): number[] {
   if (level === 1) return [PORTRAIT_ANGLE, CONSOLE_ANGLE]
   // The chamber's round door, in the wall at the back of the maze.
-  if (level === 6) return [MAZE.mid]
+  if (level === 6) return ROOMS6.map((r) => r.frame.angle)
   // The reactor's and the communications room's openings.
   if (level === 12) return [RX_FRAME.angle, CX_FRAME.angle]
   return []

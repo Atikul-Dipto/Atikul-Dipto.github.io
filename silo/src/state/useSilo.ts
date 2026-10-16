@@ -27,8 +27,9 @@ export type Interact =
   | 'vault-close' // swing it shut again
   | 'record' // read the personnel record, at the terminal in the vault
   | 'sealed' // the second door, which does not open
-  | 'chamber' // roll the recreation chamber's door open
-  | 'chamber-close' // and shut
+  | `chamber:${number}` // roll one of the recreation rooms' doors open
+  | `chamber-close:${number}` // and shut
+  | 'maze-map' // the map of the maze, on the plaza
   | 'jukebox' // the gramophone and the cassettes
   | `arcade:${string}` // one of the game cabinets
   | 'drone' // the drone's controls
@@ -37,7 +38,7 @@ export type Interact =
   | null
 
 /** The panels that open over the walk from things in the recreation chamber. */
-export type Panel = 'jukebox' | 'arcade' | 'drone' | null
+export type Panel = 'jukebox' | 'arcade' | 'drone' | 'map' | null
 
 interface SiloState {
   phase: Phase
@@ -63,7 +64,8 @@ interface SiloState {
   /** The vault door is waiting for someone to step out of its way. */
   doorBlocked: boolean
   /** The recreation chamber's round door is wanted open (level 6). */
-  chamberOpen: boolean
+  /** Each of the recreation rooms' round doors is wanted open (level 6). */
+  chambersOpen: boolean[]
   /** A panel opened from the chamber, and which game the arcade is showing. */
   panel: Panel
   arcadeGame: string | null
@@ -117,8 +119,8 @@ interface SiloState {
   openVault: () => void
   sealVault: () => void
   setDoorBlocked: (v: boolean) => void
-  openChamber: () => void
-  closeChamber: () => void
+  openChamber: (k: number) => void
+  closeChamber: (k: number) => void
   openPanel: (panel: Exclude<Panel, null>, game?: string | null) => void
   closePanel: () => void
   setHudNote: (note: string | null) => void
@@ -171,7 +173,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   cvOpen: false,
   vaultOpen: false,
   doorBlocked: false,
-  chamberOpen: false,
+  chambersOpen: [false, false, false],
   panel: null,
   arcadeGame: null,
   hudNote: null,
@@ -217,7 +219,7 @@ export const useSilo = create<SiloState>((set, get) => ({
     }
     // A journey by lift. The lift driver boards the visitor if they are not
     // already aboard, shuts the doors and carries them; arrival comes from it.
-    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false, chamberOpen: false, panel: null })
+    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false, chambersOpen: [false, false, false], panel: null })
   },
 
   arrive: () =>
@@ -256,11 +258,11 @@ export const useSilo = create<SiloState>((set, get) => ({
   },
   sealVault: () => set({ vaultOpen: false }),
   setDoorBlocked: (doorBlocked) => set({ doorBlocked }),
-  openChamber: () => {
+  openChamber: (k) => {
     const s = get()
-    if (s.level === 6 && s.phase === 'onFloor') set({ chamberOpen: true })
+    if (s.level === 6 && s.phase === 'onFloor') set({ chambersOpen: s.chambersOpen.map((v, i) => (i === k ? true : v)) })
   },
-  closeChamber: () => set({ chamberOpen: false }),
+  closeChamber: (k) => set((s) => ({ chambersOpen: s.chambersOpen.map((v, i) => (i === k ? false : v)) })),
   openPanel: (panel, game = null) => set({ panel, arcadeGame: game, directoryOpen: false }),
   closePanel: () => set({ panel: null }),
   setHudNote: (hudNote) => set({ hudNote }),
@@ -304,7 +306,7 @@ export const useSilo = create<SiloState>((set, get) => ({
         level: next,
         target: next,
         vaultOpen: next === 1 ? s.vaultOpen : false,
-        chamberOpen: next === 6 ? s.chamberOpen : false,
+        chambersOpen: next === 6 ? s.chambersOpen : [false, false, false],
       }
     }),
 

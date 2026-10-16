@@ -237,23 +237,23 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
             items: [
               {
                 title: 'The maze',
-                text: 'A hedge maze across the deck, from the promenade to the silo wall. It keeps time, and your best run on this device.',
+                text: 'A hedge maze right round the floor from the plaza where the bridge lands, with a way in at each end. The map on the plaza shows it all, and follows you. It keeps time, and your best run on this device.',
               },
               {
-                title: 'The round door',
-                text: 'At the heart of the maze. It rolls aside into the wall, and the chamber behind it lights up when you walk in.',
+                title: 'Three round doors',
+                text: 'At the back of the maze. Each rolls aside into the wall, and the room behind lights up when you walk in, and goes dark again when you leave and shut it. The rooms are joined to one another inside.',
               },
               {
-                title: 'The music nook',
-                text: 'Take a cassette from the closet and the gramophone plays it. The silo’s own score waits until you eject it.',
+                title: 'The chamber',
+                text: "An orrery under the dome, and the arcade: Prisoner's Dilemma, the Ultimatum, Stag Hunt and Guess 2/3, one round each and then what it shows about game theory, and Maze Run. Drone control is here too: fly it round the silo for a minute, or race it down the shaft.",
               },
               {
-                title: 'The arcade',
-                text: "Prisoner's Dilemma, the Ultimatum, Stag Hunt and Guess 2/3: one round each, then what it shows about game theory. And Maze Run.",
+                title: 'The music hall',
+                text: 'Take a cassette from a closet and the gramophone on the stage plays it. The silo’s own score waits until you eject it.',
               },
               {
-                title: 'Drone control',
-                text: 'Fly the drone out over the atrium for a minute, or race it down the shaft through twelve gates. The best times are kept on this device.',
+                title: 'The empty room',
+                text: 'Not fitted out yet.',
               },
             ],
           },

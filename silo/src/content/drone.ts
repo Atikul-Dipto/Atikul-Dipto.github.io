@@ -1,5 +1,5 @@
 import { DECK_INNER, LEVEL_COUNT, ROOM_HEIGHT, SHAFT_RADIUS, contentAngle, levelY, walkY } from './floors'
-import { MAZE_FROM, MAZE_TO } from './level6'
+import { ARRIVAL, MAZE, overMaze } from './level6'
 import { BRIDGE_WIDTH, STAIR_OUTER } from './stairs'
 
 /**
@@ -23,8 +23,8 @@ export const DRONE = {
   radius: 0.35,
 }
 
-/** The pad on level 6, on the promenade just short of the maze. */
-export const PAD = { angle: MAZE_FROM - 0.14, r: 9.6, level: 6 }
+/** The pad on level 6, on the promenade by the plaza. */
+export const PAD = { angle: ARRIVAL + 0.3, r: 9.6, level: 6 }
 export const padPoint = () => {
   const [x, z] = [Math.cos(PAD.angle) * PAD.r, Math.sin(PAD.angle) * PAD.r]
   return { x, y: walkY(PAD.level) + 1.1, z }
@@ -34,8 +34,6 @@ export const padPoint = () => {
 export const CORE_R = STAIR_OUTER + DRONE.radius + 0.1
 /** How far out the drone may go over a deck: the promenade, not the rooms. */
 export const OVER_DECK_R = 12.6
-/** Over the maze on level 6, it may not come down among the hedges. */
-const MAZE_PAD = 0.12
 export const WATER_LINE = walkY(LEVEL_COUNT) - 5 + 0.45
 export const CEILING = levelY(1) + 3.5
 
@@ -89,10 +87,8 @@ export function constrain(x: number, y: number, z: number, prevY: number) {
       hit = true
     }
     let maxR = OVER_DECK_R
-    let ang = a
-    while (ang < MAZE_FROM - Math.PI) ang += Math.PI * 2
-    while (ang > MAZE_FROM + Math.PI) ang -= Math.PI * 2
-    if (L === 6 && ang > MAZE_FROM - MAZE_PAD && ang < MAZE_TO + MAZE_PAD && y < walkY(6) + 2.9) maxR = 10.2
+    // Over the maze on level 6 it may not come down among the hedges.
+    if (L === 6 && overMaze(a) && y < walkY(6) + MAZE.hedge.h + 0.6) maxR = 10.2
     if (L !== null && r > maxR) {
       r = maxR
       hit = true

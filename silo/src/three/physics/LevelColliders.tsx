@@ -15,7 +15,7 @@ import {
 } from '../../content/floors'
 import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
 import { hallSillRamps, level1Colliders, vaultRamp } from '../../content/level1'
-import { CH_FRAME, CHAMBER, FLOOR6, level6Colliders } from '../../content/level6'
+import { FLOOR6, ROOMS6, level6Colliders } from '../../content/level6'
 import { openingsOn } from '../../content/openings'
 import { FLOOR12, PLATFORM, level12Colliders, platformCentre } from '../../content/level12'
 import type { Box } from '../../content/level1'
@@ -40,12 +40,14 @@ import { DOOR_HALF } from '../Elevator'
 import VaultDoorBody from './VaultDoorBody'
 import ChamberDoorBody from './ChamberDoorBody'
 
-/** The recreation chamber's floor: a disc level with the deck. */
+/** The recreation rooms' floors: discs level with the deck. */
 function ChamberFloor() {
-  const [x, z] = CH_FRAME.to(0, CHAMBER.centre)
   return (
     <RigidBody type="fixed" colliders={false}>
-      <CylinderCollider args={[0.15, CHAMBER.radius + 0.3]} position={[x, FLOOR6 - 0.15, z]} />
+      {ROOMS6.map((r) => {
+        const [x, z] = r.frame.to(0, r.centre)
+        return <CylinderCollider key={r.id} args={[0.15, r.radius + 0.3]} position={[x, FLOOR6 - 0.15, z]} />
+      })}
     </RigidBody>
   )
 }
@@ -302,7 +304,7 @@ function DeckColliders({ level }: { level: number }) {
       <ShaftColliders level={level} />
       {level === 1 && <VaultDoorBody />}
       {level === 6 && <ChamberFloor />}
-      {level === 6 && <ChamberDoorBody />}
+      {level === 6 && ROOMS6.map((_, k) => <ChamberDoorBody key={k} k={k} />)}
       {level === 12 && <ReactorPlatform />}
     </>
   )

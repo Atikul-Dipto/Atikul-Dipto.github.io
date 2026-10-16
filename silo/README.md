@@ -66,7 +66,8 @@ src/
                 floors/        Level01, Level06 and Level12's fit-out, CreedWall, and
                                RecordWall (each level's record on its display)
                 DroneFlight.tsx the drone: its pad, its flight, the race gates
-                wasteland.ts   the surface, as the screens show it
+                LevelLife.tsx  each level's colour, pendants, planters
+                surface.ts     the surface, as its camera sees it
                 physics/       the body and its colliders (lazy: Rapier is 850 kB)
   ui/           React overlay: intro, top bar, record panel, directory, CV viewer,
                 walking HUD, soundscape binding
@@ -295,19 +296,27 @@ never rebuilds the ground underfoot.
   dish, the vents and the light falling into the atrium follow the hour outside,
   which runs a full day every ten minutes from the visitor's own clock
   (`lib/daylight.ts`).
-- **Cafeteria.** Two rows of tables either side of a central aisle, a serving
-  counter, a ceiling rose of lights, and a long screen showing the surface: a
-  scorched plain of rubble, craters and dead trees under an ash sky by day and
-  a field of stars by night (`three/wasteland.ts`). It is a picture on a
-  screen, painted once on a canvas and mapped onto the glass, so it holds still
-  as you walk past; the hour comes from the same clock as the dome.
-- **Sheriff's office.** Desks with terminals, filing cabinets, green-tiled
+- **The rooms are behind the wall.** Neither stands on the deck, which is open
+  promenade right round: each is entered through a gate in the silo wall --
+  cut in its shader as a rounded rectangle (`content/openings.ts`) -- and lies
+  beyond it, laid out in that gate's wall frame.
+- **Cafeteria.** A wide pill-shaped opening with steps up to a sill through the
+  wall and hourglass lamps above it; behind it a hall of tables in rows either
+  side of an aisle, a serving counter, a ceiling rose of lights, and on the far
+  wall the screen the surface camera feeds. The surface is a small 3D scene of
+  its own (`three/surface.ts`) -- a cratered plain, rubble, dead trees, the
+  broken towers of a city on the horizon, haze and drifting dust -- rendered a
+  few times a second from a fixed camera into the screen behind glass, with
+  grain, a faint raster and the camera's legend. Because the camera is bolted
+  to the surface, the view holds still as you walk past it; the hour comes
+  from the same clock as the dome.
+- **Sheriff's office.** Through a round-topped door. Desks with terminals, filing cabinets, green-tiled
   walls, a timber ceiling, a fan, a clock showing the visitor's real time, a
   fluorescent tube that flickers, and the **records vault**: a round door in a
   deep portal in the back wall. <kbd>E</kbd> spins the wheel, draws the door out
   of its seat and swings it out into the office -- and it will not swing
   through you: stand in its way and it stops, says so, and waits for you to step
-  back. Behind it a round tunnel goes through the silo wall, one step up, into
+  back. Behind it a round tunnel goes through the office's back wall, one step up, into
   a room cut into the rock: archive shelving down one side, the terminal with
   the personnel record (<kbd>E</kbd> reads it) on the other, and at the far end
   a second round door, marked sealed, which does not open. <kbd>E</kbd> at the
@@ -341,42 +350,40 @@ short text, which is credited where it appears.
 Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
 `three/floors/Level06.tsx`.
 
-- **The maze.** A hedge maze across the deck from the promenade to the silo
-  wall, cut on a polar grid -- rings out from the atrium, sectors round it -- by
-  a seeded depth-first walk, so it is a *perfect* maze: one way through, and
-  the same maze on every visit. Hedges are boxes, drawn as they are collided.
-  It keeps time from the gap in the first hedge to the cell in front of the
-  door, and the best run on this device.
-- **The round door.** At the heart of the maze. It stands inside the wall's
-  thickness behind a round opening and rolls aside into a pocket in the wall,
-  on a track sunk in the floor; it will not roll back across anyone standing in
-  the doorway.
-- **The chamber.** A round room cut into the rock, dark until someone steps
-  in, then lit a section at a time round the room, each with the clack of a
-  breaker, the orrery overhead last. Paper birds hang under the dome,
-  chalkboards of payoff matrices run round the wall above counters of curios,
-  and a brass maze is inlaid in the floor.
-- **The music nook.** A cassette closet and a gramophone. A tape plays through
-  the gramophone's own chain -- lows and top rolled off, a little crackle --
-  louder the nearer you stand, while the silo's score waits. The tapes are
-  listed in `content/cassettes.ts`: to add one, put the file in
-  `public/audio/tapes/` and add a line. Two for now: *Subterranean Ritual*, and
-  *Pentatonic Hall*, the silo's first score, synthesised live.
-- **The arcade.** Five cabinets. Four are game theory, one round each and then
-  explained: the Prisoner's Dilemma (dominant strategies and a Nash equilibrium
-  worse for both), the Ultimatum (subgame perfection against fairness), the
-  Stag Hunt (payoff- against risk-dominance) and Guess 2/3 (iterated reasoning
-  and level-k thinking). The other player is always the machine, and each game
-  says how it chose. The fifth is Maze Run, with the right-hand rule played out.
-- **Drone control.** The drone waits on its pad on the promenade. From the
-  desk it flies for a minute of battery, its camera the view and the body left
-  standing at the desk: freely round the silo, or the shaft race, twelve gates
-  spiralling down the void from level 6 to level 10. Where it may fly is worked
-  out from the architecture (`content/drone.ts`) rather than the physics world,
-  which only holds the decks near the body: straight up and down only in the
-  open void, over a deck only between it and the one above, and never into the
-  rooms or the maze. Race times go on a board kept on this device -- a static
-  site has nowhere to keep anyone else's.
+- **The plaza and the map.** The bridge lands on a plaza; everything else on
+  the floor is maze. A map of it stands on the plaza, and <kbd>E</kbd> opens it
+  as a panel that marks where you are and which way you face
+  (`lib/mazeMap.ts`).
+- **The maze.** Four-metre hedges right round the ring from the promenade to
+  the silo wall, cut on a polar grid -- rings out from the atrium, sectors round
+  it -- by a seeded depth-first walk, so it is a *perfect* maze, the same on
+  every visit, with a way in from the plaza at each end. Hedges are boxes,
+  drawn as they are collided. It keeps time to whichever door you reach first,
+  and the best run on this device.
+- **Three round doors** at the back of the maze. Each stands inside the wall's
+  thickness and rolls aside into a pocket in the wall on a track sunk in the
+  floor; it will not roll back across anyone in the doorway. Behind them,
+  rooms cut into the rock and joined to one another by corridors. Each room is
+  dark until someone walks in, then lit a section at a time with a breaker for
+  each, and dark again once everyone has left it and its door is shut.
+- **The chamber.** An orrery and paper birds under the dome, chalkboards of
+  payoff matrices, counters of curios, a brass maze in the floor. The arcade:
+  the Prisoner's Dilemma (dominant strategies and a Nash equilibrium worse for
+  both), the Ultimatum (subgame perfection against fairness), the Stag Hunt
+  (payoff- against risk-dominance), Guess 2/3 (iterated reasoning and level-k
+  thinking) -- one round each, then explained, the other player always the
+  machine and each game saying how it chose -- and Maze Run, with the
+  right-hand rule played out. And drone control: a minute of battery, freely
+  round the silo or the shaft race, twelve gates spiralling down the void.
+  Where the drone may fly is worked out from the architecture
+  (`content/drone.ts`); while it flies, the floors it passes are fitted out and
+  lit. Race times go on a board kept on this device.
+- **The music hall.** A large round room: fluted red walls, a chandelier, a rug,
+  leather seats facing a stage, and on the stage the gramophone, with a cassette
+  closet either side. A tape plays through the gramophone's own chain, louder
+  the nearer you stand, while the silo's score waits. The tapes are listed in
+  `content/cassettes.ts`: put a file in `public/audio/tapes/` and add a line.
+- **The empty room.** Waiting to be fitted out.
 
 ## Level 12 — Deep Core & Contact
 
@@ -396,6 +403,14 @@ the atrium from the bridge, two round openings lead out into the rock.
   phone, LinkedIn, GitHub, the portfolio -- each taken from the portfolio data.
   E on a plate opens it: a link in a new tab, an email or a call in the
   visitor's own app.
+
+## Colour and life
+
+Each level has a colour of its own (`three/LevelLife.tsx`) and wears it three
+ways: a lit cove round the edge of its ceiling over the void, a ring of pendant
+lamps hung from that ceiling, and a painted band round its wall at hand height.
+Planters hang on the void side of every rail, spilling green over the drop. The
+radial joists that used to span every deck are gone.
 
 ## Where the portfolio is
 
@@ -422,7 +437,7 @@ change the other.
 
 ## Status
 
-Levels 1, 6 and 12 are fitted out. Levels 2–5 and 7–11 are walkable — deck,
+Levels 1, 6 and 12 are fitted out, and every level has its colour. Levels 2–5 and 7–11 are walkable — deck,
 stair, bridge, lift landing — and each carries its record on a wall display;
 their own fit-out is still to come.
 
@@ -432,7 +447,8 @@ along the promenade, into the cafeteria to its window, into a table (which
 stops it), into the sheriff's office to the vault, over the bridge
 into the lift, a ride to level 3 and out onto its deck, down the stair to level
 4, against the landing doors over an empty shaft (they hold), calling the car
-down and stepping in, and against the rail. The vault is walked separately: the shut door and
+down and stepping in, and against the rail. The office and the cafeteria are walked through their gates in the silo wall,
+the cafeteria up the step and along the aisle to the screen. The vault is walked separately: the shut door and
 the open leaf are solid, the door stops short of a body in its swing and opens
 once it steps back, the tunnel leads up into the room, the terminal opens the
 record, the far door is sealed and solid, and the door will not shut on anyone
@@ -444,13 +460,15 @@ controls stop it and the choice is remembered, the lift announces its level
 over a dipped score, walking fires footfalls, and each of the lift's and the
 vault's sounds is counted as it plays.
 
-Level 6 is walked too: from the lift round to the maze and through it cell by
-cell to the door (the clock reports the run and keeps the best), against the
-shut door, which stops the body, through the opened door into the chamber,
-which is dark until then and lights with a breaker for every section; both
-tapes play through the gramophone while the score is held, and eject brings it
-back; every cabinet's game is played once and explained, the maze game takes
-the keys without moving the body; and the door rolls shut again. The drone is
+Level 6 is walked too: the map on the plaza opens and marks the walker; the
+maze is walked cell by cell from a way in to the chamber's door (the clock
+reports the run); the door rolls aside and the room, dark until then, lights up
+-- only that room; the arcade plays and explains; a corridor leads to the music
+hall, whose lights come up as you enter, and both tapes play through the
+gramophone while the score is held; another corridor leads to the empty room;
+a room stays lit while you stand in the corridor beside it and goes dark once
+you have left and its door is shut; and you can let yourself out through the
+music hall's own door and roll it shut behind you. The drone is
 flown: its flying rules are checked against four thousand random points (none
 end up inside a deck, the core or the wall), the keys fly and climb it while
 the body stays put, an autopilot using the same controls flies all twelve

@@ -2,7 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
 import type { Interact } from '../state/useSilo'
-import { ARCADE_GAMES } from '../content/level6'
+import { ARCADE_GAMES, ROOMS6, type RoomId } from '../content/level6'
+
+const ROOM_NAMES: Record<RoomId, string> = { chamber: 'the chamber', music: 'the music hall', empty: 'an empty room' }
 import { CONTACTS } from '../content/level12'
 
 /**
@@ -30,8 +32,7 @@ const LABEL: Record<string, string> = {
   'vault-close': 'Swing the vault shut',
   record: 'Read the personnel record',
   sealed: 'Sealed. This door does not open',
-  chamber: 'Roll the round door open',
-  'chamber-close': 'Roll the round door shut',
+  'maze-map': 'Read the map of the maze',
   jukebox: 'Choose a cassette for the gramophone',
   drone: 'Take the drone',
   reactor: 'Run a surge test on the core',
@@ -41,6 +42,11 @@ function label(i: Exclude<Interact, null>) {
   if (i.startsWith('arcade:')) {
     const game = ARCADE_GAMES.find((g) => `arcade:${g.id}` === i)
     return `Play ${game ? game.title.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()) : 'the game'}`
+  }
+  if (i.startsWith('chamber-close:')) return 'Roll the round door shut'
+  if (i.startsWith('chamber:')) {
+    const room = ROOMS6[Number(i.slice('chamber:'.length))]
+    return `Roll the round door open${room ? ` · ${ROOM_NAMES[room.id]}` : ''}`
   }
   if (i.startsWith('contact:')) {
     const c = CONTACTS.find((p) => `contact:${p.id}` === i)
