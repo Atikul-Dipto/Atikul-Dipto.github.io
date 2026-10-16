@@ -93,6 +93,8 @@ interface SiloState {
   sealVault: () => void
   setDoorBlocked: (v: boolean) => void
   toggleMute: () => void
+  /** Sound on or off without it counting as the visitor's choice. */
+  setMuted: (muted: boolean) => void
   toggleMusic: () => void
   setReducedMotion: (v: boolean) => void
   setQuality: (q: Quality) => void
@@ -108,6 +110,9 @@ interface SiloState {
   toggleRecord: (open?: boolean) => void
   setBodyReady: (v: boolean) => void
 }
+
+/** Where the visitor's own choice of sound on or off is kept. */
+export const SOUND_KEY = 'silo.sound'
 
 const clampLevel = (n: number) => Math.min(LEVEL_COUNT, Math.max(1, Math.round(n)))
 
@@ -205,7 +210,18 @@ export const useSilo = create<SiloState>((set, get) => ({
   sealVault: () => set({ vaultOpen: false }),
   setDoorBlocked: (doorBlocked) => set({ doorBlocked }),
 
-  toggleMute: () => set((s) => ({ muted: !s.muted })),
+  toggleMute: () =>
+    set((s) => {
+      // Remembered, so someone who turned the sound off is not met with it
+      // again on their next visit.
+      try {
+        localStorage.setItem(SOUND_KEY, s.muted ? 'on' : 'off')
+      } catch {
+        // Storage blocked; the choice lasts for this visit only.
+      }
+      return { muted: !s.muted }
+    }),
+  setMuted: (muted) => set({ muted }),
   toggleMusic: () => set((s) => ({ music: !s.music })),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
   setQuality: (quality) => set({ quality }),

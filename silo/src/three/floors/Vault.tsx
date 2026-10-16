@@ -13,7 +13,7 @@ import {
   fromVault,
 } from '../../content/level1'
 import { identity } from '../../content/portfolio'
-import { vaultClunk } from '../../lib/audio'
+import { setVaultGrind, vaultClunk, vaultStop, wheelTick } from '../../lib/audio'
 import { DOOR_FRAME_YAW, DOOR_OPEN_T, HINGE_X, doorPose, stepDoor, vaultDoor } from '../../lib/vault'
 import { useSilo } from '../../state/useSilo'
 import { claddingSurface, concreteSurface, plateSurface, steelSurface, tiled } from '../materials'
@@ -34,6 +34,8 @@ import { claddingSurface, concreteSurface, plateSurface, steelSurface, tiled } f
  */
 
 const SEG = 64
+/** Clicks of the wheel's ratchet over its whole turn (1.2 revolutions). */
+const WHEEL_TICKS = 28
 
 /** Deterministic PRNG, so the shelves are stocked the same way every load. */
 function makeRandom(seed: number) {
@@ -427,6 +429,10 @@ export default function Vault() {
   const phase = useSilo((s) => s.phase)
   const seated = useRef(true)
   const turned = useRef(false)
+  const lastTick = useRef(-1)
+
+  // Silence the hinge if the floor is left with the door mid-swing.
+  useEffect(() => () => setVaultGrind(0), [])
 
   // Whatever the door was doing, it is shut again when level 1 is unmounted
   // and mounted again -- unless it is still wanted open.
@@ -453,6 +459,17 @@ export default function Vault() {
       vaultClunk()
     }
     if (t > 0.05) seated.current = false
+    // The wheel's ratchet, a click at a time as it turns either way.
+    const tick = Math.floor(Math.min(t, 1) * WHEEL_TICKS)
+    if (tick !== lastTick.current) {
+      if (lastTick.current !== -1 && t !== before) wheelTick()
+      lastTick.current = tick
+    }
+    // The hinge groans while the door is drawn out and swung -- only while it
+    // is actually moving, so a door held by the visitor's body falls silent.
+    const moving = t !== before && t > 1
+    setVaultGrind(moving ? (t > 1.4 ? 1 : 0.6) : 0)
+    if (before < DOOR_OPEN_T && t >= DOOR_OPEN_T) vaultStop()
 
     const pose = doorPose(t)
     if (wheel.current) wheel.current.rotation.z = pose.wheel

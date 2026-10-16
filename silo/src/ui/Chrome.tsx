@@ -50,7 +50,8 @@ export function TopBar() {
           className="chip"
           onClick={toggleMute}
           aria-pressed={!muted}
-          title="Ambient hum, footsteps, the lift and the score. Synthesised live, so there is nothing to download."
+          data-sound-toggle
+          title="The score, the hum of the silo, footsteps, the lift and every door. Comes on with your first click; this turns it off, and the choice is remembered."
         >
           {muted ? 'Sound off' : 'Sound on'}
         </button>
@@ -60,7 +61,7 @@ export function TopBar() {
             className="chip chip--extra"
             onClick={toggleMusic}
             aria-pressed={music}
-            title="The score: an original piece, played softly under the sound of the silo."
+            title="The score: Subterranean Ritual, looped softly under the sound of the silo."
           >
             {music ? 'Music on' : 'Music off'}
           </button>

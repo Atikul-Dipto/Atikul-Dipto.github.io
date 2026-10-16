@@ -31,8 +31,9 @@ builds the root site plus each sub-app and copies `silo/dist` to `/silo/`.
 
 React 19 · TypeScript · Vite · three.js · React Three Fiber · Drei ·
 @react-three/postprocessing · @react-three/rapier · GSAP · Zustand. All
-geometry, every texture and all the sound — the score included — is
-procedural; the only downloaded asset is the portrait image.
+geometry, every texture and every sound effect is procedural; the only
+downloaded assets are the portrait image and the score, which streams once
+sound is on.
 
 ## Layout
 
@@ -71,7 +72,7 @@ src/
                 lift.ts        where the car is, shared without re-rendering
                 daylight.ts    the hour outside: one clock for everything that shows it
                 audio.ts       the synthesised soundscape
-                music.ts       the score: an original piece, synthesised
+                music.ts       the score: the supplied track, streamed and looped
                 capability.ts  WebGL probe for the 2D fallback
 ```
 
@@ -172,19 +173,39 @@ Every level's content is real HTML over the canvas, not WebGL-only: the
 mouse is let go. Every floor is one click away in the **Directory**, which puts
 you aboard the lift if you are not standing in it. Devices without WebGL get a
 2D route to everything. `prefers-reduced-motion` is honoured and can be toggled
-in the top bar. Sound is off until asked for.
+in the top bar. Sound comes on with the first click, tap or key press.
 
 ### Sound and the score
 
-**Sound** turns on the hum, the air, footsteps, the lift and the score; once
-it is on, **Music** turns the score off and on by itself. The score is an
-original, light piece in F major — soft sine pads, a low line, glass bells on
-the five-note pentatonic scale and a slow harp-like arpeggio, in a generated
-hall — kept well under the rest of the sound. Nothing in it is a saw or square
-wave, so nothing buzzes. Eight chords of two bars each are played four ways in
-turn, so it runs about
-four and a half minutes before repeating. Notes are queued a little ahead on
-the audio clock, so a slow frame never makes it stumble.
+Browsers play nothing before a gesture, so sound starts with the visitor's
+first click, tap or key press anywhere on the page. **Sound** turns it all off,
+and that choice is remembered for the next visit; **Music** turns the score off
+and on by itself.
+
+The score is *Subterranean Ritual*, supplied by the site's owner
+(`public/audio/subterranean-ritual.mp3`). It is looped very softly
+underneath everything else — about −33 dBFS on average against footsteps that
+peak near −12 — with its top end rolled off, so every interaction is heard
+clearly above it. It streams through an `<audio>` element routed into the Web
+Audio graph rather than being decoded whole, and it dips while the lift speaks.
+
+Under the score, a synthesised hum and the movement of air in the shaft follow
+the visitor's depth. Every interaction has its own synthesised sound:
+
+- **Footsteps**: a heel strike, the click of a sole on steel and a scuff on the
+  decks; a ringing tread on the stair.
+- **The lift**: the landing's call button; the car's panel opening and closing;
+  the floor chosen; the doors sliding shut and open; the brake letting go and
+  catching; the motor while it travels; the arrival chime, then a voice saying
+  where you are ("Level 3. Residence, Inspira."). The voice is the browser's
+  own speech synthesis, so it is whichever English voice the system provides.
+- **The vault**: the lever thrown; the wheel's ratchet, a click at a time; the
+  bolts; the hinge groaning only while the door actually moves; a dead stop at
+  the end of its swing; a warning buzz when it is held by someone in its way.
+- **The vault room**: the terminal waking and sleeping; two hollow knocks and
+  the lock's refusal at the sealed door.
+- **The interface**: a small tick on every button, and the record panel
+  sliding in and out.
 
 ## Walking
 
@@ -307,7 +328,7 @@ it, whose reflections are a mirrored copy under the surface seen through it --
 no second render of the scene.
 
 Built from the ideas in the reference images, not their assets: no geometry,
-texture, logo or sound here is copied. The one borrowed thing is the creed's
+texture, logo or sound effect here is copied. The one borrowed thing is the creed's
 short text, which is credited where it appears.
 
 ## Where the portfolio is
@@ -351,8 +372,11 @@ once it steps back, the tunnel leads up into the room, the terminal opens the
 record, the far door is sealed and solid, and the door will not shut on anyone
 either; and nothing on level 1 stands where the door swings. W, A, S and D are each checked to
 move the body the way the camera faces. The audio graph is checked by reading
-it — the score starts with the sound, notes register on its bus, and the Music
-and Sound controls stop it. Not verified: real GPU hardware, real phones and
+it — nothing is built before a gesture, the first click turns it on, the score
+is the supplied track and is playing, looping and soft, the Music and Sound
+controls stop it and the choice is remembered, the lift announces its level
+over a dipped score, walking fires footfalls, and each of the lift's and the
+vault's sounds is counted as it plays. Not verified: real GPU hardware, real phones and
 touch, and how the audio sounds.
 
 Not built yet: interiors for levels 2–12, the recreation mini-game, and a

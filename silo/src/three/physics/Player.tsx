@@ -20,7 +20,7 @@ import {
 } from '../../content/floors'
 import { INNER_DOOR, VAULT_ROOM, VAULT_TERMINAL, toVault } from '../../content/level1'
 import { LANDING_HALF } from '../../content/stairs'
-import { footstep, vaultClunk } from '../../lib/audio'
+import { footstep, sealedKnock } from '../../lib/audio'
 import { attachWalkInput, move } from '../../lib/input'
 import { lift } from '../../lib/lift'
 import { vaultDoor } from '../../lib/vault'
@@ -384,7 +384,7 @@ export default function Player() {
         st.openRecord()
       } else if (here === 'sealed') {
         vaultDoor.knock = performance.now()
-        vaultClunk()
+        sealedKnock()
       }
     }
 
