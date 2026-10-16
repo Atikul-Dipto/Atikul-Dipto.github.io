@@ -21,7 +21,11 @@ import {
 import { INNER_DOOR, VAULT_ROOM, VAULT_TERMINAL, toVault } from '../../content/level1'
 import { LANDING_HALF } from '../../content/stairs'
 import { LEVEL as LEVEL6, level6Interact } from '../../content/level6'
-import { footstep, sealedKnock } from '../../lib/audio'
+import { CONTACTS, LEVEL as LEVEL12, level12Interact } from '../../content/level12'
+import { drone } from '../../lib/drone'
+import { reactor } from '../../lib/reactor'
+import { openContact } from '../../lib/contact'
+import { footstep, reactorSurge, sealedKnock } from '../../lib/audio'
 import { attachWalkInput, inputGate, move, releaseKeys } from '../../lib/input'
 import { lift } from '../../lib/lift'
 import { vaultDoor } from '../../lib/vault'
@@ -243,6 +247,8 @@ export default function Player() {
 
   useFrame((_, rawDt) => {
     if (mode !== 'walk') return
+    // The drone has the view and the keys; the body stands where it was.
+    if (drone.flying) return
     const rb = body.current
     const c = controller.current
     if (!rb || !c) return
@@ -382,6 +388,8 @@ export default function Player() {
         }
       } else if (st.level === LEVEL6 && onDeckOf) {
         here = level6Interact(px, pz, st.chamberOpen) as Interact
+      } else if (st.level === LEVEL12 && onDeckOf) {
+        here = level12Interact(px, pz) as Interact
       }
     }
     if (here !== st.interact) st.setInteract(here)
@@ -403,6 +411,13 @@ export default function Player() {
         sealedKnock()
       } else if (here === 'chamber') st.openChamber()
       else if (here === 'chamber-close') st.closeChamber()
+      else if (here === 'reactor') {
+        reactor.surgeAt = performance.now()
+        reactorSurge()
+      } else if (here?.startsWith('contact:')) {
+        const plate = CONTACTS.find((c) => `contact:${c.id}` === here)
+        if (plate) openContact(plate)
+      }
       else if (here === 'jukebox' || here === 'drone' || here?.startsWith('arcade:')) {
         // A panel: hand the pointer back so it can be used.
         if (document.pointerLockElement) document.exitPointerLock()

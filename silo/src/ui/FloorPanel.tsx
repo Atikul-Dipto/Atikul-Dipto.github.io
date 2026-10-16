@@ -13,6 +13,7 @@ export default function FloorPanel() {
   const level = useSilo((s) => s.level)
   const locked = useSilo((s) => s.pointerLocked)
   const recordOpen = useSilo((s) => s.recordOpen)
+  const droneFlying = useSilo((s) => s.droneFlying)
   const openRecord = useSilo((s) => s.openRecord)
   const floor = floorByLevel(level)
   const rec = levelRecord(level)
@@ -22,6 +23,7 @@ export default function FloorPanel() {
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
   const visible =
     phase === 'onFloor' &&
+    !droneFlying &&
     (mode !== 'walk' || recordOpen || (!locked && !touch))
 
   return (
@@ -60,7 +62,11 @@ export default function FloorPanel() {
       <p className="panel__hint">
         {floor.level === 1
           ? "The record is kept in the vault, behind the round door in the sheriff's office. The lift and the stair are across the bridge."
-          : 'This record is also on the wall the bridge faces. The lift and the stair are across the bridge.'}
+          : floor.level === 6
+            ? 'The maze is round the deck from the bridge; the round door is at its heart. The lift and the stair are across the bridge.'
+            : floor.level === 12
+              ? 'Across the atrium from the bridge: the reactor that powers the silo, and the communications room, where every contact is on the floor.'
+              : 'This record is also on the wall the bridge faces. The lift and the stair are across the bridge.'}
       </p>
     </main>
   )

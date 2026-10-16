@@ -639,3 +639,33 @@ body:has(.fallback) { overflow: auto; }
 .crt__pad .crt__btn { padding: 10px 0; font-size: 16px; }
 @keyframes crt-in { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .crt__result, .crt__explain, .crt__mark { animation: none; } }
+
+/* ---------- drone control ---------- */
+.drone-panel { border-top-color: #4fd6e0; }
+.drone-panel__grid { display: grid; grid-template-columns: 1.5fr 1fr; gap: 20px; }
+.drone-panel__main { display: grid; gap: 14px; align-content: start; }
+.drone-panel__main b { color: var(--camel-hot); }
+.drone-panel__result { padding: 12px 14px; border-left: 3px solid #4fd6e0; background: rgba(79, 214, 224, 0.07); display: grid; gap: 10px; }
+.drone-panel__save { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.drone-panel__save label { display: grid; gap: 4px; font-size: 12px; color: rgba(237, 233, 230, 0.7); }
+.drone-panel__save input { padding: 8px 10px; border: 1px solid var(--edge); background: rgba(0, 0, 0, 0.3); color: var(--bone); font: inherit; }
+.drone-panel__keys { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: rgba(237, 233, 230, 0.78); font-size: 14px; }
+.drone-panel__keys kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 3px; border: 1px solid var(--edge); border-radius: 3px; font: 600 11px/1.6 var(--mono); text-align: center; }
+.drone-panel__go { display: flex; flex-wrap: wrap; gap: 10px; }
+.drone-panel__board { padding: 14px; border: 1px solid var(--edge-soft); background: rgba(6, 16, 22, 0.6); align-self: start; }
+.drone-panel__board ol { margin: 0; padding-left: 22px; display: grid; gap: 4px; font: 13px/1.5 var(--mono); }
+.drone-panel__board li span { display: inline-block; min-width: 9ch; margin-right: 8px; }
+.drone-panel__board li b { color: #7fe8f2; }
+@media (max-width: 700px) { .drone-panel__grid { grid-template-columns: 1fr; } }
+
+.drone-hud { position: fixed; inset: 0; z-index: 40; pointer-events: none; color: #bff3f7; font: 600 12px/1 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.drone-hud::before { content: ''; position: absolute; inset: 14px; border: 1px solid rgba(127, 232, 242, 0.35); border-radius: 10px; }
+.drone-hud__top { position: absolute; top: 70px; left: 50%; transform: translateX(-50%); display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 16px; padding: 8px 14px; background: rgba(4, 14, 18, 0.6); }
+.drone-hud__rec { color: #ff6b5b; animation: rec 1s steps(2) infinite; }
+@keyframes rec { 50% { opacity: 0.3; } }
+.drone-hud__batt { width: 90px; height: 8px; border: 1px solid #7fe8f2; }
+.drone-hud__batt i { display: block; height: 100%; background: #7fe8f2; }
+.drone-hud__reticle { position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border: 1px solid rgba(191, 243, 247, 0.6); border-radius: 50%; }
+.drone-hud__reticle::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #bff3f7; border-radius: 50%; }
+.drone-hud__bottom { position: absolute; bottom: 28px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; pointer-events: auto; }
+@media (prefers-reduced-motion: reduce) { .drone-hud__rec { animation: none; } }

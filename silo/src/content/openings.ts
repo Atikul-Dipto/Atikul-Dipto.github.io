@@ -1,6 +1,7 @@
 import { DECK_OUTER, walkY } from './floors'
 import { FLOOR, VAULT, VAULT_TUNNEL } from './level1'
 import { CH_GAP, CH_OPENING, FLOOR6, MAZE } from './level6'
+import { CX_FRAME, FLOOR12, PASSAGE, PASS_HALF, RX_FRAME } from './level12'
 
 /**
  * Every opening cut through the silo wall, in one list.
@@ -29,6 +30,13 @@ export const OPENINGS: WallOpening[] = [
     gap: (VAULT_TUNNEL.half + 0.02) / DECK_OUTER,
   },
   { level: 6, angle: MAZE.mid, centreY: FLOOR6 + CH_OPENING.centre, radius: CH_OPENING.radius, gap: CH_GAP },
+  ...[RX_FRAME, CX_FRAME].map((f) => ({
+    level: 12,
+    angle: f.angle,
+    centreY: FLOOR12 + PASSAGE.centre,
+    radius: PASSAGE.radius,
+    gap: (PASS_HALF + 0.07) / DECK_OUTER,
+  })),
 ]
 
 export const openingsOn = (level: number) => OPENINGS.filter((o) => o.level === level)

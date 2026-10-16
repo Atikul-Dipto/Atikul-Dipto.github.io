@@ -3,6 +3,7 @@ import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
 import type { Interact } from '../state/useSilo'
 import { ARCADE_GAMES } from '../content/level6'
+import { CONTACTS } from '../content/level12'
 
 /**
  * The walking overlay.
@@ -33,12 +34,17 @@ const LABEL: Record<string, string> = {
   'chamber-close': 'Roll the round door shut',
   jukebox: 'Choose a cassette for the gramophone',
   drone: 'Take the drone',
+  reactor: 'Run a surge test on the core',
 }
 
 function label(i: Exclude<Interact, null>) {
   if (i.startsWith('arcade:')) {
     const game = ARCADE_GAMES.find((g) => `arcade:${g.id}` === i)
     return `Play ${game ? game.title.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()) : 'the game'}`
+  }
+  if (i.startsWith('contact:')) {
+    const c = CONTACTS.find((p) => `contact:${p.id}` === i)
+    return c ? `${c.label} · ${c.value}` : ''
   }
   return LABEL[i] ?? ''
 }
@@ -79,10 +85,11 @@ export default function WalkHud() {
   const doorBlocked = useSilo((s) => s.doorBlocked)
   const hudNote = useSilo((s) => s.hudNote)
   const panel = useSilo((s) => s.panel)
+  const droneFlying = useSilo((s) => s.droneFlying)
   const [touch] = useState(isTouchDevice)
   const [hintSeen, setHintSeen] = useState(false)
 
-  if (mode !== 'walk') return null
+  if (mode !== 'walk' || droneFlying) return null
   const riding = phase === 'riding'
   const modal = directoryOpen || cvOpen || panel !== null
 

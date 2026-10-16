@@ -63,8 +63,10 @@ src/
                 WallDisplay.tsx the curved glass display: the creed, and every
                                level's record
                 Atmosphere.tsx dust
-                floors/        Level01's fit-out, CreedWall, and RecordWall (each
-                               level's record on its display)
+                floors/        Level01, Level06 and Level12's fit-out, CreedWall, and
+                               RecordWall (each level's record on its display)
+                DroneFlight.tsx the drone: its pad, its flight, the race gates
+                wasteland.ts   the surface, as the screens show it
                 physics/       the body and its colliders (lazy: Rapier is 850 kB)
   ui/           React overlay: intro, top bar, record panel, directory, CV viewer,
                 walking HUD, soundscape binding
@@ -73,6 +75,8 @@ src/
                 daylight.ts    the hour outside: one clock for everything that shows it
                 audio.ts       the synthesised soundscape
                 music.ts       the score: the supplied track, streamed and looped
+                jukebox.ts     the gramophone; synthScore.ts, the first score
+                chamber.ts, drone.ts, reactor.ts  moving parts shared per frame
                 capability.ts  WebGL probe for the 2D fallback
 ```
 
@@ -292,10 +296,11 @@ never rebuilds the ground underfoot.
   which runs a full day every ten minutes from the visitor's own clock
   (`lib/daylight.ts`).
 - **Cafeteria.** Two rows of tables either side of a central aisle, a serving
-  counter, a ceiling rose of lights, and a long window onto hills and a meadow.
-  The view is painted as a panorama at infinity and sampled by viewing
-  direction, so it slides past the frame like a real view as you walk along the
-  glass, and it is the same hour out there as in the dome.
+  counter, a ceiling rose of lights, and a long screen showing the surface: a
+  scorched plain of rubble, craters and dead trees under an ash sky by day and
+  a field of stars by night (`three/wasteland.ts`). It is a picture on a
+  screen, painted once on a canvas and mapped onto the glass, so it holds still
+  as you walk past; the hour comes from the same clock as the dome.
 - **Sheriff's office.** Desks with terminals, filing cabinets, green-tiled
   walls, a timber ceiling, a fan, a clock showing the visitor's real time, a
   fluorescent tube that flickers, and the **records vault**: a round door in a
@@ -331,6 +336,67 @@ Built from the ideas in the reference images, not their assets: no geometry,
 texture, logo or sound effect here is copied. The one borrowed thing is the creed's
 short text, which is credited where it appears.
 
+## Level 6 — Recreation
+
+Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
+`three/floors/Level06.tsx`.
+
+- **The maze.** A hedge maze across the deck from the promenade to the silo
+  wall, cut on a polar grid -- rings out from the atrium, sectors round it -- by
+  a seeded depth-first walk, so it is a *perfect* maze: one way through, and
+  the same maze on every visit. Hedges are boxes, drawn as they are collided.
+  It keeps time from the gap in the first hedge to the cell in front of the
+  door, and the best run on this device.
+- **The round door.** At the heart of the maze. It stands inside the wall's
+  thickness behind a round opening and rolls aside into a pocket in the wall,
+  on a track sunk in the floor; it will not roll back across anyone standing in
+  the doorway.
+- **The chamber.** A round room cut into the rock, dark until someone steps
+  in, then lit a section at a time round the room, each with the clack of a
+  breaker, the orrery overhead last. Paper birds hang under the dome,
+  chalkboards of payoff matrices run round the wall above counters of curios,
+  and a brass maze is inlaid in the floor.
+- **The music nook.** A cassette closet and a gramophone. A tape plays through
+  the gramophone's own chain -- lows and top rolled off, a little crackle --
+  louder the nearer you stand, while the silo's score waits. The tapes are
+  listed in `content/cassettes.ts`: to add one, put the file in
+  `public/audio/tapes/` and add a line. Two for now: *Subterranean Ritual*, and
+  *Pentatonic Hall*, the silo's first score, synthesised live.
+- **The arcade.** Five cabinets. Four are game theory, one round each and then
+  explained: the Prisoner's Dilemma (dominant strategies and a Nash equilibrium
+  worse for both), the Ultimatum (subgame perfection against fairness), the
+  Stag Hunt (payoff- against risk-dominance) and Guess 2/3 (iterated reasoning
+  and level-k thinking). The other player is always the machine, and each game
+  says how it chose. The fifth is Maze Run, with the right-hand rule played out.
+- **Drone control.** The drone waits on its pad on the promenade. From the
+  desk it flies for a minute of battery, its camera the view and the body left
+  standing at the desk: freely round the silo, or the shaft race, twelve gates
+  spiralling down the void from level 6 to level 10. Where it may fly is worked
+  out from the architecture (`content/drone.ts`) rather than the physics world,
+  which only holds the decks near the body: straight up and down only in the
+  open void, over a deck only between it and the one above, and never into the
+  rooms or the maze. Race times go on a board kept on this device -- a static
+  site has nowhere to keep anyone else's.
+
+## Level 12 — Deep Core & Contact
+
+Planned in `content/level12.ts`, drawn by `three/floors/Level12.tsx`. Across
+the atrium from the bridge, two round openings lead out into the rock.
+
+- **The reactor.** A tunnel to a gallery round the rim of a deep round pit, and
+  in it the machine that powers the silo: a burning core in a cage of gimbal
+  rings, great rings turning up and down a column fifty metres tall, arcs, a
+  beam of light up through its top. A catwalk runs out over the drop to a
+  platform with a console, where E runs a surge test. Conduits carry its power
+  out of the opening and up the silo wall to the dome, with light running up
+  them, and they can be followed down from any level.
+- **Communications.** A long room of racks full of status lights, a
+  transmitter and a turning dish at the end, a hologram of the name, and on the
+  floor beneath the machines a lit plate for each way to get in touch -- email,
+  phone, LinkedIn, GitHub, the portfolio -- each taken from the portfolio data.
+  E on a plate opens it: a link in a new tab, an email or a call in the
+  visitor's own app.
+
 ## Where the portfolio is
 
 Everything on the standard portfolio is in the silo, by level. Each level's
@@ -356,9 +422,9 @@ change the other.
 
 ## Status
 
-Level 1 is fitted out as rooms. Levels 2–12 are walkable — deck, stair, bridge,
-lift landing — and each carries its record on a wall display; their own fit-out
-is still to come.
+Levels 1, 6 and 12 are fitted out. Levels 2–5 and 7–11 are walkable — deck,
+stair, bridge, lift landing — and each carries its record on a wall display;
+their own fit-out is still to come.
 
 Verified by walking a body round it in a headless browser with held keys and a
 steering loop that only reads the body's real position, never teleporting it:
@@ -376,11 +442,27 @@ it — nothing is built before a gesture, the first click turns it on, the score
 is the supplied track and is playing, looping and soft, the Music and Sound
 controls stop it and the choice is remembered, the lift announces its level
 over a dipped score, walking fires footfalls, and each of the lift's and the
-vault's sounds is counted as it plays. Not verified: real GPU hardware, real phones and
+vault's sounds is counted as it plays.
+
+Level 6 is walked too: from the lift round to the maze and through it cell by
+cell to the door (the clock reports the run and keeps the best), against the
+shut door, which stops the body, through the opened door into the chamber,
+which is dark until then and lights with a breaker for every section; both
+tapes play through the gramophone while the score is held, and eject brings it
+back; every cabinet's game is played once and explained, the maze game takes
+the keys without moving the body; and the door rolls shut again. The drone is
+flown: its flying rules are checked against four thousand random points (none
+end up inside a deck, the core or the wall), the keys fly and climb it while
+the body stays put, an autopilot using the same controls flies all twelve
+gates, the time goes on the board, and landing hands the view and the keys
+back to the body. Level 12 is walked: through the reactor's tunnel, along the
+catwalk and onto the platform (both hold the body over the pit, and the rails
+keep it out), the console runs a surge, and every contact plate in the
+communications room is offered, and one is used. Not verified: real GPU hardware, real phones and
 touch, and how the audio sounds.
 
-Not built yet: interiors for levels 2–12, the recreation mini-game, and a
-contact form backend.
+Not built yet: interiors for levels 2–5 and 7–11, a race board shared between
+visitors (it needs somewhere to keep the times), and a contact form backend.
 
 Content still needed from the portfolio owner is listed in `MISSING_CONTENT` in
 `src/content/portfolio.ts` and surfaced in the CV viewer. Nothing in this app

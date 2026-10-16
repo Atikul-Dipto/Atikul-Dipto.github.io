@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { drone, launch, type DroneMode } from '../lib/drone'
 import { LEVEL_COUNT } from '../content/floors'
 
 /** Where the visitor is in the experience, not where the camera is. */
@@ -31,6 +32,8 @@ export type Interact =
   | 'jukebox' // the gramophone and the cassettes
   | `arcade:${string}` // one of the game cabinets
   | 'drone' // the drone's controls
+  | 'reactor' // the reactor's console, level 12
+  | `contact:${string}` // a contact plate in the communications room
   | null
 
 /** The panels that open over the walk from things in the recreation chamber. */
@@ -66,6 +69,11 @@ interface SiloState {
   arcadeGame: string | null
   /** A short line of status over the walk: the maze's clock, a door waiting. */
   hudNote: string | null
+  /** The drone is in the air: its camera is the view, and the body waits. */
+  droneFlying: boolean
+  droneMode: DroneMode
+  /** How the last flight ended, for the desk to show. */
+  droneResult: { mode: DroneMode; time: number | null; gates: number; bumps: number; reason: string } | null
   muted: boolean
   /** The score, which plays with the sound unless turned off on its own. */
   music: boolean
@@ -112,6 +120,8 @@ interface SiloState {
   openPanel: (panel: Exclude<Panel, null>, game?: string | null) => void
   closePanel: () => void
   setHudNote: (note: string | null) => void
+  startDrone: (mode: DroneMode) => void
+  endDrone: (reason: 'landed' | 'battery' | 'finished') => void
   toggleMute: () => void
   /** Sound on or off without it counting as the visitor's choice. */
   setMuted: (muted: boolean) => void
@@ -156,6 +166,9 @@ export const useSilo = create<SiloState>((set, get) => ({
   panel: null,
   arcadeGame: null,
   hudNote: null,
+  droneFlying: false,
+  droneMode: 'free',
+  droneResult: null,
   muted: true, // never autoplay audio before an interaction (spec §8)
   music: true,
   reducedMotion: Boolean(prefersReduced),
@@ -241,6 +254,19 @@ export const useSilo = create<SiloState>((set, get) => ({
   openPanel: (panel, game = null) => set({ panel, arcadeGame: game, directoryOpen: false }),
   closePanel: () => set({ panel: null }),
   setHudNote: (hudNote) => set({ hudNote }),
+  startDrone: (mode) => {
+    launch(mode)
+    set({ droneFlying: true, droneMode: mode, droneResult: null, panel: null, interact: null })
+  },
+  endDrone: (reason) => {
+    if (!get().droneFlying) return
+    drone.flying = false
+    set({
+      droneFlying: false,
+      droneResult: { mode: drone.mode, time: drone.finish, gates: drone.gate, bumps: drone.bumps, reason },
+      panel: 'drone',
+    })
+  },
 
   toggleMute: () =>
     set((s) => {

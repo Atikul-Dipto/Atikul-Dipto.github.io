@@ -17,6 +17,7 @@ import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
 import { level1Colliders, vaultRamp } from '../../content/level1'
 import { CH_FRAME, CHAMBER, FLOOR6, level6Colliders } from '../../content/level6'
 import { openingsOn } from '../../content/openings'
+import { FLOOR12, PLATFORM, level12Colliders, platformCentre } from '../../content/level12'
 import type { Box } from '../../content/level1'
 import {
   BRIDGE_WIDTH,
@@ -120,6 +121,50 @@ function gappedRing(radius: number, y: number, height: number, gapFrom: number, 
   return trimesh(g)
 }
 
+/**
+ * The deck's outer wall: a cylinder, open wherever a tunnel goes out through
+ * it. One arc of cylinder between each pair of gaps.
+ */
+function wallWithGaps(y: number, gaps: Array<[number, number]>): [Float32Array, Uint32Array] {
+  if (!gaps.length) {
+    const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
+    w.translate(0, y + ROOM_HEIGHT / 2, 0)
+    return trimesh(w)
+  }
+  const sorted = [...gaps].sort((a, b) => a[0] - b[0])
+  const verts: number[] = []
+  const idx: number[] = []
+  sorted.forEach(([, to], i) => {
+    const from = to
+    let next = sorted[(i + 1) % sorted.length][0]
+    while (next <= from) next += Math.PI * 2
+    const arc = next - from
+    const n = Math.max(2, Math.ceil((arc / (Math.PI * 2)) * SEGMENTS))
+    const base = verts.length / 3
+    for (let k = 0; k <= n; k++) {
+      const a = from + (arc * k) / n
+      const x = Math.cos(a) * DECK_OUTER
+      const z = Math.sin(a) * DECK_OUTER
+      verts.push(x, y, z, x, y + ROOM_HEIGHT, z)
+    }
+    for (let k = 0; k < n; k++) {
+      const v = base + k * 2
+      idx.push(v, v + 1, v + 2, v + 1, v + 3, v + 2)
+    }
+  })
+  return [new Float32Array(verts), new Uint32Array(idx)]
+}
+
+/** The platform beside the reactor: a disc over the drop. */
+function ReactorPlatform() {
+  const [x, z] = platformCentre()
+  return (
+    <RigidBody type="fixed" colliders={false}>
+      <CylinderCollider args={[0.07, PLATFORM.radius]} position={[x, FLOOR12 - 0.07, z]} />
+    </RigidBody>
+  )
+}
+
 /** A cuboid collider from a plan box. */
 function Cuboid({ b }: { b: Box }) {
   return (
@@ -185,14 +230,7 @@ function DeckColliders({ level }: { level: number }) {
     // Closed right round -- except where a tunnel goes out through it (the
     // vault on level 1, the chamber on level 6). The gap is the tunnel's own
     // width; the boxes either side of the tunnel close the rest.
-    const opening = openingsOn(level)[0]
-    const wall = opening
-      ? gappedRing(DECK_OUTER, y, ROOM_HEIGHT, opening.angle - opening.gap, opening.angle + opening.gap)
-      : (() => {
-          const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
-          w.translate(0, y + ROOM_HEIGHT / 2, 0)
-          return trimesh(w)
-        })()
+    const wall = wallWithGaps(y, openingsOn(level).map((o) => [o.angle - o.gap, o.angle + o.gap] as [number, number]))
 
     const edges: Array<[Float32Array, Uint32Array]> = []
     for (const side of [-1, 1] as const) {
@@ -231,6 +269,7 @@ function DeckColliders({ level }: { level: number }) {
     if (level === 1) solids.push(...level1Colliders())
     else solids.push(...recordWallSolids(level))
     if (level === 6) solids.push(...level6Colliders())
+    if (level === 12) solids.push(...level12Colliders())
 
     return {
       floor: trimesh(f),
@@ -262,6 +301,7 @@ function DeckColliders({ level }: { level: number }) {
       {level === 1 && <VaultDoorBody />}
       {level === 6 && <ChamberFloor />}
       {level === 6 && <ChamberDoorBody />}
+      {level === 12 && <ReactorPlatform />}
     </>
   )
 }

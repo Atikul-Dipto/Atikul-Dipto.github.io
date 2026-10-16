@@ -641,6 +641,78 @@ export function arcadeBlip(kind: 'select' | 'win' | 'lose' | 'even' | 'step') {
   else [523.25, 523.25].forEach((f, i) => note(f, 0.1, i * 0.12))
 }
 
+// ---- the drone, the reactor, the contact plates --------------------------
+
+let rotor: { gain: GainNode; osc: OscillatorNode; filter: BiquadFilterNode } | null = null
+/**
+ * The drone's rotors: a buzzing sawtooth and rushing air, pitched up as it
+ * speeds along. Built the first time it flies; 0 silences it.
+ */
+export function setDroneHum(level: number, speed: number) {
+  if (!engine) return
+  const { ctx, fx, noise } = engine
+  if (!rotor) {
+    if (level <= 0) return
+    const gain = ctx.createGain()
+    gain.gain.value = 0
+    const filter = ctx.createBiquadFilter()
+    filter.type = 'lowpass'
+    filter.frequency.value = 1400
+    const osc = ctx.createOscillator()
+    osc.type = 'sawtooth'
+    osc.frequency.value = 150
+    const og = ctx.createGain()
+    og.gain.value = 0.35
+    osc.connect(og).connect(filter)
+    const air = ctx.createBufferSource()
+    air.buffer = noise
+    air.loop = true
+    const bp = ctx.createBiquadFilter()
+    bp.type = 'bandpass'
+    bp.frequency.value = 900
+    bp.Q.value = 0.8
+    air.connect(bp).connect(filter)
+    filter.connect(gain).connect(fx)
+    osc.start()
+    air.start()
+    rotor = { gain, osc, filter }
+  }
+  const on = wanted && level > 0
+  rotor.gain.gain.setTargetAtTime(on ? 0.05 + speed * 0.04 : 0, ctx.currentTime, 0.12)
+  rotor.osc.frequency.setTargetAtTime(150 + speed * 90, ctx.currentTime, 0.2)
+  rotor.filter.frequency.setTargetAtTime(1200 + speed * 1500, ctx.currentTime, 0.2)
+}
+
+let lastBump = 0
+/** The drone clipping something. */
+export function droneBump() {
+  if (!engine || !wanted) return
+  const now = engine.ctx.currentTime
+  if (now - lastBump < 0.25) return
+  lastBump = now
+  count('drone-bump')
+  burst({ type: 'bandpass', freq: 900, q: 1.5, gain: 0.12, attack: 0.002, decay: 0.08 })
+  burst({ type: 'lowpass', freq: 300, q: 0.8, gain: 0.1, attack: 0.003, decay: 0.1 })
+}
+
+/** The reactor's surge test: a deep rising roar and a ringing discharge. */
+export function reactorSurge() {
+  if (!engine || !wanted) return
+  count('reactor-surge')
+  tone({ type: 'sawtooth', freq: 40, to: 110, gain: 0.12, attack: 0.4, decay: 2.6, soften: 420 })
+  burst({ type: 'lowpass', freq: 200, q: 0.7, gain: 0.25, attack: 0.6, decay: 2.4, sweepTo: 900 })
+  burst({ type: 'bandpass', freq: 3200, q: 4, gain: 0.05, attack: 0.002, decay: 0.4, delay: 0.9 })
+  tone({ type: 'sine', freq: 880, gain: 0.04, attack: 0.01, decay: 1.8, delay: 1 })
+}
+
+/** A contact plate pressed. */
+export function contactBlip() {
+  if (!engine || !wanted) return
+  count('contact')
+  tone({ type: 'sine', freq: 1318.5, gain: 0.07, attack: 0.004, decay: 0.15 })
+  tone({ type: 'sine', freq: 1975.5, gain: 0.06, attack: 0.004, decay: 0.3, delay: 0.08 })
+}
+
 /** The floor's record panel sliding in or out. */
 export function panelSwish(open: boolean) {
   if (!engine || !wanted) return
@@ -685,4 +757,5 @@ export function stopAudio() {
   engine = null
   wanted = false
   lastGrind = 0
+  rotor = null
 }

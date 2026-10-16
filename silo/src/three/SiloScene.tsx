@@ -10,6 +10,12 @@ import * as plan from '../content/level1'
 import * as plan6 from '../content/level6'
 import { chamber } from '../lib/chamber'
 import { jukeboxDebug } from '../lib/jukebox'
+import { drone } from '../lib/drone'
+import { move } from '../lib/input'
+import { contactLog } from '../lib/contact'
+import { droneTouch } from './DroneFlight'
+import { reactor } from '../lib/reactor'
+import * as plan12 from '../content/level12'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
@@ -21,6 +27,8 @@ import Lighting from './Lighting'
 import LiftDriver from './LiftDriver'
 import Level01 from './floors/Level01'
 import Level06 from './floors/Level06'
+import Level12, { PowerConduits } from './floors/Level12'
+import DroneFlight from './DroneFlight'
 import RecordWalls from './floors/RecordWall'
 import { Dust } from './Atmosphere'
 
@@ -45,6 +53,9 @@ function ActiveFloor() {
     <>
       {near && <Level01 />}
       {Math.abs(6 - level) <= 1 && <Level06 />}
+      {Math.abs(6 - level) <= 1 && <DroneFlight />}
+      {Math.abs(12 - level) <= 1 && <Level12 />}
+      <PowerConduits />
       <RecordWalls />
     </>
   )
@@ -160,6 +171,12 @@ export default function SiloScene() {
             plan6,
             chamber,
             jukebox: jukeboxDebug,
+            drone,
+            input: move,
+            droneTouch,
+            contactLog,
+            reactor,
+            plan12,
           }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping

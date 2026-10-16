@@ -228,6 +228,37 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
           },
         ],
       }
+    case 'recreation':
+      return {
+        title: 'Recreation',
+        subtitle: 'Nothing professional is hidden here. It is for fun.',
+        sections: [
+          {
+            items: [
+              {
+                title: 'The maze',
+                text: 'A hedge maze across the deck, from the promenade to the silo wall. It keeps time, and your best run on this device.',
+              },
+              {
+                title: 'The round door',
+                text: 'At the heart of the maze. It rolls aside into the wall, and the chamber behind it lights up when you walk in.',
+              },
+              {
+                title: 'The music nook',
+                text: 'Take a cassette from the closet and the gramophone plays it. The silo’s own score waits until you eject it.',
+              },
+              {
+                title: 'The arcade',
+                text: "Prisoner's Dilemma, the Ultimatum, Stag Hunt and Guess 2/3: one round each, then what it shows about game theory. And Maze Run.",
+              },
+              {
+                title: 'Drone control',
+                text: 'Fly the drone out over the atrium for a minute, or race it down the shaft through twelve gates. The best times are kept on this device.',
+              },
+            ],
+          },
+        ],
+      }
     case 'core':
       return {
         title: 'Communications',

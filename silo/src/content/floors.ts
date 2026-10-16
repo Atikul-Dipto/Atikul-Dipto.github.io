@@ -249,7 +249,7 @@ export const FLOORS: FloorDef[] = [
     name: 'Deep Core & Contact',
     kind: 'core',
     accent: 'red',
-    blurb: 'Where the structure converges. Communications terminal.',
+    blurb: 'The bottom of the silo: the reactor that powers it, and the communications room, with every way to get in touch.',
     ready: true,
   },
 ]

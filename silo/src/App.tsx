@@ -9,6 +9,7 @@ import Soundscape from './ui/Soundscape'
 import WalkHud from './ui/WalkHud'
 import JukeboxPanel from './ui/JukeboxPanel'
 import ArcadePanel from './ui/ArcadePanel'
+import DronePanel, { DroneHud } from './ui/DronePanel'
 import './styles.css'
 
 // The engine is the bulk of the bundle; keep it out of the first paint so the
@@ -75,6 +76,8 @@ export default function App() {
       <WalkHud />
       <JukeboxPanel />
       <ArcadePanel />
+      <DronePanel />
+      <DroneHud />
       <Soundscape />
       <div className={`fade${fading ? ' is-on' : ''}`} aria-hidden="true" />
     </div>
