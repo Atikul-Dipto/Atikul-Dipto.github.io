@@ -548,7 +548,15 @@ function CameraScreen() {
   const screen = useMemo(() => screenMaterial(surface.target.texture), [surface])
   const lights = useRef<THREE.PointLight[]>([])
   const frame = useRef(0)
-  useEffect(() => () => surface.dispose(), [surface])
+  const ready = useRef(false)
+  useEffect(() => {
+    // Its own little scene's shaders, compiled in the background first.
+    const ok = () => {
+      ready.current = true
+    }
+    surface.warm(gl).then(ok, ok)
+    return () => surface.dispose()
+  }, [surface, gl])
 
   const parts = useMemo(() => {
     const g = framed(HALL_F)
@@ -589,11 +597,15 @@ function CameraScreen() {
     return g
   }, [screen])
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera }) => {
     const d = daylight()
     screen.uniforms.uTime.value = clock.elapsedTime
-    // A few times a second is plenty: the light changes over minutes.
-    if (frame.current++ % 4 === 0) surface.render(gl, d, clock.elapsedTime)
+    // A few times a second is plenty: the light changes over minutes. And
+    // only when someone could be looking at it: inside, and near the hall.
+    const [hx, hz] = HALL_F.to(0, HALL.to / 2)
+    const near = Math.hypot(camera.position.x - hx, camera.position.z - hz) < 45 && Math.abs(camera.position.y - FLOOR) < 12
+    const inside = useSilo.getState().phase !== 'exterior' && useSilo.getState().phase !== 'boot'
+    if (ready.current && near && inside && frame.current++ % 4 === 0) surface.render(gl, d, clock.elapsedTime)
     for (const l of lights.current) {
       l.color.copy(d.horizon).lerp(d.sky, 0.4).lerp(new THREE.Color('#c9d6d8'), 0.5)
       l.intensity = 4 + d.glow * 16

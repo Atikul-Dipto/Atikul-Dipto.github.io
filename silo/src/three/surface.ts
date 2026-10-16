@@ -72,6 +72,8 @@ function treeGeometry(rand: () => number, height: number) {
 
 export interface Surface {
   target: THREE.WebGLRenderTarget
+  /** Compile its shaders in the background before it is first drawn. */
+  warm: (gl: THREE.WebGLRenderer) => Promise<unknown>
   render: (gl: THREE.WebGLRenderer, d: Daylight, time: number) => void
   dispose: () => void
 }
@@ -223,6 +225,18 @@ export function buildSurface(): Surface {
   const nightFog = new THREE.Color('#0d2230')
   return {
     target,
+    // Compiled into its own target, as it is drawn: compiled for the screen,
+    // every shader was compiled again -- tone mapping off, linear colour --
+    // the first time the view was drawn, a fifth of a second in the flight in.
+    warm: (gl) => {
+      const prev = gl.getRenderTarget()
+      gl.setRenderTarget(target)
+      try {
+        return gl.compileAsync(scene, camera)
+      } finally {
+        gl.setRenderTarget(prev)
+      }
+    },
     render(gl, d, time) {
       // Ash-grey by day whatever blue the dome is showing; teal and stars by night.
       skyUniforms.uTop.value.copy(d.sky).lerp(new THREE.Color('#7f8f96'), 0.65 * (1 - d.night)).lerp(new THREE.Color('#061520'), d.night)

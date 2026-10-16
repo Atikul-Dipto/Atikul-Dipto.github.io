@@ -16,13 +16,32 @@ import { useSilo } from '../state/useSilo'
  * The whole stack is dropped on the low quality tier, where the frame budget
  * matters more than the finish.
  */
+/** The composer, once mounted, so its shaders can be compiled ahead (warm.ts). */
+export const effectsHandle: { composer: unknown } = { composer: null }
+
 export default function Effects() {
   const quality = useSilo((s) => s.quality)
   if (quality === 'low' || isLowPower()) return null
 
   return (
-    <EffectComposer multisampling={4} frameBufferType={THREE.HalfFloatType}>
+    <EffectComposer
+      ref={(c) => {
+        effectsHandle.composer = c
+      }}
+      multisampling={4}
+      frameBufferType={THREE.HalfFloatType}
+    >
       <N8AO
+        // Left to itself it notices the scene has transparent materials --
+        // glass, glows, signage -- and draws the whole scene twice more every
+        // frame to keep the shading off them: three renders a frame instead
+        // of one. The shading under a few panes of glass is not worth that.
+        ref={(pass) => {
+          if (!pass) return
+          const p = pass as unknown as { autoDetectTransparency: boolean }
+          p.autoDetectTransparency = false
+          pass.configuration.transparencyAware = false
+        }}
         aoRadius={2.4}
         distanceFalloff={0.9}
         intensity={3.2}

@@ -104,13 +104,18 @@ visitor goes everywhere, so these stand in for baking:
    the deck above whichever level the visitor is on, with its shadow camera
    reaching down from there — hung in the dish, it would have eleven decks
    between it and the visitor and everything would be in shadow.
-5. **A procedural environment map**, built at boot from three.js's
-   `RoomEnvironment` with no download. Without something to reflect, chrome
-   renders black and glass is invisible.
+5. **An environment map**, three.js's `RoomEnvironment` filtered for
+   reflections once, offline, and shipped as a 33 kB PNG (`public/env/room.png`,
+   decoded in `three/envmap.ts`). Without something to reflect, chrome renders
+   black and glass is invisible. Building it in the browser cost about two
+   seconds of frozen loading screen on Windows; the file says how to re-bake
+   it.
 
 Bloom then lets the lamps, signage and lit edges behave like light sources. The
-post stack and the shadows are dropped on the low quality tier and on devices
-`isLowPower()` flags.
+post stack and the shadows are dropped on the low quality tier: devices
+`isLowPower()` flags, GPUs `isModestGpu()` recognises (integrated, phone and
+software renderers, not Apple's), and machines the loading screen's frame test
+finds short (see Performance).
 
 ## Things worth knowing before you change the geometry
 
@@ -162,10 +167,39 @@ post-processing stack; it is lazy-loaded, so it does not affect first paint.
 Instanced ribs, posts, framing, lamps, vents, furniture and table settings; each
 flight of stairs is one mesh. Only the current level and its neighbours mount
 their fit-out, and only three decks' worth of colliders exist at once. One
-shadow-casting light; four pooled lamps follow the visitor round the promenade
-instead of a set per level; the landing lamps' real lights exist only on the
-levels next to the visitor. DPR is capped at 1.9, with Drei's `AdaptiveDpr` and
-`PerformanceMonitor` tiering down on sustained frame drops.
+shadow-casting light.
+
+**Shader compiles are the expensive part of arriving**, not the download: a
+couple of hundred programs, and on Windows (ANGLE over Direct3D) each one is
+slow and blocks the page when first drawn. So:
+
+- Nothing is drawn until `LoadGate` has had them all compiled in the background
+  (`compileAsync`, `KHR_parallel_shader_compile`) and settled one a frame;
+  `three/warm.ts` compiles them for the target they will really be drawn into
+  (the effects' off-screen buffer, not the screen) and covers the effect
+  passes, which compiling the scene never reaches.
+- **The number of lights never changes.** three.js builds every lit shader for
+  a light count, so one lamp switched on recompiles the scene. Lights in the
+  scene are placeholders; `LightPool.tsx` owns a fixed set (eight points, one
+  directional, one ambient) and copies the strongest placeholders near the
+  camera into it each frame. Only the sun (`userData.keep`) sits outside it.
+- **The quality tier is settled behind the loading screen** and never changes
+  after: switching shadows or effects recompiles every shader at once, which
+  was an eight-second freeze mid-flight. `isModestGpu()` starts low; otherwise
+  `RevealWhenSmooth` times the first frames, lowering the resolution and then
+  the tier if they are short of about fifty a second. After the reveal,
+  `PerformanceMonitor` only lowers the resolution.
+- A floor mounted later (`FloorGuard`'s `CompileReveal`) stays hidden while its
+  shaders compile and its textures go up a few a frame. Level 1 mounts during
+  the approach, once the page is idle, rather than on Enter.
+- The scene chunk is modulepreloaded from `index.html`, and the build writes
+  `prefetch.json`, which the portfolio's Enter-the-Silo link uses to warm the
+  cache on hover, focus or idle (`src/hooks/useSiloPrefetch.js` at the root).
+- N8AO's automatic transparency mode is off: it redrew the whole scene twice
+  more every frame because the scene has some glass.
+
+On an AMD integrated GPU, first visit, cold shader cache: the loading screen
+lifted after 13.6 to 37 seconds before this work, about 4.3 now.
 
 Horizontal field of view is held constant — 86° on foot, 64° for the opening —
 because three.js `fov` is vertical, and on a tall phone the horizontal view

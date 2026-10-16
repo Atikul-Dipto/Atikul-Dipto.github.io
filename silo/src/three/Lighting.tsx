@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
+import { ENV_INTENSITY, loadEnvironment } from './envmap'
 import { DECK_INNER, PALETTE, SHAFT_RADIUS, contentAngle, walkY } from '../content/floors'
 import { HALL, ROOM_INNER, VAULT_D0, VAULT_ROOM } from '../content/level1'
 import { daylight } from '../lib/daylight'
@@ -34,7 +34,6 @@ const POOL = 4
 const VAULT_SHADOW = SHAFT_RADIUS + Math.max(VAULT_D0 + VAULT_ROOM.to, HALL.to) + 1.5
 
 export default function Lighting() {
-  const gl = useThree((s) => s.gl)
   const scene = useThree((s) => s.scene)
   const quality = useSilo((s) => s.quality)
   const sun = useRef<THREE.DirectionalLight>(null)
@@ -44,17 +43,19 @@ export default function Lighting() {
   const warm = useMemo(() => new THREE.Color(PALETTE.brassHot), [])
   const ground = useMemo(() => new THREE.Color('#2a211b'), [])
 
+  // Baked, not built: see envmap.ts.
   useEffect(() => {
-    const pmrem = new THREE.PMREMGenerator(gl)
-    const env = pmrem.fromScene(new RoomEnvironment(), 0.04).texture
-    scene.environment = env
-    scene.environmentIntensity = 0.34
-    pmrem.dispose()
+    let alive = true
+    void loadEnvironment().then((env) => {
+      if (!alive || !env) return
+      scene.environment = env
+      scene.environmentIntensity = ENV_INTENSITY
+    })
     return () => {
+      alive = false
       scene.environment = null
-      env.dispose()
     }
-  }, [gl, scene])
+  }, [scene])
 
   // The light's target has to be in the scene graph for its world matrix to
   // update; without this the light keeps aiming at the origin.
@@ -137,8 +138,10 @@ export default function Lighting() {
     <>
       <hemisphereLight ref={hemi} args={['#ffffff', ground, 0.6]} />
       <ambientLight color="#4b5560" intensity={0.22} />
+      {/* Kept out of the light pool (LightPool.tsx): the one shadow caster. */}
       <directionalLight
         ref={sun}
+        userData={{ keep: true }}
         castShadow={shadows}
         shadow-mapSize={[2048, 2048]}
         shadow-bias={-0.0004}

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { drone, launch, type DroneMode } from '../lib/drone'
 import { LEVEL_COUNT } from '../content/floors'
+import { isLowPower, isModestGpu } from '../lib/capability'
 
 /** Where the visitor is in the experience, not where the camera is. */
 export type Phase =
@@ -85,6 +86,8 @@ interface SiloState {
   quality: Quality
   webglFailed: boolean
   progress: number
+  /** Every shader the scene needs has compiled: drawing may begin. */
+  compiled: boolean
   mode: Mode
   /** Mirrors document.pointerLockElement, so the UI follows the browser. */
   pointerLocked: boolean
@@ -184,9 +187,12 @@ export const useSilo = create<SiloState>((set, get) => ({
   muted: true, // never autoplay audio before an interaction (spec §8)
   music: true,
   reducedMotion: Boolean(prefersReduced),
-  quality: 'high',
+  // The tier is settled before anything compiles: see isModestGpu, and
+  // RevealWhenSmooth in SiloScene for machines this cannot tell about.
+  quality: isLowPower() || isModestGpu() ? 'low' : 'high',
   webglFailed: false,
   progress: 0,
+  compiled: false,
   mode: 'cinematic',
   pointerLocked: false,
   interact: null,

@@ -1,6 +1,6 @@
-import { Suspense, lazy, useEffect, useRef } from 'react'
-import { Canvas, useThree } from '@react-three/fiber'
-import { AdaptiveDpr, PerformanceMonitor, Preload, useProgress } from '@react-three/drei'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
+import { AdaptiveDpr, PerformanceMonitor, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import { DECK_INNER, PALETTE, contentAngle, levelY, walkY } from '../content/floors'
 import * as stairs from '../content/stairs'
@@ -18,6 +18,9 @@ import { reactor } from '../lib/reactor'
 import * as plan12 from '../content/level12'
 import { useSilo, viewLevel } from '../state/useSilo'
 import FloorGuard from './FloorGuard'
+import LightPool from './LightPool'
+import { warmEffects, warmUp } from './warm'
+import { ENV_INTENSITY, loadEnvironment } from './envmap'
 import Structure from './Structure'
 import LevelLife from './LevelLife'
 import Elevator from './Elevator'
@@ -53,10 +56,32 @@ function ActiveFloor() {
   // While the drone flies, the floors it passes are fitted out too -- and the
   // body's own floor stays, since the body is still standing on it.
   const view = useSilo(viewLevel)
-  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - view) <= 1
+  // A lift journey's destination is fitted out as the journey starts, so it
+  // is compiled and ready by the time the doors open.
+  const bound = useSilo((s) => (s.phase === 'riding' ? s.target : s.level))
+  const inside = useSilo((s) => s.phase !== 'boot' && s.phase !== 'exterior')
+  const approach = useSilo((s) => s.phase === 'exterior')
+  // Level 1 is fitted out while the visitor watches the approach, once the
+  // page has a quiet moment -- not at boot, where it would lengthen the
+  // loading screen, and not on Enter, where building its rooms and uploading
+  // their textures stuttered the flight in.
+  const [early, setEarly] = useState(false)
+  useEffect(() => {
+    if (!approach || early) return
+    const idle = window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 200))
+    let handle = 0
+    const id = window.setTimeout(() => {
+      handle = idle(() => setEarly(true), { timeout: 2500 }) as number
+    }, 1200)
+    return () => {
+      window.clearTimeout(id)
+      window.cancelIdleCallback?.(handle)
+    }
+  }, [approach, early])
+  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - view) <= 1 || Math.abs(n - bound) <= 1
   return (
     <>
-      {near(1) && (
+      {near(1) && (inside || early) && (
         <FloorGuard name="level 1">
           <Level01 />
         </FloorGuard>
@@ -86,6 +111,7 @@ function Interior() {
   return (
     <>
       <fogExp2 attach="fog" args={[PALETTE.void, density]} />
+      <LightPool />
       <Lighting />
       <Structure />
       <LevelLife />
@@ -117,40 +143,164 @@ function FovControl() {
 }
 
 /**
- * Holds the boot screen until the scene's assets have actually resolved, and
- * reports real progress while they load.
+ * Holds the boot screen until the scene's assets have resolved AND every
+ * shader it needs has compiled, and reports progress meanwhile.
+ *
+ * The compile is the slow part, not the download: a couple of hundred shader
+ * programs. Drawn the usual way, each compiles the first time it is used and
+ * the page freezes while it does -- seconds of a stuck loading bar. Instead
+ * nothing is drawn at all until `compileAsync` has had the driver compile them
+ * all in the background (KHR_parallel_shader_compile), so the loading screen
+ * keeps moving and the first frame is smooth.
  */
 function LoadGate() {
   const { progress, active } = useProgress()
   const setProgress = useSilo((s) => s.setProgress)
-  const setPhase = useSilo((s) => s.setPhase)
+  const gl = useThree((s) => s.gl)
+  const scene = useThree((s) => s.scene)
+  const camera = useThree((s) => s.camera)
   const started = useRef(false)
+  const warming = useRef(false)
+
+  const warm = useCallback(() => {
+    if (warming.current) return
+    warming.current = true
+    setProgress(0.96)
+    let finished = false
+    const done = () => {
+      if (finished) return
+      finished = true
+      // Start drawing -- still behind the loading screen; RevealWhenSmooth
+      // lifts it.
+      useSilo.setState({ compiled: true })
+      setProgress(0.99)
+      performance.mark('silo:compiled')
+    }
+    // Fetch each program's uniforms, a few milliseconds' worth a frame: where
+    // the driver only pretends to compile in the background, this is where it
+    // really finishes, and spreading it out keeps the loading bar moving
+    // instead of freezing it for the lot.
+    const settle = () => {
+      const programs = [...(gl.info.programs ?? [])]
+      let i = 0
+      const step = () => {
+        if (finished) return
+        const t0 = performance.now()
+        while (i < programs.length && performance.now() - t0 < 12) programs[i++].getUniforms()
+        setProgress(0.96 + 0.04 * (i / Math.max(1, programs.length)))
+        if (i < programs.length) requestAnimationFrame(step)
+        else done()
+      }
+      step()
+    }
+    // The environment first -- it is in every lit shader -- then two frames
+    // for Suspense to commit what has just loaded, then the compile.
+    void loadEnvironment().then((env) => {
+      if (env && !scene.environment) {
+        scene.environment = env
+        scene.environmentIntensity = ENV_INTENSITY
+      }
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => void Promise.all([warmUp(gl, scene, camera, scene), warmEffects(gl)]).then(settle, done)),
+      )
+    })
+    // Never hold the boot screen up indefinitely.
+    window.setTimeout(done, 15000)
+  }, [gl, scene, camera, setProgress])
+
+  // RevealWhenSmooth may drop the quality and ask for the shaders again.
+  useEffect(() => {
+    rewarm.current = () => {
+      warming.current = false
+      useSilo.setState({ compiled: false })
+      warm()
+    }
+  }, [warm])
 
   useEffect(() => {
     if (active) started.current = true
-    setProgress(active ? progress / 100 : 1)
-    if (!active && started.current && useSilo.getState().phase === 'boot') setPhase('exterior')
-  }, [active, progress, setPhase, setProgress])
+    setProgress(active ? (progress / 100) * 0.95 : warming.current ? 0.96 : 0.95)
+    if (!active && started.current) warm()
+  }, [active, progress, setProgress, warm])
 
-  // Nothing may hold the boot screen up indefinitely.
+  // If nothing is loading at all, warm up anyway.
   useEffect(() => {
-    const id = window.setTimeout(() => {
-      if (useSilo.getState().phase !== 'boot') return
-      setProgress(1)
-      setPhase('exterior')
-    }, 3000)
+    const id = window.setTimeout(warm, 1500)
     return () => window.clearTimeout(id)
-  }, [setPhase, setProgress])
+  }, [warm])
 
   return null
 }
 
+/** Set by LoadGate: compile everything again, for a new quality tier. */
+const rewarm: { current: () => void } = { current: () => {} }
+
+/**
+ * Lifts the loading screen once the first frames are coming through -- and
+ * decides the quality tier first, while it is still up.
+ *
+ * A few shaders cannot be compiled ahead: the depth shaders the sun draws its
+ * shadows with, and the blur bloom builds on first use. They compile on the
+ * first frames, behind the loading screen. Then a handful of frames are timed:
+ * if this machine cannot hold fifty frames a second here, the resolution comes
+ * down to one pixel per CSS pixel; if it still cannot, the shadows and screen
+ * effects are switched off and everything compiled again,
+ * still behind the loading screen. Switching them later meant recompiling
+ * every shader in the scene at once, mid-flight: an eight-second freeze.
+ */
+function RevealWhenSmooth({ lowerResolution }: { lowerResolution: () => boolean }) {
+  const frames = useRef<number[]>([])
+  const since = useRef(0)
+  const step = useRef(0)
+  const gl = useThree((s) => s.gl)
+  useFrame((_, dt) => {
+    const s = useSilo.getState()
+    if (!s.compiled || s.phase !== 'boot') return
+    if (!since.current) since.current = performance.now()
+    frames.current.push(dt)
+    // The first frames are the ones still compiling; time the ones after,
+    // and by the median, so one last stall does not count as the machine.
+    const sample = frames.current.slice(4).sort((a, b) => a - b)
+    const timedOut = performance.now() - since.current > 9000
+    if (sample.length < 9 && !timedOut) return
+    const median = sample[sample.length >> 1] ?? 1
+    const again = () => {
+      frames.current = []
+      since.current = 0
+    }
+    // The approach is the lightest view in the silo -- inside costs about
+    // twice as much -- so it has to run near fifty frames a second.
+    // Slow: first fewer pixels, which costs nothing to change...
+    if (step.current === 0 && median > 1 / 50 && gl.getPixelRatio() > 1 && lowerResolution()) {
+      step.current = 1
+      performance.mark('silo:resolution-low', { detail: { median } })
+      again()
+      return
+    }
+    // ...and only if that is still well short, the quality tier, which means
+    // compiling everything again.
+    if (step.current < 2 && s.quality === 'high' && (median > 1 / 50 || timedOut)) {
+      step.current = 2
+      s.setQuality('low')
+      performance.mark('silo:quality-low', { detail: { median } })
+      again()
+      rewarm.current()
+      return
+    }
+    s.setProgress(1)
+    s.setPhase('exterior')
+    performance.mark('silo:revealed', { detail: { median } })
+  })
+  return null
+}
+
 export default function SiloScene() {
+  const [dprCap, setDprCap] = useState(1.9)
   const phase = useSilo((s) => s.phase)
+  const compiled = useSilo((s) => s.compiled)
   const level = useSilo((s) => s.level)
   const mode = useSilo((s) => s.mode)
   const quality = useSilo((s) => s.quality)
-  const setQuality = useSilo((s) => s.setQuality)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
 
   // Start fetching the physics while the visitor watches the approach.
@@ -161,7 +311,9 @@ export default function SiloScene() {
   return (
     <Canvas
       className="silo__canvas"
-      dpr={[1, 1.9]}
+      dpr={[Math.min(1, dprCap), dprCap]}
+      // Nothing is drawn until the shaders are ready: see LoadGate.
+      frameloop={compiled ? 'always' : 'never'}
       // PCF. The soft variant was removed from this version of three.js and
       // it says so on every load; asking for it only produced the warning.
       shadows={quality === 'high' ? 'percentage' : false}
@@ -197,6 +349,9 @@ export default function SiloScene() {
             plan12,
           }
         }
+        // Checking every shader for errors makes each one block until it has
+        // compiled, which defeats compiling them in the background.
+        gl.debug.checkShaderErrors = import.meta.env.DEV
         gl.toneMapping = THREE.ACESFilmicToneMapping
         gl.toneMappingExposure = 1.08
       }}
@@ -204,14 +359,23 @@ export default function SiloScene() {
       onError={() => setWebglFailed()}
     >
       <color attach="background" args={[PALETTE.void]} />
-      <PerformanceMonitor onDecline={() => setQuality('low')} />
+      {/* Struggling later on, it lowers the resolution -- never the quality
+          tier, which would recompile every shader in the scene at once. */}
+      <PerformanceMonitor onDecline={() => setDprCap(1)} />
       <AdaptiveDpr pixelated={false} />
       <FovControl />
       <LoadGate />
+      <RevealWhenSmooth
+        lowerResolution={() => {
+          if (dprCap <= 1) return false
+          setDprCap(1)
+          return true
+        }}
+      />
       <Suspense fallback={null}>
-        {phase === 'exterior' && <Exterior />}
+        {/* Mounted while booting too, so its shaders are compiled with the rest. */}
+        {(phase === 'exterior' || phase === 'boot') && <Exterior />}
         <Interior />
-        <Preload all />
       </Suspense>
       <Rig />
       <LiftDriver />

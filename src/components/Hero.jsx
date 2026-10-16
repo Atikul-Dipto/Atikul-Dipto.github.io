@@ -1,9 +1,11 @@
 import { useRef } from 'react'
 import { profile } from '../data'
 import CountUp from './CountUp'
+import { useSiloPrefetch } from '../hooks/useSiloPrefetch'
 
 export default function Hero() {
   const frameRef = useRef(null)
+  const siloPrefetch = useSiloPrefetch()
 
   const handlePointerMove = (e) => {
     const el = frameRef.current
@@ -51,7 +53,7 @@ export default function Hero() {
             </span>
           </div>
 
-          <a className="silo-link" href="/silo/">
+          <a className="silo-link" href="/silo/" {...siloPrefetch}>
             <span className="silo-link__icon" aria-hidden="true">
               <i />
               <i />
