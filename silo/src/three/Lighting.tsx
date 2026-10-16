@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js'
 import { DECK_INNER, PALETTE, SHAFT_RADIUS, contentAngle, walkY } from '../content/floors'
-import { ROOM_INNER, VAULT_ROOM } from '../content/level1'
+import { HALL, ROOM_INNER, VAULT_D0, VAULT_ROOM } from '../content/level1'
 import { daylight } from '../lib/daylight'
 import { useSilo, viewLevel } from '../state/useSilo'
 import { DISH } from '../content/dome'
@@ -29,8 +29,9 @@ import { DISH } from '../content/dome'
  * pooled lamps on the promenade that travel with the visitor.
  */
 const POOL = 4
-/** Half-width of the sun's shadow on level 1: the shaft and the vault room. */
-const VAULT_SHADOW = SHAFT_RADIUS + VAULT_ROOM.to + 1.5
+/** Half-width of the sun's shadow on level 1: the shaft, and the rooms
+ *  behind its wall out to the far end of the vault. */
+const VAULT_SHADOW = SHAFT_RADIUS + Math.max(VAULT_D0 + VAULT_ROOM.to, HALL.to) + 1.5
 
 export default function Lighting() {
   const gl = useThree((s) => s.gl)

@@ -1,4 +1,5 @@
-import { SHAFT_RADIUS, contentAngle, walkY } from './floors'
+import { SHAFT_RADIUS, WALL_THICK, contentAngle, walkY } from './floors'
+import { wallFrame } from './frame'
 
 /**
  * LEVEL 1 — the plan.
@@ -15,18 +16,20 @@ import { SHAFT_RADIUS, contentAngle, walkY } from './floors'
  *   1.07 - 2.07   the cutaway: no wall, open to the cavern
  *   ~2.79         ARRIVAL: the bridge from the lift lands here, facing the
  *                 personnel monitor and the portrait on the far wall
- *   3.32 - 4.32   SHERIFF'S OFFICE, with the records vault in its back wall:
- *                 a round door, and behind it a room cut out of the rock
- *                 beyond the silo wall, ending at a second door that is
- *                 sealed
- *   4.56 - 6.22   CAFETERIA, with the long window onto the outside
+ *   3.82          SHERIFF'S OFFICE: a round-topped door in the silo wall,
+ *                 and the office behind it, cut into the rock. The records
+ *                 vault is in its back wall: a round door, a room beyond it,
+ *                 and a second door at the far end that is sealed
+ *   5.39          CAFETERIA: a wide pill-shaped opening in the silo wall,
+ *                 steps up to it, and the hall behind, with the camera's view
+ *                 of the surface on its far wall
  *   0.20 - 0.80   THE CREED: a curved display set into the wall, across
  *                 the atrium from the arrival
  *   the rest      open promenade round to the cutaway
  *
- * Rooms are built on the deck, against the silo wall, behind a curved facade
- * at ROOM_INNER. Between the facades and the handrail is a five-metre
- * promenade running right round the atrium.
+ * The rooms are not on the deck: each is entered through a gate in the silo
+ * wall and lies beyond it, laid out in that gate's wall frame (content/frame.ts),
+ * so the deck is an open promenade right round the atrium.
  */
 
 /** A box in world space. `x, y, z` is its centre; `w` runs along its local X,
@@ -44,8 +47,6 @@ export interface Box {
 export const FLOOR = walkY(1)
 export const ROOM_INNER = 13.4
 export const WALL_T = 0.32
-/** The facade lintel: doors and interior windows stop here. */
-const DOOR_HEAD = 2.7
 
 export interface Room {
   id: 'sheriff' | 'cafeteria'
@@ -123,12 +124,21 @@ export const INNER_DOOR = { radius: 1.25, d: VAULT_ROOM.to }
 /** The terminal in the room that holds the personnel record. */
 export const VAULT_TERMINAL = { s: -1.75, d: 4.2, w: 0.9, depth: 1.5, h: 1.0 }
 
+/**
+ * How far behind the silo wall the vault's frame starts: the depth of the
+ * sheriff's office, whose back wall the vault door is set in. Every vault
+ * dimension above is measured from that wall, as it once was from the silo
+ * wall when the office stood on the deck.
+ */
+export const VAULT_D0 = 9.1
+
 /** World X, Z of a point in the vault's frame. */
 export function fromVault(sv: number, dv: number): [number, number] {
   const a = VAULT.angle
   const ca = Math.cos(a)
   const sa = Math.sin(a)
-  return [ca * (SHAFT_RADIUS + dv) - sa * sv, sa * (SHAFT_RADIUS + dv) + ca * sv]
+  const r = SHAFT_RADIUS + VAULT_D0 + dv
+  return [ca * r - sa * sv, sa * r + ca * sv]
 }
 
 /** A world X, Z in the vault's frame. */
@@ -136,7 +146,7 @@ export function toVault(x: number, z: number) {
   const a = VAULT.angle
   const ca = Math.cos(a)
   const sa = Math.sin(a)
-  return { s: -sa * x + ca * z, d: ca * x + sa * z - SHAFT_RADIUS }
+  return { s: -sa * x + ca * z, d: ca * x + sa * z - SHAFT_RADIUS - VAULT_D0 }
 }
 
 /** A box in the vault's frame, from its extents. Heights from the office floor. */
@@ -180,13 +190,6 @@ export function inVault(x: number, z: number) {
   return d > VAULT_TUNNEL.from && d < VAULT_ROOM.to && Math.abs(s) < VAULT_ROOM.half
 }
 
-/** The cafeteria window, along the outer wall. */
-export const WINDOW = {
-  from: CAFE.from + 0.16,
-  to: CAFE.to - 0.16,
-  sill: 0.85,
-  head: 4.55,
-}
 
 /**
  * The creed wall: a curved display in the silo wall, glass from `plinth` to
@@ -244,14 +247,12 @@ function creedSolids(): Box[] {
   return out
 }
 
-/** True if `angle` falls inside any room on level 1, padded by `pad`. */
+/** True if `angle` falls on either room's gate in the silo wall, padded by `pad`. */
 export function inLevel1Room(angle: number, pad = 0) {
-  const a = norm(angle)
-  return ROOMS.some((r) => {
-    const from = norm(r.from - pad)
-    const to = norm(r.to + pad)
-    return from < to ? a >= from && a <= to : a >= from || a <= to
-  })
+  return [
+    [OFFICE_F.angle, OFFICE_GATE.halfW],
+    [HALL_F.angle, HALL_GATE.halfW],
+  ].some(([a, half]) => Math.abs(((angle - a + Math.PI * 3) % (Math.PI * 2)) - Math.PI) < (half + 0.5) / SHAFT_RADIUS + pad)
 }
 
 const polar = (a: number, r: number): [number, number] => [Math.cos(a) * r, Math.sin(a) * r]
@@ -269,119 +270,137 @@ function radialBox(a: number, r0: number, r1: number, h: number, d: number, lift
 }
 
 // ---------------------------------------------------------------------------
-// Walls
+// The rooms behind the wall
 // ---------------------------------------------------------------------------
 
-export interface Opening {
-  from: number
-  to: number
-  kind: 'door' | 'window'
-}
+/** Each room's frame: `s` across its gate, `d` out through it from the deck. */
+export const OFFICE_F = wallFrame(mid(SHERIFF), FLOOR)
+export const HALL_F = wallFrame(mid(CAFE), FLOOR)
 
-export interface WallParts {
-  /** Opaque concrete, drawn and collided. */
-  solid: Box[]
-  /** Glazing in the facade: drawn translucent, collided like a wall. */
-  glass: Box[]
-  /** What the physics sees: one full-height box per facade segment. */
-  collide: Box[]
-}
+/** The office runs back from the silo wall to the wall the vault is set in. */
+export const OFFICE = { from: WALL_THICK, to: VAULT_D0, half: 6.5, height: 4.2, wall: 0.35 }
+/** The cafeteria hall. */
+export const HALL = { from: WALL_THICK, to: 15.4, half: 11, height: 5.6, wall: 0.4 }
 
 /**
- * A curved wall as a run of short straight segments, with openings.
- *
- * Straight segments rather than a curved mesh because each one is then a
- * cuboid for the physics as well as for the eye, and at this radius a segment
- * every 0.05 rad is under 0.7 m long -- the facets do not show.
+ * A gate through the silo wall: a rounded rectangle, `centre` above the floor.
+ * The office's is a round-topped door; the cafeteria's a wide pill, its foot
+ * sunk below the floor so its rounded ends come down to the steps.
  */
-function arcWall(from: number, to: number, r: number, height: number, openings: Opening[]): WallParts {
-  const out: WallParts = { solid: [], glass: [], collide: [] }
-  const step = 0.05
-  const n = Math.max(1, Math.round((to - from) / step))
-  const da = (to - from) / n
-  const seg = 2 * r * Math.sin(da / 2) + 0.04
-  for (let i = 0; i < n; i++) {
-    const a = from + (i + 0.5) * da
-    const hole = openings.find((o) => a > o.from && a < o.to)
-    if (!hole) {
-      const b = tangential(a, r, seg, height, WALL_T)
-      out.solid.push(b)
-      out.collide.push(b)
-      continue
-    }
-    // Lintel over every opening.
-    out.solid.push(tangential(a, r, seg, height - DOOR_HEAD, WALL_T, DOOR_HEAD))
-    if (hole.kind === 'window') {
-      out.solid.push(tangential(a, r, seg, 0.95, WALL_T))
-      out.glass.push(tangential(a, r, seg, DOOR_HEAD - 0.95, 0.04, 0.95))
-      out.collide.push(tangential(a, r, seg, height, WALL_T))
-    }
-  }
+export interface Gate {
+  halfW: number
+  halfH: number
+  radius: number
+  centre: number
+}
+export const OFFICE_GATE: Gate = { halfW: 1.15, halfH: 2.0, radius: 1.15, centre: 1.0 }
+export const HALL_GATE: Gate = { halfW: 3.7, halfH: 2.3, radius: 1.9, centre: 2.1 }
+/** The cafeteria's step: up from the deck onto a sill through the wall, and
+ *  down again into the hall. */
+export const HALL_SILL = { h: 0.3, out: -0.9, in: WALL_THICK + 0.9 }
+
+/** Half a gate's width at height `y` above the floor. */
+export function gateHalfAt(g: Gate, y: number) {
+  const dy = Math.abs(y - g.centre)
+  const straight = g.halfH - g.radius
+  if (dy <= straight) return g.halfW
+  const k = dy - straight
+  return k >= g.radius ? 0 : g.halfW - g.radius + Math.sqrt(g.radius ** 2 - k ** 2)
+}
+/** What a body can use: the width at its feet, less a little. */
+export const OFFICE_PASS = gateHalfAt(OFFICE_GATE, 0.05) - 0.05
+export const HALL_PASS = gateHalfAt(HALL_GATE, HALL_SILL.h + 0.05) - 0.08
+
+/** The cafeteria's camera screen, on the hall's far wall. */
+export const SCREEN = { half: 10, sill: 0.9, head: 4.6 }
+
+type Frame = typeof OFFICE_F
+type RoomSize = { from: number; to: number; half: number; height: number; wall: number }
+
+/** A room's walls and the passage through the silo wall, for the physics. */
+function roomSolids(F: Frame, R: RoomSize, pass: number, backGap = 0): Box[] {
+  const out: Box[] = []
+  const top = R.height + 0.3
+  // The silo wall either side of the gate's passage, and the room's front.
+  out.push(F.box(pass, R.half + R.wall, -0.02, R.from + 0.15, 0, top))
+  out.push(F.box(-R.half - R.wall, -pass, -0.02, R.from + 0.15, 0, top))
+  // Sides and back.
+  out.push(F.box(R.half, R.half + R.wall, R.from, R.to + R.wall, 0, top))
+  out.push(F.box(-R.half - R.wall, -R.half, R.from, R.to + R.wall, 0, top))
+  if (backGap > 0) {
+    out.push(F.box(backGap, R.half, R.to, R.to + R.wall, 0, top))
+    out.push(F.box(-R.half, -backGap, R.to, R.to + R.wall, 0, top))
+  } else out.push(F.box(-R.half, R.half, R.to, R.to + R.wall, 0, top))
+  // The floor, level with the deck.
+  out.push(F.box(-R.half - R.wall, R.half + R.wall, -0.3, R.to + R.wall, -0.3, 0))
   return out
 }
 
-/** Everything that makes up one room's walls. */
-export function roomWalls(room: Room): WallParts {
-  const m = mid(room)
-  const doorHalf = room.doorWidth / 2 / ROOM_INNER
-  const openings: Opening[] = [{ from: m - doorHalf, to: m + doorHalf, kind: 'door' }]
-  // The cafeteria's facade is glazed either side of its doors, so the room
-  // reads from the promenade and the promenade from the tables.
-  if (room.id === 'cafeteria') {
-    openings.push(
-      { from: room.from + 0.1, to: m - doorHalf - 0.06, kind: 'window' },
-      { from: m + doorHalf + 0.06, to: room.to - 0.1, kind: 'window' },
-    )
+/** The cafeteria's sill, for the physics: a ramp each side under the drawn
+ *  steps, which the capsule takes better than a square edge. */
+export function hallSillRamps(): Array<[Float32Array, Uint32Array]> {
+  const half = HALL_PASS
+  const ramp = (d0: number, h0: number, d1: number, h1: number): [Float32Array, Uint32Array] => {
+    const pts: Array<[number, number, number]> = [
+      [-half, d0, h0],
+      [half, d0, h0],
+      [half, d1, h1],
+      [-half, d1, h1],
+    ]
+    const v = new Float32Array(12)
+    pts.forEach(([sv, dv, h], i) => {
+      const [x, z] = HALL_F.to(sv, dv)
+      v.set([x, FLOOR + h, z], i * 3)
+    })
+    return [v, new Uint32Array([0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2])]
   }
-  const facade = arcWall(room.from, room.to, ROOM_INNER, room.height, openings)
-
-  // Radial side walls, from the facade out to the silo wall.
-  const sides = [room.from, room.to].map((a) =>
-    radialBox(a, ROOM_INNER - WALL_T / 2, SHAFT_RADIUS - 0.05, room.height, WALL_T),
-  )
-
-  return {
-    solid: [...facade.solid, ...sides],
-    glass: facade.glass,
-    collide: [...facade.collide, ...sides],
-  }
+  return [ramp(HALL_SILL.out, 0, 0, HALL_SILL.h), ramp(WALL_THICK, HALL_SILL.h, HALL_SILL.in, 0)]
 }
 
 // ---------------------------------------------------------------------------
 // Furniture
 // ---------------------------------------------------------------------------
 
+/** Where a table or a desk stands, and which way it is turned: its long side
+ *  runs along its local X. */
 export interface Table {
-  a: number
-  r: number
+  x: number
+  z: number
+  rotY: number
 }
 
+const placed = (F: Frame, sv: number, dv: number): Table => {
+  const [x, z] = F.to(sv, dv)
+  return { x, z, rotY: F.yaw }
+}
+
+/** A table's local axes in the world: along it (X) and across it (Z). */
+export const tableAxes = (t: Table) => ({
+  ax: Math.cos(t.rotY),
+  az: -Math.sin(t.rotY),
+  cx: Math.sin(t.rotY),
+  cz: Math.cos(t.rotY),
+})
+
+/** A box on a table's footprint, standing on the floor (or lifted). */
+export const tableBox = (t: Table, w: number, h: number, d: number, lift = 0): Box => ({
+  x: t.x,
+  y: FLOOR + lift + h / 2,
+  z: t.z,
+  w,
+  h,
+  d,
+  rotY: t.rotY,
+})
+
 /**
- * Cafeteria tables, in two rows, with a clear aisle from the doors straight
- * to the window. Two rows rather than three: three left 20 cm between one
- * row's chairs and the next, which is a room you can see but not cross.
+ * Cafeteria tables, in rows either side of an aisle that runs from the gate
+ * straight to the screen.
  */
 export const CAFE_TABLE = { w: 2.2, d: 0.95, h: 0.76 }
-export const cafeTables: Table[] = (() => {
-  const out: Table[] = []
-  const m = mid(CAFE)
-  const aisle = 0.13
-  for (const r of [15.7, 19.0]) {
-    const pitch = 3.5 / r
-    // Keep each table's END, not its centre, clear of what is beside it: the
-    // serving counter on one side and the plain side wall on the other.
-    const lo = CAFE.from + 3.0 / r
-    const hi = CAFE.to - 2.2 / r
-    for (const side of [-1, 1]) {
-      let a = m + side * (aisle + pitch / 2)
-      while (side < 0 ? a > lo : a < hi) {
-        out.push({ a, r })
-        a += side * pitch
-      }
-    }
-  }
-  return out
-})()
+export const cafeTables: Table[] = [4.4, 7.3, 10.2, 13.1].flatMap((dv) =>
+  [-8.3, -5.4, -2.5, 2.5, 5.4, 8.3].map((sv) => placed(HALL_F, sv, dv)),
+)
 
 export interface Seat {
   x: number
@@ -391,68 +410,50 @@ export interface Seat {
 }
 
 /** Four chairs to a table, two on each long side, facing in. */
-export const cafeChairs: Seat[] = cafeTables.flatMap(({ a, r }) => {
+export const cafeChairs: Seat[] = cafeTables.flatMap((t) => {
+  const { ax, az, cx, cz } = tableAxes(t)
   const seats: Seat[] = []
-  // Tangent along the table, and the radial direction across it.
-  const tx = -Math.sin(a)
-  const tz = Math.cos(a)
-  const rx = Math.cos(a)
-  const rz = Math.sin(a)
-  for (const across of [-1, 1]) {
+  for (const across of [-1, 1])
     for (const along of [-0.55, 0.55]) {
-      const x = rx * (r + across * 0.82) + tx * along
-      const z = rz * (r + across * 0.82) + tz * along
-      // Face back towards the table's centre line.
-      const fx = -across * rx
-      const fz = -across * rz
-      seats.push({ x, z, rotY: Math.atan2(fx, fz) })
+      seats.push({
+        x: t.x + ax * along + cx * across * 0.82,
+        z: t.z + az * along + cz * across * 0.82,
+        rotY: Math.atan2(-cx * across, -cz * across),
+      })
     }
-  }
   return seats
 })
 
-/** The serving counter, along the cafeteria's first side wall. */
-export const CAFE_COUNTER = radialBox(CAFE.from + 0.07, 14.6, 20.4, 1.02, 0.85)
+/** The serving counter, along the cafeteria's left-hand wall. */
+export const CAFE_COUNTER = HALL_F.box(-HALL.half + 0.05, -HALL.half + 0.9, 3.0, 13.0, 0, 1.02)
 
 export const SHERIFF_DESK = { w: 1.7, d: 0.82, h: 0.76 }
 /**
  * Desks either side of the walk from the door to the vault, facing the door.
  * The pair nearer the vault stands wide of it: the vault door swings out three
- * metres into the office, and at the old spacing it swung through a desk and
- * a chair.
+ * metres into the office.
  */
 export const sheriffDesks: Table[] = [
-  { a: mid(SHERIFF) - 0.15, r: 15.9 },
-  { a: mid(SHERIFF) + 0.15, r: 15.9 },
-  { a: mid(SHERIFF) - 0.21, r: 18.7 },
-  { a: mid(SHERIFF) + 0.21, r: 18.7 },
+  placed(OFFICE_F, -2.4, 3.0),
+  placed(OFFICE_F, 2.4, 3.0),
+  placed(OFFICE_F, -3.9, 5.8),
+  placed(OFFICE_F, 3.9, 5.8),
 ]
 
-/** A chair behind each desk, on the side away from the door. */
-export const sheriffChairs: Seat[] = sheriffDesks.map(({ a, r }) => {
-  const [x, z] = polar(a, r + 0.78)
-  // Facing in, towards the desk and the door beyond it.
-  return { x, z, rotY: Math.atan2(-Math.cos(a), -Math.sin(a)) }
+/** A chair behind each desk, on the side away from the door, facing it. */
+export const sheriffChairs: Seat[] = sheriffDesks.map((t) => {
+  const { cx, cz } = tableAxes(t)
+  // The table's local Z points back toward the door.
+  return { x: t.x - cx * 0.78, z: t.z - cz * 0.78, rotY: Math.atan2(cx, cz) }
 })
 
 /** Filing cabinets lined up against both side walls. */
-export const sheriffCabinets: Box[] = (() => {
-  const out: Box[] = []
-  for (const [a, side] of [
-    [SHERIFF.from, 1],
-    [SHERIFF.to, -1],
-  ] as const) {
-    for (let k = 0; k < 4; k++) {
-      const r = 14.4 + k * 0.62
-      // Step in off the side wall by the wall's half-thickness and the
-      // cabinet's half-depth, measured as an angle at this radius.
-      const off = (WALL_T / 2 + 0.32) / r
-      const [x, z] = polar(a + side * off, r)
-      out.push({ x, y: FLOOR + 0.66, z, w: 0.56, h: 1.32, d: 0.62, rotY: -a })
-    }
-  }
-  return out
-})()
+export const sheriffCabinets: Box[] = [-1, 1].flatMap((side) =>
+  [0, 1, 2, 3].map((k) => {
+    const s0 = side > 0 ? OFFICE.half - 0.62 : -OFFICE.half
+    return OFFICE_F.box(s0, s0 + 0.62, 1.7 + k * 0.62, 1.7 + k * 0.62 + 0.56, 0, 1.32)
+  }),
+)
 
 /** The deep portal the vault door sits in, standing proud of the back wall. */
 export function vaultPortal(): Box[] {
@@ -521,13 +522,16 @@ const CHAIR = { w: 0.46, h: 0.86, d: 0.46 }
 /** Every cuboid on level 1 that a body must not pass through. */
 export function level1Colliders(): Box[] {
   const out: Box[] = []
-  for (const room of ROOMS) out.push(...roomWalls(room).collide)
-  for (const t of cafeTables) out.push(tangential(t.a, t.r, CAFE_TABLE.w, CAFE_TABLE.h, CAFE_TABLE.d))
+  out.push(...roomSolids(OFFICE_F, OFFICE, OFFICE_PASS, VAULT_PORTAL.outer))
+  out.push(...roomSolids(HALL_F, HALL, HALL_PASS))
+  // The sill's flat, through the wall.
+  out.push(HALL_F.box(-HALL_PASS - 0.1, HALL_PASS + 0.1, 0, WALL_THICK, -0.2, HALL_SILL.h))
+  for (const t of cafeTables) out.push(tableBox(t, CAFE_TABLE.w, CAFE_TABLE.h, CAFE_TABLE.d))
   for (const c of cafeChairs) {
     out.push({ x: c.x, y: FLOOR + CHAIR.h / 2, z: c.z, w: CHAIR.w, h: CHAIR.h, d: CHAIR.d, rotY: c.rotY })
   }
   out.push(CAFE_COUNTER)
-  for (const t of sheriffDesks) out.push(tangential(t.a, t.r, SHERIFF_DESK.w, SHERIFF_DESK.h, SHERIFF_DESK.d))
+  for (const t of sheriffDesks) out.push(tableBox(t, SHERIFF_DESK.w, SHERIFF_DESK.h, SHERIFF_DESK.d))
   for (const c of sheriffChairs) {
     out.push({ x: c.x, y: FLOOR + CHAIR.h / 2, z: c.z, w: CHAIR.w, h: CHAIR.h, d: CHAIR.d, rotY: c.rotY })
   }

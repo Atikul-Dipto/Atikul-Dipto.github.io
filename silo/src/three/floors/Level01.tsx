@@ -1,34 +1,36 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { useFrame, useLoader } from '@react-three/fiber'
+import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { wastelandMaterial } from '../wasteland'
-import { PALETTE, SHAFT_RADIUS } from '../../content/floors'
+import { buildSurface, screenMaterial } from '../surface'
+import { PALETTE, SHAFT_RADIUS, WALL_THICK } from '../../content/floors'
 import {
-  CAFE,
   CAFE_COUNTER,
   CAFE_TABLE,
   CHAIR,
   CONSOLE_ANGLE,
   FLOOR,
+  HALL,
+  HALL_F,
+  HALL_GATE,
+  HALL_PASS,
+  HALL_SILL,
+  OFFICE,
+  OFFICE_F,
+  OFFICE_GATE,
   PORTRAIT_ANGLE,
-  ROOM_INNER,
-  SHERIFF,
+  SCREEN,
   SHERIFF_DESK,
   VAULT,
   VAULT_PORTAL,
-  WALL_T,
-  WINDOW,
   cafeChairs,
   cafeTables,
-  mid,
-  polar,
-  roomWalls,
   sheriffCabinets,
   sheriffChairs,
   sheriffDesks,
-  tangential,
+  tableAxes,
+  tableBox,
 } from '../../content/level1'
-import type { Box, Room, Seat } from '../../content/level1'
+import type { Box, Gate, Seat, Table } from '../../content/level1'
 import { identity } from '../../content/portfolio'
 import { daylight } from '../../lib/daylight'
 import { useSilo } from '../../state/useSilo'
@@ -67,42 +69,7 @@ function boxes(list: Box[], material: THREE.Material, shadow = true) {
   return mesh
 }
 
-/** A flat ring sector with polar UVs: u round the arc, v out along the radius. */
-function sector(r0: number, r1: number, a0: number, a1: number, y: number, down: boolean, uScale = 1, vScale = 1) {
-  const segs = Math.max(8, Math.round((a1 - a0) * 40))
-  const pos: number[] = []
-  const uv: number[] = []
-  const idx: number[] = []
-  for (let i = 0; i <= segs; i++) {
-    const a = a0 + ((a1 - a0) * i) / segs
-    for (const [r, v] of [
-      [r0, 0],
-      [r1, 1],
-    ]) {
-      pos.push(Math.cos(a) * r, y, Math.sin(a) * r)
-      uv.push((i / segs) * uScale, v * vScale)
-    }
-    if (i > 0) {
-      const b = (i - 1) * 2
-      if (down) idx.push(b, b + 1, b + 2, b + 1, b + 3, b + 2)
-      else idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3)
-    }
-  }
-  const g = new THREE.BufferGeometry()
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3))
-  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
-  g.setIndex(idx)
-  g.computeVertexNormals()
-  return g
-}
 
-/** A vertical band on a cylinder, facing inward, between two world angles. */
-function band(r: number, a0: number, a1: number, y0: number, h: number) {
-  // Cylinder theta is measured from +Z, opposite in sense to world angle.
-  const g = new THREE.CylinderGeometry(r, r, h, Math.max(8, Math.round((a1 - a0) * 40)), 1, true, Math.PI / 2 - a1, a1 - a0)
-  g.translate(0, y0 + h / 2, 0)
-  return g
-}
 
 function canvasTexture(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void) {
   const c = document.createElement('canvas')
@@ -117,23 +84,6 @@ function canvasTexture(w: number, h: number, paint: (ctx: CanvasRenderingContext
   return t
 }
 
-function signTexture(text: string, sub: string) {
-  return canvasTexture(512, 128, (ctx) => {
-    ctx.fillStyle = '#16120f'
-    ctx.fillRect(0, 0, 512, 128)
-    ctx.strokeStyle = 'rgba(201,153,107,0.6)'
-    ctx.lineWidth = 4
-    ctx.strokeRect(6, 6, 500, 116)
-    ctx.fillStyle = PALETTE.brassHot
-    ctx.font = 'bold 54px "Segoe UI", system-ui, sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(text, 256, 56)
-    ctx.font = 'bold 17px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = 'rgba(237,233,230,0.7)'
-    ctx.fillText(sub, 256, 104)
-  })
-}
 
 // ===========================================================================
 // Arrival: the personnel monitor and the portrait, facing the bridge
@@ -290,94 +240,133 @@ function PortraitWindow() {
 }
 
 // ===========================================================================
-// Room shells: walls, glazing, ceilings, floors
+// The rooms behind the wall
 // ===========================================================================
 
-function RoomShell({ room }: { room: Room }) {
-  const parts = useMemo(() => {
-    const group = new THREE.Group()
-    const walls = roomWalls(room)
-    // The facades are the same precast cladding as the shaft wall. Each wall
-    // box is one 0.05 rad slice, about 0.7 m, and half a tile across it is
-    // one panel column -- so the joints land on the slices.
-    const c = tiled(claddingSurface(), 0.5, room.height / 4)
-    const wallMat = new THREE.MeshStandardMaterial({
-      color: room.id === 'sheriff' ? '#c9cbc6' : '#ffffff',
-      roughness: 0.9,
-      metalness: 0.08,
-      map: c.map,
-      normalMap: c.normalMap,
-      roughnessMap: c.roughnessMap,
-    })
-    group.add(boxes(walls.solid, wallMat))
-    const glass = new THREE.MeshStandardMaterial({
-      color: '#bcd3d8',
-      transparent: true,
-      opacity: 0.16,
-      roughness: 0.05,
-      metalness: 0.2,
-      envMapIntensity: 1.3,
-      depthWrite: false,
-    })
-    if (walls.glass.length) group.add(boxes(walls.glass, glass, false))
+type Frame = typeof OFFICE_F
+type RoomSize = typeof OFFICE
 
-    // Ceiling slab, drawn twice: its soffit facing down into the room and its
-    // top facing up into the atrium.
-    const ceilY = FLOOR + room.height
-    const conc = tiled(concreteSurface(), 10, 3)
-    const ceilMat =
-      room.id === 'sheriff'
-        ? new THREE.MeshStandardMaterial({ map: woodCeiling(), roughness: 0.8, color: '#a88a68' })
-        : new THREE.MeshStandardMaterial({ color: '#a39a8f', roughness: 0.95, map: conc.map, normalMap: conc.normalMap })
-    const soffit = new THREE.Mesh(
-      sector(ROOM_INNER - WALL_T / 2, SHAFT_RADIUS, room.from, room.to, ceilY, true, room.id === 'sheriff' ? 1 : 6, room.id === 'sheriff' ? 1 : 2),
-      ceilMat,
-    )
-    soffit.receiveShadow = true
-    group.add(soffit)
-    const roof = new THREE.Mesh(
-      sector(ROOM_INNER - WALL_T / 2, SHAFT_RADIUS, room.from, room.to, ceilY + 0.3, false),
-      new THREE.MeshStandardMaterial({ color: PALETTE.concreteDark, roughness: 1 }),
-    )
-    roof.castShadow = true
-    roof.receiveShadow = true
-    group.add(roof)
+/** A group in a room's frame: local x = s, local z = -d, origin on the deck
+ *  floor at the silo wall's inner face. */
+function framed(F: Frame) {
+  const g = new THREE.Group()
+  const [x, z] = F.to(0, 0)
+  g.position.set(x, FLOOR, z)
+  g.rotation.y = F.yaw
+  return g
+}
 
-    // A floor finish over the deck plate: polished concrete in the
-    // cafeteria, worn linoleum in the office.
-    const floorMat =
-      room.id === 'sheriff'
-        ? new THREE.MeshStandardMaterial({ color: '#5e5a4c', roughness: 0.62, metalness: 0.05 })
-        : new THREE.MeshStandardMaterial({ color: '#8d867b', roughness: 0.38, metalness: 0.08, map: conc.map })
-    const floor = new THREE.Mesh(sector(ROOM_INNER, SHAFT_RADIUS - 0.06, room.from + 0.004, room.to - 0.004, FLOOR + 0.006, false, 6, 2), floorMat)
-    floor.receiveShadow = true
-    group.add(floor)
+/** A rounded rectangle as a path, centred on (0, cy). */
+function roundedRect<T extends THREE.Path>(p: T, halfW: number, halfH: number, r: number, cy: number, reverse = false) {
+  const x0 = -halfW
+  const x1 = halfW
+  const y0 = cy - halfH
+  const y1 = cy + halfH
+  if (!reverse) {
+    p.moveTo(x0 + r, y0)
+    p.lineTo(x1 - r, y0)
+    p.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0, false)
+    p.lineTo(x1, y1 - r)
+    p.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2, false)
+    p.lineTo(x0 + r, y1)
+    p.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, false)
+    p.lineTo(x0, y0 + r)
+    p.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, false)
+  } else {
+    p.moveTo(x0 + r, y0)
+    p.absarc(x0 + r, y0 + r, r, Math.PI * 1.5, Math.PI, true)
+    p.lineTo(x0, y1 - r)
+    p.absarc(x0 + r, y1 - r, r, Math.PI, Math.PI / 2, true)
+    p.lineTo(x1 - r, y1)
+    p.absarc(x1 - r, y1 - r, r, Math.PI / 2, 0, true)
+    p.lineTo(x1, y0 + r)
+    p.absarc(x1 - r, y0 + r, r, 0, -Math.PI / 2, true)
+  }
+  return p
+}
 
-    // Signage over the door, on the promenade side.
-    const m = mid(room)
-    const [sx, sz] = polar(m, ROOM_INNER - WALL_T / 2 - 0.03)
-    const sign = new THREE.Mesh(
-      new THREE.PlaneGeometry(2.4, 0.6),
-      new THREE.MeshStandardMaterial({
-        map: room.id === 'sheriff' ? signTexture('SHERIFF', 'RECORDS · LEVEL 01') : signTexture('CAFETERIA', 'LEVEL 01'),
-        emissive: new THREE.Color('#ffffff'),
-        emissiveMap: room.id === 'sheriff' ? signTexture('SHERIFF', 'RECORDS · LEVEL 01') : signTexture('CAFETERIA', 'LEVEL 01'),
-        emissiveIntensity: 0.6,
-      }),
-    )
-    sign.position.set(sx, FLOOR + 3.15, sz)
-    // Face out, towards the promenade and the axis.
-    sign.rotation.y = Math.PI / 2 - m + Math.PI
-    group.add(sign)
-    return group
-  }, [room])
+/** A rectangle of wall with a gate-shaped hole in it, as a flat mesh. */
+function wallWithHole(halfW: number, y0: number, y1: number, gate: Gate | null, mat: THREE.Material, round?: { r: number; cy: number }) {
+  const sh = new THREE.Shape()
+  sh.moveTo(-halfW, y0)
+  sh.lineTo(halfW, y0)
+  sh.lineTo(halfW, y1)
+  sh.lineTo(-halfW, y1)
+  sh.lineTo(-halfW, y0)
+  if (gate) sh.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  if (round) {
+    const h = new THREE.Path()
+    h.absarc(0, round.cy, round.r, 0, Math.PI * 2, true)
+    sh.holes.push(h)
+  }
+  return new THREE.Mesh(new THREE.ShapeGeometry(sh, 32), mat)
+}
 
-  return <primitive object={parts} />
+/**
+ * The passage through the silo wall: the gate's outline extruded through the
+ * wall's thickness, with a face round it standing just proud of the wall on
+ * the deck side. Its trim is a separate ring, so it can be brass or timber.
+ */
+function gatePassage(gate: Gate, lining: THREE.Material, trim: THREE.Material) {
+  const g = new THREE.Group()
+  // The lining's outside follows the outline too: a rectangle here showed as
+  // a block over the opening and a frame round it inside.
+  const pad = 0.12
+  const outer = roundedRect(new THREE.Shape(), gate.halfW + pad, gate.halfH + pad, gate.radius + pad, gate.centre)
+  outer.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: WALL_THICK + 0.04, bevelEnabled: false, curveSegments: 24 }), lining)
+  body.position.z = -WALL_THICK - 0.01
+  body.receiveShadow = true
+  g.add(body)
+  // The trim: a band round the outline on the deck face.
+  const ring = new THREE.Shape()
+  roundedRect(ring, gate.halfW + 0.16, gate.halfH + 0.16, gate.radius + 0.16, gate.centre)
+  ring.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  const band = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.08, bevelEnabled: false, curveSegments: 24 }), trim)
+  band.position.z = 0.02
+  g.add(band)
+  return g
+}
+
+/** The shell of a room behind the wall: floor, ceiling, four walls. */
+function roomShell(
+  g: THREE.Group,
+  R: RoomSize,
+  gate: Gate,
+  mats: { wall: THREE.Material; floor: THREE.Material; ceil: THREE.Material },
+  back?: { r: number; cy: number },
+) {
+  const len = R.to - R.from
+  // Out through the passage in the wall too, to meet the deck.
+  // Starting at the wall's face, so it does not overlap the deck and flicker.
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(R.half * 2, R.to), mats.floor)
+  floor.rotation.x = -Math.PI / 2
+  floor.position.set(0, 0.006, -R.to / 2)
+  floor.receiveShadow = true
+  g.add(floor)
+  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(R.half * 2, len), mats.ceil)
+  ceil.rotation.x = Math.PI / 2
+  ceil.position.set(0, R.height, -(R.from + R.to) / 2)
+  g.add(ceil)
+  for (const side of [-1, 1]) {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(len, R.height), mats.wall)
+    w.position.set(side * R.half, R.height / 2, -(R.from + R.to) / 2)
+    w.rotation.y = -side * (Math.PI / 2)
+    w.receiveShadow = true
+    g.add(w)
+  }
+  const backWall = wallWithHole(R.half, 0, R.height, null, mats.wall, back)
+  backWall.position.z = -R.to
+  backWall.receiveShadow = true
+  g.add(backWall)
+  const front = wallWithHole(R.half, -0.4, R.height, gate, mats.wall)
+  front.position.z = -R.from + 0.01
+  front.rotation.y = Math.PI
+  g.add(front)
 }
 
 function woodCeiling() {
   const t = canvasTexture(512, 256, (ctx) => {
-    // Radial planks, so the sector's polar UVs turn them into spokes.
     for (let i = 0; i < 32; i++) {
       const shade = 70 + ((i * 37) % 23)
       ctx.fillStyle = `rgb(${shade + 40},${shade + 22},${shade})`
@@ -386,14 +375,44 @@ function woodCeiling() {
       ctx.fillRect(i * 16, 0, 2, 256)
     }
   })
-  t.repeat.set(3, 1)
+  t.repeat.set(3, 2)
   return t
 }
 
-/** Green-tiled lower walls in the office. */
+// ---- the sheriff's office --------------------------------------------------
+
+function OfficeShell() {
+  const phase = useSilo((s) => s.phase)
+  const parts = useMemo(() => {
+    const g = framed(OFFICE_F)
+    const c = tiled(claddingSurface(), OFFICE.half / 2, OFFICE.height / 4)
+    const wall = new THREE.MeshStandardMaterial({ color: '#c9cbc6', roughness: 0.9, metalness: 0.08, map: c.map, normalMap: c.normalMap, side: THREE.DoubleSide })
+    const floor = new THREE.MeshStandardMaterial({ color: '#5e5a4c', roughness: 0.62, metalness: 0.05 })
+    const ceil = new THREE.MeshStandardMaterial({ map: woodCeiling(), roughness: 0.8, color: '#a88a68', side: THREE.DoubleSide })
+    roomShell(g, OFFICE, OFFICE_GATE, { wall, floor, ceil }, { r: VAULT.radius + 0.02, cy: VAULT.centre })
+    const lining = new THREE.MeshStandardMaterial({ color: '#7d786d', roughness: 0.85 })
+    const brass = new THREE.MeshStandardMaterial({ color: '#b68a57', roughness: 0.35, metalness: 0.9 })
+    g.add(gatePassage(OFFICE_GATE, lining, brass))
+    // Two round lamps either side of the door, on the deck side.
+    const lampMat = new THREE.MeshStandardMaterial({ color: '#fff3dc', emissive: new THREE.Color('#ffd9a0'), emissiveIntensity: 2.2 })
+    for (const sx of [-1.75, 1.75]) {
+      const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 16, 12), lampMat)
+      lamp.position.set(sx, 2.6, 0.18)
+      g.add(lamp)
+    }
+    const light = new THREE.PointLight('#ffd9a0', 10, 7, 2)
+    light.position.set(0, 3.2, 1.2)
+    g.add(light)
+    return g
+  }, [])
+  parts.visible = phase !== 'exterior'
+  return <primitive object={parts} />
+}
+
+/** Green-tiled lower walls in the office, all the way round. */
 function Wainscot() {
   const parts = useMemo(() => {
-    const group = new THREE.Group()
+    const g = framed(OFFICE_F)
     const tex = (len: number) => {
       const t = canvasTexture(128, 128, (ctx) => {
         ctx.fillStyle = '#20403a'
@@ -410,28 +429,177 @@ function Wainscot() {
     }
     const mat = (len: number) =>
       new THREE.MeshStandardMaterial({ map: tex(len), roughness: 0.25, metalness: 0.05, envMapIntensity: 0.8, side: THREE.DoubleSide })
-
-    const m = mid(SHERIFF)
-    const doorHalf = SHERIFF.doorWidth / 2 / ROOM_INNER
-    // Inside face of the facade, either side of the door.
-    for (const [a0, a1] of [
-      [SHERIFF.from + 0.01, m - doorHalf],
-      [m + doorHalf, SHERIFF.to - 0.01],
-    ]) {
-      const r = ROOM_INNER + WALL_T / 2 + 0.012
-      group.add(new THREE.Mesh(band(r, a0, a1, FLOOR, 1.3), mat((a1 - a0) * r)))
+    const len = OFFICE.to - OFFICE.from
+    const panel = (w: number, x: number, z: number, ry: number) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.3), mat(w))
+      m.position.set(x, 0.65, z)
+      m.rotation.y = ry
+      g.add(m)
     }
-    // Back wall, either side of the vault portal.
-    const vHalf = (VAULT_PORTAL.outer - 0.02) / (SHAFT_RADIUS - 0.03)
-    for (const [a0, a1] of [
-      [SHERIFF.from + 0.01, VAULT.angle - vHalf],
-      [VAULT.angle + vHalf, SHERIFF.to - 0.01],
-    ]) {
-      const r = SHAFT_RADIUS - 0.03
-      group.add(new THREE.Mesh(band(r, a0, a1, FLOOR, 1.3), mat((a1 - a0) * r)))
-    }
-    return group
+    panel(len, -OFFICE.half + 0.012, -(OFFICE.from + OFFICE.to) / 2, Math.PI / 2)
+    panel(len, OFFICE.half - 0.012, -(OFFICE.from + OFFICE.to) / 2, -Math.PI / 2)
+    // Front and back, either side of the door and the vault's portal.
+    for (const [a, b] of [
+      [OFFICE_GATE.halfW + 0.2, OFFICE.half],
+      [-OFFICE.half, -OFFICE_GATE.halfW - 0.2],
+    ])
+      panel(b - a, (a + b) / 2, -OFFICE.from - 0.012, Math.PI)
+    for (const [a, b] of [
+      [VAULT_PORTAL.outer + 0.02, OFFICE.half],
+      [-OFFICE.half, -VAULT_PORTAL.outer - 0.02],
+    ])
+      panel(b - a, (a + b) / 2, -OFFICE.to + 0.012, 0)
+    return g
   }, [])
+  return <primitive object={parts} />
+}
+
+// ---- the cafeteria -----------------------------------------------------------
+
+function HallShell() {
+  const phase = useSilo((s) => s.phase)
+  const parts = useMemo(() => {
+    const g = framed(HALL_F)
+    const conc = tiled(concreteSurface(), 10, 3)
+    const wall = new THREE.MeshStandardMaterial({ color: '#cdbfa8', roughness: 0.92, side: THREE.DoubleSide })
+    const floor = new THREE.MeshStandardMaterial({ color: '#8d867b', roughness: 0.7, metalness: 0.05, map: conc.map })
+    const ceil = new THREE.MeshStandardMaterial({ color: '#a39a8f', roughness: 0.95, map: conc.map, side: THREE.DoubleSide })
+    roomShell(g, HALL, HALL_GATE, { wall, floor, ceil })
+    // Dark timber panelling round the lower walls.
+    const wood = new THREE.MeshStandardMaterial({ color: '#4a3326', roughness: 0.7, side: THREE.DoubleSide })
+    const len = HALL.to - HALL.from
+    for (const side of [-1, 1]) {
+      const p = new THREE.Mesh(new THREE.PlaneGeometry(len, 1.1), wood)
+      p.position.set(side * (HALL.half - 0.012), 0.55, -(HALL.from + HALL.to) / 2)
+      p.rotation.y = -side * (Math.PI / 2)
+      g.add(p)
+    }
+    // The opening: a pill through the wall, timber-lined, a brass rim.
+    const lining = new THREE.MeshStandardMaterial({ color: '#5a3f2e', roughness: 0.6 })
+    const brass = new THREE.MeshStandardMaterial({ color: '#c49a62', roughness: 0.3, metalness: 0.9 })
+    g.add(gatePassage(HALL_GATE, lining, brass))
+    // Steps up from the deck onto the sill, and down again into the hall.
+    const stone = new THREE.MeshStandardMaterial({ color: '#6f675d', roughness: 0.8 })
+    const nosing = new THREE.MeshStandardMaterial({ color: '#c49a62', roughness: 0.35, metalness: 0.85 })
+    const w = HALL_PASS * 2 + 0.5
+    const step = (d0: number, d1: number, h: number) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d1 - d0), stone)
+      m.position.set(0, h / 2, -(d0 + d1) / 2)
+      m.receiveShadow = true
+      m.castShadow = true
+      g.add(m)
+      const n = new THREE.Mesh(new THREE.BoxGeometry(w, 0.03, 0.05), nosing)
+      n.position.set(0, h - 0.014, d0 < 0 ? -d0 - 0.02 : -d1 + 0.02)
+      g.add(n)
+    }
+    step(HALL_SILL.out, HALL_SILL.out / 2, HALL_SILL.h / 2)
+    step(HALL_SILL.out / 2, WALL_THICK, HALL_SILL.h)
+    step(WALL_THICK, (WALL_THICK + HALL_SILL.in) / 2, HALL_SILL.h / 2)
+    // Hourglass sconces over the opening, on the deck side.
+    const glow = new THREE.MeshStandardMaterial({ color: '#ffe2b0', emissive: new THREE.Color('#ffb860'), emissiveIntensity: 2.4 })
+    const cone = new THREE.CylinderGeometry(0.2, 0.03, 0.26, 20, 1, true)
+    for (const sx of [-3.4, 0, 3.4]) {
+      const lamp = new THREE.Group()
+      const up = new THREE.Mesh(cone, glow)
+      up.position.y = 0.13
+      const down = new THREE.Mesh(cone, glow)
+      down.rotation.x = Math.PI
+      down.position.y = -0.13
+      lamp.add(up, down)
+      lamp.position.set(sx, HALL_GATE.centre + HALL_GATE.halfH + 0.75, 0.25)
+      g.add(lamp)
+    }
+    // Warm light along the walls, so the hall is not a black box round its
+    // lit middle.
+    for (const [sx, dz] of [
+      [-9.5, 4],
+      [9.5, 4],
+      [-9.5, 11.5],
+      [9.5, 11.5],
+      [0, 2.6],
+    ]) {
+      const l = new THREE.PointLight('#ffdcae', 16, 13, 1.6)
+      l.position.set(sx, 3.8, -dz)
+      g.add(l)
+    }
+    const cove = new THREE.MeshStandardMaterial({ color: '#ffe8c8', emissive: '#ffd59c', emissiveIntensity: 1.4 })
+    for (const side of [-1, 1]) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, HALL.to - HALL.from - 0.4), cove)
+      strip.position.set(side * (HALL.half - 0.06), HALL.height - 0.25, -(HALL.from + HALL.to) / 2)
+      g.add(strip)
+    }
+    const wash = new THREE.PointLight('#ffc27a', 20, 10, 2)
+    wash.position.set(0, HALL_GATE.centre + HALL_GATE.halfH + 0.5, 1.6)
+    g.add(wash)
+    return g
+  }, [])
+  parts.visible = phase !== 'exterior'
+  return <primitive object={parts} />
+}
+
+/**
+ * The view of the surface on the hall's far wall: the silo's camera, behind
+ * glass. A real view with depth and light -- see three/surface.ts -- that
+ * holds still as you walk past, because the camera does.
+ */
+function CameraScreen() {
+  const gl = useThree((s) => s.gl)
+  const surface = useMemo(() => buildSurface(), [])
+  const screen = useMemo(() => screenMaterial(surface.target.texture), [surface])
+  const lights = useRef<THREE.PointLight[]>([])
+  const frame = useRef(0)
+  useEffect(() => () => surface.dispose(), [surface])
+
+  const parts = useMemo(() => {
+    const g = framed(HALL_F)
+    const w = SCREEN.half * 2
+    const h = SCREEN.head - SCREEN.sill
+    const z = -HALL.to + 0.04
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(w, h), screen.material)
+    pane.position.set(0, SCREEN.sill + h / 2, z)
+    g.add(pane)
+    // The glass in front: barely there, but it catches the room.
+    const glass = new THREE.Mesh(
+      new THREE.PlaneGeometry(w, h),
+      new THREE.MeshPhysicalMaterial({ color: '#ffffff', roughness: 0.04, metalness: 0, transparent: true, opacity: 0.08, envMapIntensity: 2.2, clearcoat: 1, depthWrite: false }),
+    )
+    glass.position.set(0, SCREEN.sill + h / 2, z + 0.05)
+    g.add(glass)
+    // A steel bezel and two mullions.
+    const steel = new THREE.MeshStandardMaterial({ color: '#2f2c29', roughness: 0.45, metalness: 0.8 })
+    const bar = (bw: number, bh: number, x: number, y: number) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(bw, bh, 0.16), steel)
+      m.position.set(x, y, z + 0.06)
+      g.add(m)
+    }
+    bar(w + 0.4, 0.2, 0, SCREEN.sill - 0.1)
+    bar(w + 0.4, 0.2, 0, SCREEN.head + 0.1)
+    bar(0.2, h + 0.4, -w / 2 - 0.1, SCREEN.sill + h / 2)
+    bar(0.2, h + 0.4, w / 2 + 0.1, SCREEN.sill + h / 2)
+    for (const x of [-w / 6, w / 6]) bar(0.08, h, x, SCREEN.sill + h / 2)
+    // Its light, falling into the room.
+    const ls: THREE.PointLight[] = []
+    for (const x of [-5, 5]) {
+      const l = new THREE.PointLight('#c9d6d8', 10, 16, 2)
+      l.position.set(x, 3, z + 2.4)
+      g.add(l)
+      ls.push(l)
+    }
+    lights.current = ls
+    return g
+  }, [screen])
+
+  useFrame(({ clock }) => {
+    const d = daylight()
+    screen.uniforms.uTime.value = clock.elapsedTime
+    // A few times a second is plenty: the light changes over minutes.
+    if (frame.current++ % 4 === 0) surface.render(gl, d, clock.elapsedTime)
+    for (const l of lights.current) {
+      l.color.copy(d.horizon).lerp(d.sky, 0.4).lerp(new THREE.Color('#c9d6d8'), 0.5)
+      l.intensity = 4 + d.glow * 16
+    }
+  })
+
   return <primitive object={parts} />
 }
 
@@ -459,7 +627,6 @@ function Chairs({ seats, seatColor, frameColor }: { seats: Seat[]; seatColor: st
         [-0.19, 0.19],
         [0.19, 0.19],
       ]) {
-        // Rotate the leg offset into the chair's frame.
         const c = Math.cos(s.rotY)
         const sn = Math.sin(s.rotY)
         legList.push({ x: s.x + lx * c + lz * sn, y: FLOOR + 0.22, z: s.z - lx * sn + lz * c, w: 0.03, h: 0.44, d: 0.03, rotY: s.rotY })
@@ -471,8 +638,8 @@ function Chairs({ seats, seatColor, frameColor }: { seats: Seat[]; seatColor: st
   return <primitive object={parts} />
 }
 
-/** Tables: a top and four legs, plus what was left on them. */
-function Tables({ list, size, topColor }: { list: Array<{ a: number; r: number }>; size: { w: number; d: number; h: number }; topColor: string }) {
+/** Tables: a top and four legs. */
+function Tables({ list, size, topColor }: { list: Table[]; size: { w: number; d: number; h: number }; topColor: string }) {
   const parts = useMemo(() => {
     const group = new THREE.Group()
     const p = tiled(plateSurface(), 2, 1)
@@ -481,22 +648,18 @@ function Tables({ list, size, topColor }: { list: Array<{ a: number; r: number }
     const tops: Box[] = []
     const legs: Box[] = []
     for (const t of list) {
-      const top = tangential(t.a, t.r, size.w, 0.045, size.d, size.h - 0.045)
-      tops.push(top)
-      const tx = -Math.sin(t.a)
-      const tz = Math.cos(t.a)
-      const rx = Math.cos(t.a)
-      const rz = Math.sin(t.a)
+      tops.push(tableBox(t, size.w, 0.045, size.d, size.h - 0.045))
+      const { ax, az, cx, cz } = tableAxes(t)
       for (const along of [-size.w / 2 + 0.1, size.w / 2 - 0.1])
         for (const across of [-size.d / 2 + 0.08, size.d / 2 - 0.08]) {
           legs.push({
-            x: rx * (t.r + across) + tx * along,
+            x: t.x + ax * along + cx * across,
             y: FLOOR + (size.h - 0.045) / 2,
-            z: rz * (t.r + across) + tz * along,
+            z: t.z + az * along + cz * across,
             w: 0.05,
             h: size.h - 0.045,
             d: 0.05,
-            rotY: top.rotY,
+            rotY: t.rotY,
           })
         }
     }
@@ -535,14 +698,8 @@ function TableProps() {
     let nb = 0
     const top = FLOOR + CAFE_TABLE.h
     for (const t of cafeTables) {
-      const tx = -Math.sin(t.a)
-      const tz = Math.cos(t.a)
-      const rx = Math.cos(t.a)
-      const rz = Math.sin(t.a)
-      const at = (along: number, across: number): [number, number] => [
-        rx * (t.r + across) + tx * along,
-        rz * (t.r + across) + tz * along,
-      ]
+      const { ax, az, cx, cz } = tableAxes(t)
+      const at = (along: number, across: number): [number, number] => [t.x + ax * along + cx * across, t.z + az * along + cz * across]
       const nPlates = 1 + Math.floor(rand() * 3)
       for (let k = 0; k < nPlates; k++) {
         const [x, z] = at((rand() - 0.5) * 1.6, (rand() > 0.5 ? 1 : -1) * 0.22)
@@ -552,12 +709,11 @@ function TableProps() {
         dummy.updateMatrix()
         plates.setMatrixAt(np++, dummy.matrix)
         if (rand() > 0.35) {
-          dummy.position.set(x + tx * 0.24, top + 0.05, z + tz * 0.24)
+          dummy.position.set(x + ax * 0.24, top + 0.05, z + az * 0.24)
           dummy.updateMatrix()
           cups.setMatrixAt(nc++, dummy.matrix)
         }
       }
-      // A cluster of condiments in the middle of most tables.
       if (rand() > 0.2) {
         for (let k = 0; k < 3; k++) {
           const [x, z] = at(-0.08 + k * 0.08, 0)
@@ -584,84 +740,13 @@ function TableProps() {
 // The cafeteria
 // ===========================================================================
 
-/**
- * The view out of the cafeteria window: the surface, as the silo's cameras
- * show it -- a scorched plain, dead trees, ash sky by day and stars by night.
- *
- * It is a screen, not a window, and it is static: an image mapped onto the
- * glass, not a scene sampled by the direction from the eye, so it does not
- * slide past as you walk along it. The hour still comes from lib/daylight, so
- * it is the same time out there as in the dome.
- */
-function CafeWindow() {
-  const view = useMemo(() => wastelandMaterial(), [])
-  const uniforms = view.uniforms
-  const light = useRef<THREE.PointLight>(null)
-  const light2 = useRef<THREE.PointLight>(null)
-  const geo = useMemo(() => band(SHAFT_RADIUS - 0.08, WINDOW.from, WINDOW.to, FLOOR + WINDOW.sill, WINDOW.head - WINDOW.sill), [])
-
-  useFrame(() => {
-    const d = daylight()
-    uniforms.uHorizon.value.copy(d.horizon)
-    uniforms.uGlow.value = d.glow
-    uniforms.uNight.value = d.night
-    for (const l of [light.current, light2.current]) {
-      if (!l) continue
-      l.color.copy(d.horizon).lerp(d.sky, 0.4)
-      l.intensity = 6 + d.glow * 34
-    }
-  })
-
-  const m = mid(CAFE)
-  const frame = useMemo(() => {
-    const group = new THREE.Group()
-    const steel = new THREE.MeshStandardMaterial({ color: '#2f2c29', roughness: 0.45, metalness: 0.8 })
-    const conc = new THREE.MeshStandardMaterial({ color: '#6d665d', roughness: 0.95 })
-    const r = SHAFT_RADIUS - 0.12
-    // Sill and head.
-    for (const [y, h] of [
-      [WINDOW.sill - 0.18, 0.36],
-      [WINDOW.head + 0.18, 0.36],
-    ]) {
-      group.add(new THREE.Mesh(band(r - 0.02, WINDOW.from - 0.02, WINDOW.to + 0.02, FLOOR + y - h / 2, h), conc))
-    }
-    // Mullions every 3 m, and columns at either end.
-    const n = Math.round(((WINDOW.to - WINDOW.from) * r) / 3)
-    for (let i = 0; i <= n; i++) {
-      const a = WINDOW.from + ((WINDOW.to - WINDOW.from) * i) / n
-      const end = i === 0 || i === n
-      const [x, z] = polar(a, r - (end ? 0.25 : 0.06))
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(end ? 0.7 : 0.1, CAFE.height, end ? 0.6 : 0.16), end ? conc : steel)
-      mesh.position.set(x, FLOOR + CAFE.height / 2, z)
-      mesh.rotation.y = -a - Math.PI / 2
-      mesh.castShadow = true
-      group.add(mesh)
-    }
-    return group
-  }, [])
-
-  return (
-    <group>
-      <mesh geometry={geo} material={view.material} />
-      <primitive object={frame} />
-      {/* Light coming in through the glass. */}
-      {[-0.32, 0.32].map((off, i) => {
-        const [x, z] = polar(m + off, SHAFT_RADIUS - 2.4)
-        return (
-          <pointLight key={off} ref={i ? light2 : light} position={[x, FLOOR + 3, z]} distance={16} decay={2} />
-        )
-      })}
-    </group>
-  )
-}
-
-/** The radial ceiling: a ring of petal-shaped lights round a central disc. */
+/** The ceiling rose: a ring of petal-shaped lights round a central disc,
+ *  and plain panels toward the corners of the hall. */
 function CafeCeiling() {
   const parts = useMemo(() => {
-    const group = new THREE.Group()
-    const m = mid(CAFE)
-    const [cx, cz] = polar(m, 17.6)
-    const y = FLOOR + CAFE.height - 0.03
+    const group = framed(HALL_F)
+    const cz = -8.8
+    const y = HALL.height - 0.03
     const glow = new THREE.MeshStandardMaterial({
       color: '#fff6e8',
       emissive: new THREE.Color('#fff1dc'),
@@ -670,63 +755,53 @@ function CafeCeiling() {
       side: THREE.DoubleSide,
     })
     const recess = new THREE.MeshStandardMaterial({ color: '#4c463f', roughness: 0.9, side: THREE.DoubleSide })
-
-    // Recessed ring round the whole rose.
     const ring = new THREE.Mesh(new THREE.CylinderGeometry(4.3, 4.3, 0.55, 64, 1, true), recess)
-    ring.position.set(cx, y - 0.27, cz)
+    ring.position.set(0, y - 0.27, cz)
     group.add(ring)
     const inner = new THREE.Mesh(new THREE.CylinderGeometry(1.15, 1.15, 0.3, 48, 1, true), recess)
-    inner.position.set(cx, y - 0.15, cz)
+    inner.position.set(0, y - 0.15, cz)
     group.add(inner)
-
     const disc = new THREE.Mesh(new THREE.CircleGeometry(1.0, 48), glow)
     disc.rotation.x = Math.PI / 2
-    disc.position.set(cx, y, cz)
+    disc.position.set(0, y, cz)
     group.add(disc)
-
     const petal = new THREE.Shape()
     petal.absellipse(0, 0, 1.25, 0.42, 0, Math.PI * 2, false, 0)
     const petalGeo = new THREE.ShapeGeometry(petal, 24)
-    const petals = 12
-    for (let i = 0; i < petals; i++) {
-      const a = (i / petals) * Math.PI * 2
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2
       const p = new THREE.Mesh(petalGeo, glow)
-      p.rotation.set(Math.PI / 2, 0, a)
-      p.position.set(cx + Math.cos(a) * 2.65, y, cz + Math.sin(a) * 2.65)
-      // Petals lie flat and point out from the centre.
+      p.position.set(Math.cos(a) * 2.65, y, cz + Math.sin(a) * 2.65)
       p.rotation.set(-Math.PI / 2, 0, 0)
       p.rotateZ(-a)
       group.add(p)
     }
-
-    // Plain light panels out towards the corners of the hall.
-    for (const [off, r] of [
-      [-0.55, 15.2],
-      [0.55, 15.2],
-      [-0.55, 20.3],
-      [0.55, 20.3],
-      [-0.25, 20.6],
-      [0.25, 20.6],
+    for (const [sx, dz] of [
+      [-7, -3.6],
+      [7, -3.6],
+      [-7, -13.4],
+      [7, -13.4],
+      [-7, -8.8],
+      [7, -8.8],
     ]) {
-      const [x, z] = polar(m + off, r)
       const panel = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.5), glow)
-      panel.position.set(x, y - 0.03, z)
-      panel.rotation.y = -(m + off) - Math.PI / 2
+      panel.position.set(sx, y - 0.03, dz)
       group.add(panel)
     }
-    return { group, cx, cz, y }
+    for (const [sx, dz, i] of [
+      [0, cz, 34],
+      [-6, -5, 22],
+      [6, -5, 22],
+      [-6, -12.5, 22],
+      [6, -12.5, 22],
+    ]) {
+      const l = new THREE.PointLight('#fff0dc', i, 14, 2)
+      l.position.set(sx, y - 1.0, dz)
+      group.add(l)
+    }
+    return group
   }, [])
-
-  return (
-    <group>
-      <primitive object={parts.group} />
-      <pointLight color="#fff0dc" intensity={34} distance={15} decay={2} position={[parts.cx, parts.y - 1.2, parts.cz]} />
-      {[-0.55, 0.55].map((off) => {
-        const [x, z] = polar(mid(CAFE) + off, 17.6)
-        return <pointLight key={off} color="#ffeccf" intensity={24} distance={14} decay={2} position={[x, parts.y - 0.8, z]} />
-      })}
-    </group>
-  )
+  return <primitive object={parts} />
 }
 
 function Counter() {
@@ -737,11 +812,10 @@ function Counter() {
     const body = new THREE.MeshStandardMaterial({ color: '#6a6157', roughness: 0.85 })
     const b = CAFE_COUNTER
     group.add(boxes([{ ...b, h: b.h - 0.05, y: b.y - 0.025 }], body))
-    group.add(boxes([{ ...b, y: FLOOR + b.h - 0.025, h: 0.05, d: b.d + 0.08 }], steel))
-    // Sneeze guard and the tray rail.
-    group.add(boxes([{ ...b, y: FLOOR + b.h + 0.42, h: 0.03, d: 0.4 }], steel, false))
+    group.add(boxes([{ ...b, y: FLOOR + b.h - 0.025, h: 0.05, w: b.w + 0.08 }], steel))
+    group.add(boxes([{ ...b, y: FLOOR + b.h + 0.42, h: 0.03, w: 0.4 }], steel, false))
     const glass = new THREE.MeshStandardMaterial({ color: '#cfe0e3', transparent: true, opacity: 0.2, roughness: 0.05, depthWrite: false })
-    group.add(boxes([{ ...b, y: FLOOR + b.h + 0.22, h: 0.4, d: 0.02 }], glass, false))
+    group.add(boxes([{ ...b, y: FLOOR + b.h + 0.22, h: 0.4, w: 0.02 }], glass, false))
     return group
   }, [])
   return <primitive object={parts} />
@@ -750,8 +824,8 @@ function Counter() {
 function Cafeteria() {
   return (
     <group>
-      <RoomShell room={CAFE} />
-      <CafeWindow />
+      <HallShell />
+      <CameraScreen />
       <CafeCeiling />
       <Tables list={cafeTables} size={CAFE_TABLE} topColor="#4b4a47" />
       <Chairs seats={cafeChairs} seatColor="#3a3632" frameColor="#24221f" />
@@ -824,11 +898,10 @@ function Terminals() {
     })
     for (const d of sheriffDesks) {
       // Facing the chair, which is on the side away from the door.
-      const face = d.a
-      const [x, z] = polar(d.a, d.r + 0.05)
+      const { cx, cz } = tableAxes(d)
       const g = new THREE.Group()
-      g.position.set(x, FLOOR + SHERIFF_DESK.h, z)
-      g.rotation.y = Math.PI / 2 - face
+      g.position.set(d.x + cx * 0.05, FLOOR + SHERIFF_DESK.h, d.z + cz * 0.05)
+      g.rotation.y = Math.atan2(-cx, -cz)
       const box = new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.4, 0.44), body)
       box.position.y = 0.22
       box.castShadow = true
@@ -846,22 +919,47 @@ function Terminals() {
   return <primitive object={parts} />
 }
 
-/** A fluorescent fixture that flickers now and then, as old ones do. */
+/** Fluorescent fixtures; one flickers now and then, as old ones do. */
 function OfficeLights() {
-  const flicker = useRef<THREE.MeshStandardMaterial>(null)
-  const flickerLight = useRef<THREE.PointLight>(null)
+  const flicker = useRef<THREE.MeshStandardMaterial | null>(null)
+  const flickerLight = useRef<THREE.PointLight | null>(null)
   const state = useRef({ until: 0, next: 4 })
-  const fixtures = useMemo(() => {
-    const out: Array<{ x: number; z: number; rotY: number }> = []
-    for (const r of [15.4, 18.0, 20.4])
-      for (const off of [-0.2, 0.2]) {
-        const a = mid(SHERIFF) + off
-        const [x, z] = polar(a, r)
-        out.push({ x, z, rotY: -a - Math.PI / 2 })
+  const parts = useMemo(() => {
+    const g = framed(OFFICE_F)
+    const y = OFFICE.height - 0.06
+    const housing = new THREE.MeshStandardMaterial({ color: '#2a2826', roughness: 0.6, metalness: 0.5 })
+    let i = 0
+    let flick: THREE.MeshStandardMaterial | null = null
+    for (const dz of [2.6, 5.2, 7.6])
+      for (const sx of [-2.2, 2.2]) {
+        const f = new THREE.Group()
+        f.position.set(sx, y, -dz)
+        const h = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.07, 0.3), housing)
+        const tubeMat = new THREE.MeshStandardMaterial({ color: '#f4fbff', emissive: '#e8f4ff', emissiveIntensity: 1.8 })
+        if (i === 3) flick = tubeMat
+        const tube = new THREE.Mesh(new THREE.BoxGeometry(1.36, 0.03, 0.16), tubeMat)
+        tube.position.y = -0.04
+        f.add(h, tube)
+        g.add(f)
+        i++
       }
-    return out
+    let light: THREE.PointLight | null = null
+    for (const [dz, k] of [
+      [2.6, 0],
+      [5.4, 1],
+      [8.0, 2],
+    ]) {
+      const l = new THREE.PointLight('#e6f0ff', k === 2 ? 12 : 16, 12, 2)
+      l.position.set(0, y - 0.5, -dz)
+      g.add(l)
+      if (k === 1) light = l
+    }
+    return { g, flick, light }
   }, [])
-  const y = FLOOR + SHERIFF.height - 0.06
+  useEffect(() => {
+    flicker.current = parts.flick
+    flickerLight.current = parts.light
+  }, [parts])
 
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
@@ -876,64 +974,22 @@ function OfficeLights() {
     if (flickerLight.current) flickerLight.current.intensity = 16 * on
   })
 
-  return (
-    <group>
-      {fixtures.map((f, i) => (
-        <group key={i} position={[f.x, y, f.z]} rotation={[0, f.rotY, 0]}>
-          <mesh>
-            <boxGeometry args={[1.5, 0.07, 0.3]} />
-            <meshStandardMaterial color="#2a2826" roughness={0.6} metalness={0.5} />
-          </mesh>
-          <mesh position={[0, -0.04, 0]}>
-            <boxGeometry args={[1.36, 0.03, 0.16]} />
-            <meshStandardMaterial
-              ref={i === 3 ? flicker : undefined}
-              color="#f4fbff"
-              emissive="#e8f4ff"
-              emissiveIntensity={1.8}
-            />
-          </mesh>
-        </group>
-      ))}
-      {[15.6, 18.6].map((r, i) => {
-        const [x, z] = polar(mid(SHERIFF), r)
-        return (
-          <pointLight
-            key={r}
-            ref={i === 1 ? flickerLight : undefined}
-            color="#e6f0ff"
-            intensity={16}
-            distance={12}
-            decay={2}
-            position={[x, y - 0.5, z]}
-          />
-        )
-      })}
-      {(() => {
-        const [x, z] = polar(mid(SHERIFF), 20.6)
-        return <pointLight color="#e6f0ff" intensity={12} distance={9} decay={2} position={[x, y - 0.5, z]} />
-      })()}
-    </group>
-  )
+  return <primitive object={parts.g} />
 }
 
 /** Radians a second for the fan: about one turn every 1.6 s. */
 const FAN_SPEED = 4
 
-/** Round wall lamps, cabinets, the notice board, a clock and a fan. */
+/** Cabinets, desks, round wall lamps, the notice board, a clock and a fan. */
 function OfficeFittings() {
-  const fan = useRef<THREE.Group>(null)
+  const fan = useRef<THREE.Group | null>(null)
   const fanDt = useRef(1 / 60)
   const clockTex = useMemo(() => makePanel(128, 128), [])
   const lastSecond = useRef(-1)
 
   useFrame((_, dt) => {
-    // A steady turn. The step is taken from a smoothed frame time, so a
-    // dropped frame does not kick the blades forward, and the speed is low
-    // enough that at any frame rate each frame moves a blade a small part of
-    // the 120 degrees between blades -- fast, and the eye pairs each blade
-    // with the wrong one in the next frame and sees the fan stutter or run
-    // backwards.
+    // A steady turn on a smoothed frame time, slow enough that each frame
+    // moves a blade a small part of the way to the next one.
     fanDt.current += (Math.min(dt, 1 / 20) - fanDt.current) * 0.1
     if (fan.current && !useSilo.getState().reducedMotion) fan.current.rotation.z -= fanDt.current * FAN_SPEED
     // The clock tells the visitor's real time.
@@ -973,7 +1029,6 @@ function OfficeFittings() {
 
   const parts = useMemo(() => {
     const group = new THREE.Group()
-    // Cabinets with drawer fronts painted on.
     const drawers = canvasTexture(64, 128, (ctx) => {
       ctx.fillStyle = '#6b6a4e'
       ctx.fillRect(0, 0, 64, 128)
@@ -993,42 +1048,40 @@ function OfficeFittings() {
     const tops: Box[] = []
     const peds: Box[] = []
     for (const d of sheriffDesks) {
-      tops.push(tangential(d.a, d.r, SHERIFF_DESK.w, 0.05, SHERIFF_DESK.d, SHERIFF_DESK.h - 0.05))
-      const tx = -Math.sin(d.a)
-      const tz = Math.cos(d.a)
-      for (const along of [-0.55, 0.55]) {
-        const [x, z] = polar(d.a, d.r)
+      tops.push(tableBox(d, SHERIFF_DESK.w, 0.05, SHERIFF_DESK.d, SHERIFF_DESK.h - 0.05))
+      const { ax, az } = tableAxes(d)
+      for (const along of [-0.55, 0.55])
         peds.push({
-          x: x + tx * along,
+          x: d.x + ax * along,
           y: FLOOR + (SHERIFF_DESK.h - 0.05) / 2,
-          z: z + tz * along,
+          z: d.z + az * along,
           w: 0.5,
           h: SHERIFF_DESK.h - 0.05,
           d: SHERIFF_DESK.d - 0.06,
-          rotY: -d.a - Math.PI / 2,
+          rotY: d.rotY,
         })
-      }
     }
     group.add(boxes(tops, deskMat), boxes(peds, pedMat))
 
-    // Round lamps on the walls, warm against the cold tubes.
+    // In the office's own frame from here on.
+    const g = framed(OFFICE_F)
+    group.add(g)
+    // Round lamps on the front and back walls, warm against the cold tubes.
     const lampMat = new THREE.MeshStandardMaterial({ color: '#fff3dc', emissive: new THREE.Color('#ffd9a0'), emissiveIntensity: 2.2 })
     const lampGeo = new THREE.SphereGeometry(0.17, 16, 12)
-    const m = mid(SHERIFF)
-    for (const off of [-0.38, -0.2, 0.2, 0.38]) {
-      const [x, z] = polar(m + off, ROOM_INNER + WALL_T / 2 + 0.08)
+    for (const [sx, dz] of [
+      [-4.6, OFFICE.from + 0.1],
+      [-2.6, OFFICE.from + 0.1],
+      [2.6, OFFICE.from + 0.1],
+      [4.6, OFFICE.from + 0.1],
+      [-4.6, OFFICE.to - 0.1],
+      [4.6, OFFICE.to - 0.1],
+    ]) {
       const lamp = new THREE.Mesh(lampGeo, lampMat)
-      lamp.position.set(x, FLOOR + 2.55, z)
-      group.add(lamp)
+      lamp.position.set(sx, 2.55, -dz)
+      g.add(lamp)
     }
-    for (const off of [-0.33, 0.33]) {
-      const [x, z] = polar(m + off, SHAFT_RADIUS - 0.12)
-      const lamp = new THREE.Mesh(lampGeo, lampMat)
-      lamp.position.set(x, FLOOR + 2.55, z)
-      group.add(lamp)
-    }
-
-    // Notice board on the far side wall: a grid of pinned sheets.
+    // Notice board on the right-hand wall: a grid of pinned sheets.
     const board = canvasTexture(256, 160, (ctx) => {
       ctx.fillStyle = '#7a5b3c'
       ctx.fillRect(0, 0, 256, 160)
@@ -1043,57 +1096,47 @@ function OfficeFittings() {
           ctx.fillRect(22 + col * 35, 11 + row * 37, 4, 4)
         }
     })
-    const side = SHERIFF.to
-    const r0 = 17.6
-    const off = (WALL_T / 2 + 0.02) / r0
-    const [bx, bz] = polar(side - off, r0)
     const boardMesh = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.6), new THREE.MeshStandardMaterial({ map: board, roughness: 0.9 }))
-    boardMesh.position.set(bx, FLOOR + 1.9, bz)
-    // Facing back into the room.
-    boardMesh.rotation.y = -side + Math.PI
-    group.add(boardMesh)
-    return { group, side, off }
+    boardMesh.position.set(OFFICE.half - 0.03, 1.9, -5.6)
+    boardMesh.rotation.y = -Math.PI / 2
+    g.add(boardMesh)
+    return { group, g }
   }, [])
-
-  // Clock and fan on the near side wall.
-  const near = SHERIFF.from
-  const [cx, cz] = polar(near + (WALL_T / 2 + 0.03) / 17.0, 17.0)
-  const [fx, fz] = polar(near + (WALL_T / 2 + 0.3) / 19.4, 19.4)
 
   return (
     <group>
       <primitive object={parts.group} />
-      <mesh position={[cx, FLOOR + 2.9, cz]} rotation={[0, -near, 0]}>
-        <circleGeometry args={[0.32, 32]} />
-        <meshStandardMaterial map={clockTex.texture} roughness={0.5} />
-      </mesh>
-      <group position={[fx, FLOOR + 2.7, fz]} rotation={[0, -near, 0]}>
-        <mesh rotation={[0, 0, 0]}>
-          <torusGeometry args={[0.36, 0.02, 6, 24]} />
-          <meshStandardMaterial color="#3a3833" roughness={0.5} metalness={0.7} />
+      {/* Clock and fan on the left-hand wall, in the office's frame. */}
+      <primitive object={parts.g}>
+        <mesh position={[-OFFICE.half + 0.03, 2.9, -4.6]} rotation={[0, Math.PI / 2, 0]}>
+          <circleGeometry args={[0.32, 32]} />
+          <meshStandardMaterial map={clockTex.texture} roughness={0.5} />
         </mesh>
-        {/* Three blades from a hub -- each its own blade, not a bar through
-            the middle, which made six and doubled the strobing. */}
-        <group ref={fan} position={[0, 0, 0.03]}>
-          <mesh rotation={[Math.PI / 2, 0, 0]}>
-            <cylinderGeometry args={[0.06, 0.06, 0.05, 16]} />
+        <group position={[-OFFICE.half + 0.3, 2.7, -6.9]} rotation={[0, Math.PI / 2, 0]}>
+          <mesh>
+            <torusGeometry args={[0.36, 0.02, 6, 24]} />
             <meshStandardMaterial color="#3a3833" roughness={0.5} metalness={0.7} />
           </mesh>
-          {[0, 1, 2].map((i) => (
-            <group key={i} rotation={[0, 0, (i / 3) * Math.PI * 2]}>
-              <mesh position={[0.18, 0, 0]} rotation={[0.35, 0, 0]}>
-                <boxGeometry args={[0.26, 0.11, 0.01]} />
-                <meshStandardMaterial color="#6f6c63" roughness={0.6} metalness={0.4} />
-              </mesh>
-            </group>
-          ))}
+          <group ref={fan} position={[0, 0, 0.03]}>
+            <mesh rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.06, 0.06, 0.05, 16]} />
+              <meshStandardMaterial color="#3a3833" roughness={0.5} metalness={0.7} />
+            </mesh>
+            {[0, 1, 2].map((i) => (
+              <group key={i} rotation={[0, 0, (i / 3) * Math.PI * 2]}>
+                <mesh position={[0.18, 0, 0]} rotation={[0.35, 0, 0]}>
+                  <boxGeometry args={[0.26, 0.11, 0.01]} />
+                  <meshStandardMaterial color="#6f6c63" roughness={0.6} metalness={0.4} />
+                </mesh>
+              </group>
+            ))}
+          </group>
+          <mesh position={[0, 0, 0.045]}>
+            <circleGeometry args={[0.33, 32]} />
+            <meshBasicMaterial color="#6f6c63" transparent opacity={0.16} depthWrite={false} />
+          </mesh>
         </group>
-        {/* The blur a turning fan leaves: a faint disc over the blades. */}
-        <mesh position={[0, 0, 0.045]}>
-          <circleGeometry args={[0.33, 32]} />
-          <meshBasicMaterial color="#6f6c63" transparent opacity={0.16} depthWrite={false} />
-        </mesh>
-      </group>
+      </primitive>
     </group>
   )
 }
@@ -1101,7 +1144,7 @@ function OfficeFittings() {
 function SheriffOffice() {
   return (
     <group>
-      <RoomShell room={SHERIFF} />
+      <OfficeShell />
       <Wainscot />
       <Chairs seats={sheriffChairs} seatColor="#3f5a48" frameColor="#55534c" />
       <Terminals />

@@ -14,7 +14,7 @@ import {
   walkY,
 } from '../../content/floors'
 import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
-import { level1Colliders, vaultRamp } from '../../content/level1'
+import { hallSillRamps, level1Colliders, vaultRamp } from '../../content/level1'
 import { CH_FRAME, CHAMBER, FLOOR6, level6Colliders } from '../../content/level6'
 import { openingsOn } from '../../content/openings'
 import { FLOOR12, PLATFORM, level12Colliders, platformCentre } from '../../content/level12'
@@ -276,7 +276,7 @@ function DeckColliders({ level }: { level: number }) {
       wall,
       voidRail: gappedRing(DECK_INNER, y, VOID_RAIL_H, a - RAIL_GAP_HALF, a + RAIL_GAP_HALF),
       landing: trimesh(landingSurface(level)),
-      ramp: level === 1 ? vaultRamp() : null,
+      ramps: level === 1 ? [vaultRamp(), ...hallSillRamps()] : [],
       edges,
       solids,
     }
@@ -289,7 +289,9 @@ function DeckColliders({ level }: { level: number }) {
         <TrimeshCollider args={parts.voidRail} />
         <TrimeshCollider args={parts.wall} />
         <TrimeshCollider args={parts.landing} />
-        {parts.ramp && <TrimeshCollider args={parts.ramp} />}
+        {parts.ramps.map((r, i) => (
+          <TrimeshCollider key={`ramp-${i}`} args={r} />
+        ))}
         {parts.edges.map((e, i) => (
           <TrimeshCollider key={i} args={e} />
         ))}

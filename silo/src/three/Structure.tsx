@@ -22,7 +22,7 @@ import {
   levelY,
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
-import { CAFE, CREED, SHERIFF } from '../content/level1'
+import { CREED, HALL_F, HALL_GATE } from '../content/level1'
 import { MAX_OPENINGS, OPENINGS } from '../content/openings'
 import { useSilo } from '../state/useSilo'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
@@ -112,11 +112,11 @@ function ConcreteWall() {
     if (OPENINGS.length > MAX_OPENINGS) throw new Error('more wall openings than the shader holds')
     const holeA = Array.from({ length: MAX_OPENINGS }, (_, i) => {
       const o = OPENINGS[i]
-      return o ? new THREE.Vector4(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.radius) : new THREE.Vector4(1, 0, 1e6, 0)
+      return o ? new THREE.Vector4(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.halfW) : new THREE.Vector4(1, 0, 1e6, 0)
     })
     const holeT = Array.from({ length: MAX_OPENINGS }, (_, i) => {
       const o = OPENINGS[i]
-      return o ? new THREE.Vector2(-Math.sin(o.angle), Math.cos(o.angle)) : new THREE.Vector2(0, 1)
+      return o ? new THREE.Vector4(-Math.sin(o.angle), Math.cos(o.angle), o.halfH, o.radius) : new THREE.Vector4(0, 1, 0, 0)
     })
     shell.onBeforeCompile = (shader) => {
       shader.uniforms.uHole = hole
@@ -140,7 +140,7 @@ function ConcreteWall() {
           varying vec3 vShellPos;
           uniform float uHole;
           uniform vec4 uHoleA[${MAX_OPENINGS}];
-          uniform vec2 uHoleT[${MAX_OPENINGS}];`,
+          uniform vec4 uHoleT[${MAX_OPENINGS}];`,
         )
         .replace(
           'void main() {',
@@ -148,9 +148,12 @@ function ConcreteWall() {
           if (uHole > 0.5) {
             for (int i = 0; i < ${MAX_OPENINGS}; i++) {
               vec4 h = uHoleA[i];
-              float lat = dot(vShellPos.xz, uHoleT[i]);
-              float dy = vShellPos.y - h.z;
-              if (dot(vShellPos.xz, h.xy) > 10.0 && lat * lat + dy * dy < h.w * h.w) discard;
+              vec4 t = uHoleT[i];
+              // A rounded rectangle, half-size (h.w, t.z), corner radius t.w.
+              vec2 p = abs(vec2(dot(vShellPos.xz, t.xy), vShellPos.y - h.z));
+              vec2 q = p - vec2(h.w, t.z) + t.w;
+              float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - t.w;
+              if (dot(vShellPos.xz, h.xy) > 10.0 && dist < 0.0) discard;
             }
           }`,
         )
@@ -421,12 +424,14 @@ function Decks() {
       // the rooms: it runs at 4 m, and carried on through it cut straight
       // across the cafeteria window.
       // On level 1 it also stops either side of the creed wall.
+      // The cafeteria's gate is taller than the band, so it stops either
+      // side of it too; the office door is lower and passes under.
+      const gateHalf = (HALL_GATE.halfW + 0.15) / SHAFT_RADIUS
       const bandArcs: Array<[number, number]> =
         floor.level === 1
           ? [
-              [SHERIFF.to, CAFE.from],
-              [CAFE.to, CREED.from - 0.03 + Math.PI * 2],
-              [CREED.to + 0.03, SHERIFF.from],
+              [CREED.to + 0.03, HALL_F.angle - gateHalf],
+              [HALL_F.angle + gateHalf, CREED.from - 0.03 + Math.PI * 2],
             ]
           : // Elsewhere it stops either side of the level's record display.
             (() => {
