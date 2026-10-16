@@ -132,7 +132,7 @@ export const identity: Identity = {
   links: [
     { label: 'LinkedIn', href: 'https://www.linkedin.com/in/atikul-islam-0a77561b3/' },
     { label: 'GitHub', href: 'https://github.com/Atikul-Dipto' },
-    { label: 'Portfolio', href: 'https://atikul-dipto.github.io/' },
+    { label: 'Portfolio', href: 'https://atikul-islam-portfolio.pages.dev/' },
   ],
   cvUrl: '/Atikul_Islam_Resume.pdf',
   cvNote: 'The published PDF is password-protected; the viewer offers a direct download.',
