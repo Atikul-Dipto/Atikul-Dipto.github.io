@@ -20,8 +20,9 @@ import {
 } from '../../content/floors'
 import { INNER_DOOR, VAULT_ROOM, VAULT_TERMINAL, toVault } from '../../content/level1'
 import { LANDING_HALF } from '../../content/stairs'
+import { LEVEL as LEVEL6, level6Interact } from '../../content/level6'
 import { footstep, sealedKnock } from '../../lib/audio'
-import { attachWalkInput, move } from '../../lib/input'
+import { attachWalkInput, inputGate, move, releaseKeys } from '../../lib/input'
 import { lift } from '../../lib/lift'
 import { vaultDoor } from '../../lib/vault'
 import { useSilo } from '../../state/useSilo'
@@ -143,6 +144,19 @@ export default function Player() {
     if (mode !== 'walk') return
     return attachWalkInput(gl.domElement as HTMLCanvasElement, setLocked)
   }, [mode, gl, setLocked])
+
+  // A panel open over the walk -- the cassettes, the arcade, the drone --
+  // has the keys; let go of anything held when one opens.
+  useEffect(() => {
+    inputGate.blocked = () => useSilo.getState().panel !== null
+    const unsub = useSilo.subscribe((s, p) => {
+      if (s.panel !== null && p.panel === null) releaseKeys()
+    })
+    return () => {
+      inputGate.blocked = () => false
+      unsub()
+    }
+  }, [])
 
   /** Point the body (and the camera with it) at a yaw, instantly. */
   const face = (yaw: number) => {
@@ -366,6 +380,8 @@ export default function Player() {
         } else if (v.d < -0.3 && v.d > -4.2 && Math.abs(v.s) < 2.8) {
           here = st.vaultOpen ? 'vault-close' : 'vault'
         }
+      } else if (st.level === LEVEL6 && onDeckOf) {
+        here = level6Interact(px, pz, st.chamberOpen) as Interact
       }
     }
     if (here !== st.interact) st.setInteract(here)
@@ -385,6 +401,13 @@ export default function Player() {
       } else if (here === 'sealed') {
         vaultDoor.knock = performance.now()
         sealedKnock()
+      } else if (here === 'chamber') st.openChamber()
+      else if (here === 'chamber-close') st.closeChamber()
+      else if (here === 'jukebox' || here === 'drone' || here?.startsWith('arcade:')) {
+        // A panel: hand the pointer back so it can be used.
+        if (document.pointerLockElement) document.exitPointerLock()
+        if (here.startsWith('arcade:')) st.openPanel('arcade', here.slice('arcade:'.length))
+        else st.openPanel(here as 'jukebox' | 'drone')
       }
     }
 

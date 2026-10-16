@@ -235,6 +235,19 @@ export function setMusicWanted(on: boolean) {
 
 export const audioReady = () => Boolean(engine) && wanted
 
+/** The context and the master bus, for players that add their own chains
+ *  (the gramophone). Null until sound is on. */
+export const audioGraph = () => (engine && wanted ? { ctx: engine.ctx, master: engine.master, noise: engine.noise } : null)
+
+/** A tape going into the slot, or coming out. */
+export function cassetteClick(inserting: boolean) {
+  if (!engine || !wanted) return
+  count(inserting ? 'cassette-in' : 'cassette-out')
+  burst({ type: 'bandpass', freq: inserting ? 2600 : 3200, q: 2.5, gain: 0.12, attack: 0.001, decay: 0.03 })
+  burst({ type: 'bandpass', freq: 1800, q: 2, gain: 0.09, attack: 0.001, decay: 0.04, delay: 0.09 })
+  burst({ type: 'lowpass', freq: 400, q: 0.8, gain: 0.08, attack: 0.003, decay: 0.08, delay: 0.1 })
+}
+
 function ramp(param: AudioParam, to: number, seconds: number) {
   const ctx = engine?.ctx
   if (!ctx) return
@@ -596,6 +609,36 @@ export function terminal(open: boolean) {
   notes.forEach((f, i) =>
     tone({ type: 'square', freq: f, gain: 0.03, attack: 0.002, decay: 0.06, soften: 2600, delay: 0.05 + i * 0.07 }),
   )
+}
+
+/**
+ * A bank of lights coming on: the heavy clack of a breaker, and the hum of
+ * the lamps warming up behind it. The last one, for the orrery, rings.
+ */
+export function breaker(last = false) {
+  if (!engine || !wanted) return
+  count('chamber-breaker')
+  burst({ type: 'bandpass', freq: 1400, q: 2, gain: 0.16, attack: 0.001, decay: 0.05 })
+  burst({ type: 'lowpass', freq: 380, q: 0.8, gain: 0.18, attack: 0.003, decay: 0.2, sweepTo: 90 })
+  tone({ type: 'sawtooth', freq: 100, to: 120, gain: 0.018, attack: 0.08, decay: 0.7, soften: 500, delay: 0.04 })
+  if (last) {
+    tone({ type: 'sine', freq: 523.25, gain: 0.05, attack: 0.02, decay: 2.2, delay: 0.2 })
+    tone({ type: 'sine', freq: 783.99, gain: 0.04, attack: 0.02, decay: 2.4, delay: 0.32 })
+    tone({ type: 'sine', freq: 1046.5, gain: 0.03, attack: 0.02, decay: 2.6, delay: 0.44 })
+  }
+}
+
+/** The arcade: a choice made, a win, a loss, a draw. */
+export function arcadeBlip(kind: 'select' | 'win' | 'lose' | 'even' | 'step') {
+  if (!engine || !wanted) return
+  count(`arcade-${kind}`)
+  const note = (f: number, d: number, at = 0, g = 0.05) =>
+    tone({ type: 'square', freq: f, gain: g, attack: 0.003, decay: d, soften: 2400, delay: at })
+  if (kind === 'step') note(660, 0.03, 0, 0.02)
+  else if (kind === 'select') note(880, 0.06)
+  else if (kind === 'win') [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => note(f, 0.12, i * 0.09))
+  else if (kind === 'lose') [392, 311.13, 261.63].forEach((f, i) => note(f, 0.18, i * 0.14))
+  else [523.25, 523.25].forEach((f, i) => note(f, 0.1, i * 0.12))
 }
 
 /** The floor's record panel sliding in or out. */

@@ -111,6 +111,8 @@ export default function Soundscape() {
       if (s.directoryOpen !== p.directoryOpen) panelOpen(s.directoryOpen)
       if (s.phase === 'riding' && p.phase === 'onFloor') levelSelect()
       if (s.vaultOpen !== p.vaultOpen) vaultLever()
+      if (s.chamberOpen !== p.chamberOpen) vaultLever()
+      if (s.panel !== p.panel) panelOpen(s.panel !== null)
       if (s.doorBlocked && !p.doorBlocked) doorWarn()
       if (s.cvOpen !== p.cvOpen) terminal(s.cvOpen)
       if (s.recordOpen !== p.recordOpen) panelSwish(s.recordOpen)

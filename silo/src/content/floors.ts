@@ -195,8 +195,8 @@ export const FLOORS: FloorDef[] = [
     name: 'Recreation',
     kind: 'recreation',
     accent: 'green',
-    blurb: 'Optional. Nothing professional is hidden behind it.',
-    ready: false,
+    blurb: 'A hedge maze, and behind a round door a hidden chamber: a gramophone, game theory at the arcade, and a drone to fly round the silo.',
+    ready: true,
   },
   {
     level: 7,

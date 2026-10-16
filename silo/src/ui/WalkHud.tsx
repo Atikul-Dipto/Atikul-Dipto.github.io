@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
 import type { Interact } from '../state/useSilo'
+import { ARCADE_GAMES } from '../content/level6'
 
 /**
  * The walking overlay.
@@ -21,13 +22,25 @@ import type { Interact } from '../state/useSilo'
  * lift journey while one is under way.
  */
 
-const LABEL: Record<Exclude<Interact, null>, string> = {
+const LABEL: Record<string, string> = {
   'lift-controls': 'Lift controls',
   'call-lift': 'Call the lift',
   vault: 'Open the records vault',
   'vault-close': 'Swing the vault shut',
   record: 'Read the personnel record',
   sealed: 'Sealed. This door does not open',
+  chamber: 'Roll the round door open',
+  'chamber-close': 'Roll the round door shut',
+  jukebox: 'Choose a cassette for the gramophone',
+  drone: 'Take the drone',
+}
+
+function label(i: Exclude<Interact, null>) {
+  if (i.startsWith('arcade:')) {
+    const game = ARCADE_GAMES.find((g) => `arcade:${g.id}` === i)
+    return `Play ${game ? game.title.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()) : 'the game'}`
+  }
+  return LABEL[i] ?? ''
 }
 
 function ThumbRing() {
@@ -64,18 +77,26 @@ export default function WalkHud() {
   const cvOpen = useSilo((s) => s.cvOpen)
   const bodyReady = useSilo((s) => s.bodyReady)
   const doorBlocked = useSilo((s) => s.doorBlocked)
+  const hudNote = useSilo((s) => s.hudNote)
+  const panel = useSilo((s) => s.panel)
   const [touch] = useState(isTouchDevice)
   const [hintSeen, setHintSeen] = useState(false)
 
   if (mode !== 'walk') return null
   const riding = phase === 'riding'
-  const modal = directoryOpen || cvOpen
+  const modal = directoryOpen || cvOpen || panel !== null
 
   return (
     <>
       {riding && (
         <div className="walk-status" role="status">
           Lift · travelling to level <strong>{String(target).padStart(2, '0')}</strong>
+        </div>
+      )}
+
+      {hudNote && !doorBlocked && !riding && !modal && (
+        <div className="walk-status" role="status">
+          {hudNote}
         </div>
       )}
 
@@ -177,7 +198,7 @@ export default function WalkHud() {
             move.interact = true
           }}
         >
-          {!touch && <kbd>E</kbd>} {LABEL[interact]}
+          {!touch && <kbd>E</kbd>} {label(interact)}
         </button>
       )}
     </>

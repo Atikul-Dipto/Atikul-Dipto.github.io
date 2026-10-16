@@ -81,7 +81,7 @@ export function playMusic(on: boolean) {
   if (on) {
     // play() is refused before a gesture, or if the file cannot be fetched.
     // Either way the rest of the sound carries on without it.
-    if (m.el.paused) void m.el.play().catch(() => {})
+    if (m.el.paused && !held) void m.el.play().catch(() => {})
     g.linearRampToValueAtTime(MUSIC_LEVEL, ctx.currentTime + FADE_IN)
   } else {
     g.linearRampToValueAtTime(0, ctx.currentTime + FADE_OUT)
@@ -95,10 +95,32 @@ export function playMusic(on: boolean) {
   }
 }
 
+/**
+ * Hold the score while the gramophone plays: faded right out and paused, so
+ * two pieces never play over each other. Released, it comes back.
+ */
+let held = false
+export function holdMusic(hold: boolean) {
+  const ctx = ctxRef
+  held = hold
+  if (!music || !ctx) return
+  const m = music
+  const g = m.duck.gain
+  g.cancelScheduledValues(ctx.currentTime)
+  g.setValueAtTime(g.value, ctx.currentTime)
+  g.linearRampToValueAtTime(hold ? 0 : 1, ctx.currentTime + (hold ? 0.8 : 2.5))
+  if (hold) {
+    window.setTimeout(() => {
+      if (held) m.el.pause()
+    }, 900)
+  } else if (m.on && m.el.paused) void m.el.play().catch(() => {})
+}
+
 /** Pull the score down (for the lift's voice) and let it back up. */
 export function duckMusic(down: boolean) {
   const ctx = ctxRef
   if (!music || !ctx) return
+  if (held) return
   const g = music.duck.gain
   g.cancelScheduledValues(ctx.currentTime)
   g.setValueAtTime(g.value, ctx.currentTime)

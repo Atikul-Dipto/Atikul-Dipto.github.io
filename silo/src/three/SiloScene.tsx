@@ -7,6 +7,9 @@ import * as stairs from '../content/stairs'
 import { dayPhase, daylight, setDayPhase } from '../lib/daylight'
 import { doorTransform, vaultDoor } from '../lib/vault'
 import * as plan from '../content/level1'
+import * as plan6 from '../content/level6'
+import { chamber } from '../lib/chamber'
+import { jukeboxDebug } from '../lib/jukebox'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
@@ -17,6 +20,7 @@ import Dome from './Dome'
 import Lighting from './Lighting'
 import LiftDriver from './LiftDriver'
 import Level01 from './floors/Level01'
+import Level06 from './floors/Level06'
 import RecordWalls from './floors/RecordWall'
 import { Dust } from './Atmosphere'
 
@@ -40,6 +44,7 @@ function ActiveFloor() {
   return (
     <>
       {near && <Level01 />}
+      {Math.abs(6 - level) <= 1 && <Level06 />}
       <RecordWalls />
     </>
   )
@@ -152,6 +157,9 @@ export default function SiloScene() {
             vaultDoor,
             vaultTransform: doorTransform,
             plan,
+            plan6,
+            chamber,
+            jukebox: jukeboxDebug,
           }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping

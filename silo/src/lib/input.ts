@@ -67,6 +67,13 @@ const CODES: Record<string, keyof MoveState> = {
   ShiftRight: 'sprint',
 }
 
+/**
+ * Whether the keys belong to something else just now -- a panel open over
+ * the walk, a game in the arcade, the drone. The walk ignores them meanwhile.
+ * Set by the player, which knows what is open.
+ */
+export const inputGate = { blocked: () => false }
+
 /** Clear every held key. Called whenever the lock drops, so releasing the
  *  pointer cannot leave the body walking into a wall forever. */
 export function releaseKeys() {
@@ -100,7 +107,7 @@ export function attachWalkInput(canvas: HTMLCanvasElement, onLockChange: Listene
     e.target instanceof HTMLElement && ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)
 
   const onKeyDown = (e: KeyboardEvent) => {
-    if (typing(e)) return
+    if (typing(e) || inputGate.blocked()) return
     if (e.code === 'KeyE') {
       if (!e.repeat) move.interact = true
       return

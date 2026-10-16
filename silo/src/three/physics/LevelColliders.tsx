@@ -14,7 +14,9 @@ import {
   walkY,
 } from '../../content/floors'
 import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
-import { VAULT, VAULT_TUNNEL, level1Colliders, vaultRamp } from '../../content/level1'
+import { level1Colliders, vaultRamp } from '../../content/level1'
+import { CH_FRAME, CHAMBER, FLOOR6, level6Colliders } from '../../content/level6'
+import { openingsOn } from '../../content/openings'
 import type { Box } from '../../content/level1'
 import {
   BRIDGE_WIDTH,
@@ -35,6 +37,17 @@ import {
 import { useSilo } from '../../state/useSilo'
 import { DOOR_HALF } from '../Elevator'
 import VaultDoorBody from './VaultDoorBody'
+import ChamberDoorBody from './ChamberDoorBody'
+
+/** The recreation chamber's floor: a disc level with the deck. */
+function ChamberFloor() {
+  const [x, z] = CH_FRAME.to(0, CHAMBER.centre)
+  return (
+    <RigidBody type="fixed" colliders={false}>
+      <CylinderCollider args={[0.15, CHAMBER.radius + 0.3]} position={[x, FLOOR6 - 0.15, z]} />
+    </RigidBody>
+  )
+}
 
 /**
  * Static collision for the part of the silo a body can currently reach.
@@ -169,18 +182,17 @@ function DeckColliders({ level }: { level: number }) {
     f.rotateX(-Math.PI / 2)
     f.translate(0, y, 0)
 
-    // Closed right round -- except on level 1, where the vault tunnel goes
-    // out through it. The gap is the tunnel's own width; the boxes either
-    // side of the tunnel close the rest.
-    const gap = (VAULT_TUNNEL.half + 0.02) / DECK_OUTER
-    const wall =
-      level === 1
-        ? gappedRing(DECK_OUTER, y, ROOM_HEIGHT, VAULT.angle - gap, VAULT.angle + gap)
-        : (() => {
-            const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
-            w.translate(0, y + ROOM_HEIGHT / 2, 0)
-            return trimesh(w)
-          })()
+    // Closed right round -- except where a tunnel goes out through it (the
+    // vault on level 1, the chamber on level 6). The gap is the tunnel's own
+    // width; the boxes either side of the tunnel close the rest.
+    const opening = openingsOn(level)[0]
+    const wall = opening
+      ? gappedRing(DECK_OUTER, y, ROOM_HEIGHT, opening.angle - opening.gap, opening.angle + opening.gap)
+      : (() => {
+          const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
+          w.translate(0, y + ROOM_HEIGHT / 2, 0)
+          return trimesh(w)
+        })()
 
     const edges: Array<[Float32Array, Uint32Array]> = []
     for (const side of [-1, 1] as const) {
@@ -218,6 +230,7 @@ function DeckColliders({ level }: { level: number }) {
 
     if (level === 1) solids.push(...level1Colliders())
     else solids.push(...recordWallSolids(level))
+    if (level === 6) solids.push(...level6Colliders())
 
     return {
       floor: trimesh(f),
@@ -247,6 +260,8 @@ function DeckColliders({ level }: { level: number }) {
       </RigidBody>
       <ShaftColliders level={level} />
       {level === 1 && <VaultDoorBody />}
+      {level === 6 && <ChamberFloor />}
+      {level === 6 && <ChamberDoorBody />}
     </>
   )
 }

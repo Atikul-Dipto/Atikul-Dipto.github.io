@@ -22,7 +22,8 @@ import {
   levelY,
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
-import { CAFE, CREED, FLOOR, SHERIFF, VAULT } from '../content/level1'
+import { CAFE, CREED, SHERIFF } from '../content/level1'
+import { MAX_OPENINGS, OPENINGS } from '../content/openings'
 import { useSilo } from '../state/useSilo'
 import { BAYS_PER_FLOOR, RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
@@ -109,19 +110,26 @@ function ConcreteWall() {
       roughnessMap: clad.roughnessMap,
       normalScale: new THREE.Vector2(0.7, 0.7),
     })
-    // The vault on level 1 goes straight through the wall, so the wall has a
-    // round hole in it there: both shells are cut away inside the door's
-    // circle, and the tunnel drawn behind the door lines the bore. Cut in the
-    // shader rather than the mesh, because a 72-segment cylinder has no
-    // vertices anywhere near a 3 m circle. Closed for the approach, when the
-    // room behind it is not drawn.
-    const va = VAULT.angle
+    // Doors go straight through the wall -- the vault on level 1, the
+    // recreation chamber on level 6 -- so the wall has round holes in it
+    // there: both shells are cut away inside each opening's circle, and the
+    // tunnel drawn behind each door lines the bore. Cut in the shader rather
+    // than the mesh, because a 72-segment cylinder has no vertices anywhere
+    // near a 3 m circle. Closed for the approach, when the rooms behind them
+    // are not drawn.
+    if (OPENINGS.length > MAX_OPENINGS) throw new Error('more wall openings than the shader holds')
+    const holeA = Array.from({ length: MAX_OPENINGS }, (_, i) => {
+      const o = OPENINGS[i]
+      return o ? new THREE.Vector4(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.radius) : new THREE.Vector4(1, 0, 1e6, 0)
+    })
+    const holeT = Array.from({ length: MAX_OPENINGS }, (_, i) => {
+      const o = OPENINGS[i]
+      return o ? new THREE.Vector2(-Math.sin(o.angle), Math.cos(o.angle)) : new THREE.Vector2(0, 1)
+    })
     shell.onBeforeCompile = (shader) => {
       shader.uniforms.uHole = hole
-      shader.uniforms.uN = { value: new THREE.Vector2(Math.cos(va), Math.sin(va)) }
-      shader.uniforms.uT = { value: new THREE.Vector2(-Math.sin(va), Math.cos(va)) }
-      shader.uniforms.uHoleY = { value: FLOOR + VAULT.centre }
-      shader.uniforms.uHoleR = { value: VAULT.radius }
+      shader.uniforms.uHoleA = { value: holeA }
+      shader.uniforms.uHoleT = { value: holeT }
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
@@ -139,22 +147,23 @@ function ConcreteWall() {
           `#include <common>
           varying vec3 vShellPos;
           uniform float uHole;
-          uniform vec2 uN;
-          uniform vec2 uT;
-          uniform float uHoleY;
-          uniform float uHoleR;`,
+          uniform vec4 uHoleA[${MAX_OPENINGS}];
+          uniform vec2 uHoleT[${MAX_OPENINGS}];`,
         )
         .replace(
           'void main() {',
           `void main() {
           if (uHole > 0.5) {
-            float lat = dot(vShellPos.xz, uT);
-            float dy = vShellPos.y - uHoleY;
-            if (dot(vShellPos.xz, uN) > 10.0 && lat * lat + dy * dy < uHoleR * uHoleR) discard;
+            for (int i = 0; i < ${MAX_OPENINGS}; i++) {
+              vec4 h = uHoleA[i];
+              float lat = dot(vShellPos.xz, uHoleT[i]);
+              float dy = vShellPos.y - h.z;
+              if (dot(vShellPos.xz, h.xy) > 10.0 && lat * lat + dy * dy < h.w * h.w) discard;
+            }
           }`,
         )
     }
-    shell.customProgramCacheKey = () => 'shaft-wall-vault-hole'
+    shell.customProgramCacheKey = () => 'shaft-wall-openings'
 
     const inner = new THREE.Mesh(
       mottle(

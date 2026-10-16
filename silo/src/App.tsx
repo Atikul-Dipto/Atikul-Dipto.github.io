@@ -7,6 +7,8 @@ import FloorPanel from './ui/FloorPanel'
 import Intro from './ui/Intro'
 import Soundscape from './ui/Soundscape'
 import WalkHud from './ui/WalkHud'
+import JukeboxPanel from './ui/JukeboxPanel'
+import ArcadePanel from './ui/ArcadePanel'
 import './styles.css'
 
 // The engine is the bulk of the bundle; keep it out of the first paint so the
@@ -34,6 +36,7 @@ export default function App() {
       if (e.key !== 'Escape') return
       toggleDirectory(false)
       closeRecord()
+      useSilo.getState().closePanel()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -70,6 +73,8 @@ export default function App() {
       <DirectoryOverlay />
       <CvViewer />
       <WalkHud />
+      <JukeboxPanel />
+      <ArcadePanel />
       <Soundscape />
       <div className={`fade${fading ? ' is-on' : ''}`} aria-hidden="true" />
     </div>

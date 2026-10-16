@@ -1,4 +1,5 @@
 import { CLAD_JOINT, SHAFT_RADIUS, WALL_START, contentAngle, inCut, walkY } from './floors'
+import { MAZE } from './level6'
 import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential, type Box } from './level1'
 
 /**
@@ -16,7 +17,10 @@ import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential
  * Levels 2-12 have only their record display, which `wallFree` handles.
  */
 function reserved(level: number): number[] {
-  return level === 1 ? [PORTRAIT_ANGLE, CONSOLE_ANGLE] : []
+  if (level === 1) return [PORTRAIT_ANGLE, CONSOLE_ANGLE]
+  // The chamber's round door, in the wall at the back of the maze.
+  if (level === 6) return [MAZE.mid]
+  return []
 }
 
 const angDist = (a: number, b: number) => Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)

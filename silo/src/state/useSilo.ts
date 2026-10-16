@@ -26,7 +26,15 @@ export type Interact =
   | 'vault-close' // swing it shut again
   | 'record' // read the personnel record, at the terminal in the vault
   | 'sealed' // the second door, which does not open
+  | 'chamber' // roll the recreation chamber's door open
+  | 'chamber-close' // and shut
+  | 'jukebox' // the gramophone and the cassettes
+  | `arcade:${string}` // one of the game cabinets
+  | 'drone' // the drone's controls
   | null
+
+/** The panels that open over the walk from things in the recreation chamber. */
+export type Panel = 'jukebox' | 'arcade' | 'drone' | null
 
 interface SiloState {
   phase: Phase
@@ -51,6 +59,13 @@ interface SiloState {
   vaultOpen: boolean
   /** The vault door is waiting for someone to step out of its way. */
   doorBlocked: boolean
+  /** The recreation chamber's round door is wanted open (level 6). */
+  chamberOpen: boolean
+  /** A panel opened from the chamber, and which game the arcade is showing. */
+  panel: Panel
+  arcadeGame: string | null
+  /** A short line of status over the walk: the maze's clock, a door waiting. */
+  hudNote: string | null
   muted: boolean
   /** The score, which plays with the sound unless turned off on its own. */
   music: boolean
@@ -92,6 +107,11 @@ interface SiloState {
   openVault: () => void
   sealVault: () => void
   setDoorBlocked: (v: boolean) => void
+  openChamber: () => void
+  closeChamber: () => void
+  openPanel: (panel: Exclude<Panel, null>, game?: string | null) => void
+  closePanel: () => void
+  setHudNote: (note: string | null) => void
   toggleMute: () => void
   /** Sound on or off without it counting as the visitor's choice. */
   setMuted: (muted: boolean) => void
@@ -132,6 +152,10 @@ export const useSilo = create<SiloState>((set, get) => ({
   cvOpen: false,
   vaultOpen: false,
   doorBlocked: false,
+  chamberOpen: false,
+  panel: null,
+  arcadeGame: null,
+  hudNote: null,
   muted: true, // never autoplay audio before an interaction (spec §8)
   music: true,
   reducedMotion: Boolean(prefersReduced),
@@ -170,7 +194,7 @@ export const useSilo = create<SiloState>((set, get) => ({
     }
     // A journey by lift. The lift driver boards the visitor if they are not
     // already aboard, shuts the doors and carries them; arrival comes from it.
-    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false })
+    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false, chamberOpen: false, panel: null })
   },
 
   arrive: () =>
@@ -209,6 +233,14 @@ export const useSilo = create<SiloState>((set, get) => ({
   },
   sealVault: () => set({ vaultOpen: false }),
   setDoorBlocked: (doorBlocked) => set({ doorBlocked }),
+  openChamber: () => {
+    const s = get()
+    if (s.level === 6 && s.phase === 'onFloor') set({ chamberOpen: true })
+  },
+  closeChamber: () => set({ chamberOpen: false }),
+  openPanel: (panel, game = null) => set({ panel, arcadeGame: game, directoryOpen: false }),
+  closePanel: () => set({ panel: null }),
+  setHudNote: (hudNote) => set({ hudNote }),
 
   toggleMute: () =>
     set((s) => {
@@ -232,7 +264,12 @@ export const useSilo = create<SiloState>((set, get) => ({
     set((s) => {
       const next = clampLevel(level)
       if (s.level === next) return {}
-      return { level: next, target: next, vaultOpen: next === 1 ? s.vaultOpen : false }
+      return {
+        level: next,
+        target: next,
+        vaultOpen: next === 1 ? s.vaultOpen : false,
+        chamberOpen: next === 6 ? s.chamberOpen : false,
+      }
     }),
 
   setMode: (mode) => set({ mode }),
