@@ -16,7 +16,8 @@ import { contactLog } from '../lib/contact'
 import { droneTouch } from './DroneFlight'
 import { reactor } from '../lib/reactor'
 import * as plan12 from '../content/level12'
-import { useSilo } from '../state/useSilo'
+import { useSilo, viewLevel } from '../state/useSilo'
+import FloorGuard from './FloorGuard'
 import Structure from './Structure'
 import Elevator from './Elevator'
 import Exterior from './Exterior'
@@ -48,13 +49,28 @@ const WalkMode = lazy(loadWalk)
  */
 function ActiveFloor() {
   const level = useSilo((s) => s.level)
-  const near = Math.abs(1 - level) <= 1
+  // While the drone flies, the floors it passes are fitted out too -- and the
+  // body's own floor stays, since the body is still standing on it.
+  const view = useSilo(viewLevel)
+  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - view) <= 1
   return (
     <>
-      {near && <Level01 />}
-      {Math.abs(6 - level) <= 1 && <Level06 />}
-      {Math.abs(6 - level) <= 1 && <DroneFlight />}
-      {Math.abs(12 - level) <= 1 && <Level12 />}
+      {near(1) && (
+        <FloorGuard name="level 1">
+          <Level01 />
+        </FloorGuard>
+      )}
+      {near(6) && (
+        <FloorGuard name="level 6">
+          <Level06 />
+        </FloorGuard>
+      )}
+      {near(12) && (
+        <FloorGuard name="level 12">
+          <Level12 />
+        </FloorGuard>
+      )}
+      <DroneFlight />
       <PowerConduits />
       <RecordWalls />
     </>

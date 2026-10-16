@@ -25,7 +25,7 @@ import { RAIL_GAP_HALF } from '../content/stairs'
 import { CAFE, CREED, SHERIFF } from '../content/level1'
 import { MAX_OPENINGS, OPENINGS } from '../content/openings'
 import { useSilo } from '../state/useSilo'
-import { BAYS_PER_FLOOR, RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
+import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
 import Water from './Water'
 import { claddingSurface, concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
@@ -47,14 +47,6 @@ function faceAxis(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z:
   dummy.position.set(x, y, z)
   dummy.rotation.set(0, 0, 0)
   dummy.lookAt(0, y, 0)
-  dummy.updateMatrix()
-  mesh.setMatrixAt(i, dummy.matrix)
-}
-
-/** Places a radial member: a box whose local +X runs outward along `angle`. */
-function radial(mesh: THREE.InstancedMesh, i: number, angle: number, radius: number, y: number) {
-  dummy.position.set(Math.cos(angle) * radius, y, Math.sin(angle) * radius)
-  dummy.rotation.set(0, -angle, 0)
   dummy.updateMatrix()
   mesh.setMatrixAt(i, dummy.matrix)
 }
@@ -463,69 +455,6 @@ function Decks() {
   return <primitive object={nodes} />
 }
 
-/**
- * Radial framing. Each deck is divided into bays by a flush floor kerb and an
- * overhead joist with a hanger -- what turns a bare ring into a structure.
- *
- * There used to be a waist-high bulkhead across every bay as well. With a
- * guided camera that was set dressing; with a body it was a row of radial
- * walls across the only way round the ring, every one of which a visitor
- * would either walk into or, having no collision, walk straight through.
- */
-function Corridors() {
-  const nodes = useMemo(() => {
-    const group = new THREE.Group()
-    const max = FLOORS.length * BAYS_PER_FLOOR
-    const span = SHAFT_RADIUS - DECK_INNER
-
-    const brushed = tiled(steelSurface(), 6, 1)
-    const steel = new THREE.MeshStandardMaterial({
-      roughness: 0.62,
-      metalness: 0.3,
-      map: brushed.map,
-      normalMap: brushed.normalMap,
-      roughnessMap: brushed.roughnessMap,
-    })
-
-    const joists = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.34, 0.46), steel, max)
-    // Flush with the deck: 2 cm proud, so it reads as a seam without being a
-    // step the body has to climb at every bay.
-    const kerbs = new THREE.InstancedMesh(new THREE.BoxGeometry(span, 0.04, 0.3), steel, max)
-    const hangers = new THREE.InstancedMesh(new THREE.BoxGeometry(0.1, 1.5, 0.1), steel, max)
-
-    // One counter PER MESH. Level 1 has no deck above it, so it gets kerbs
-    // but no joists or hangers -- and with a single shared counter the slots
-    // it skipped were never written, kept the identity matrix, and drew a
-    // 13.6 m joist and a hanger at the world origin: straight through the
-    // middle of the lift shaft.
-    let nk = 0
-    let nj = 0
-    FLOORS.forEach((floor) => {
-      const deck = walkY(floor.level)
-      const mid = DECK_INNER + span / 2
-      for (const a of bayAngles(floor.level)) {
-        if (floor.level > 1) {
-          radial(joists, nj, a, mid, levelY(floor.level) + 2.6)
-          radial(hangers, nj, a, SHAFT_RADIUS - 2.2, levelY(floor.level) + 3.4)
-          nj++
-        }
-        radial(kerbs, nk++, a, mid, deck + 0.02)
-      }
-    })
-
-    for (const mesh of [joists, kerbs, hangers]) {
-      mesh.count = mesh === kerbs ? nk : nj
-      mesh.instanceMatrix.needsUpdate = true
-      mesh.castShadow = mesh !== kerbs
-      mesh.receiveShadow = true
-      group.add(mesh)
-    }
-    return group
-  }, [])
-
-  return <primitive object={nodes} />
-}
-
 /** Wall lamps. Emissive geometry only; the real lights follow the camera. */
 function Lamps() {
   const nodes = useMemo(() => {
@@ -575,7 +504,6 @@ export default function Structure() {
       <StrataBackdrop />
       <Ribs />
       <Decks />
-      <Corridors />
       <Stairway />
       <Lamps />
       <Water />

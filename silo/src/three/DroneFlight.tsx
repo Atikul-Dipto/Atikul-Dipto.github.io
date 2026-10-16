@@ -157,7 +157,11 @@ function Flight() {
 
     // Keep the store's idea of which level is nearby roughly right, for the HUD.
     const level = Math.round((-(drone.y - 1.1) - DECK_DROP) / FLOOR_HEIGHT + 1)
-    if (level !== droneLevel.current) droneLevel.current = level
+    if (level !== droneLevel.current) {
+      droneLevel.current = level
+      const at = Math.min(12, Math.max(1, level))
+      if (useSilo.getState().droneAt !== at) useSilo.setState({ droneAt: at })
+    }
 
     if (!going) endDrone(drone.finish !== null ? 'finished' : 'battery')
   })

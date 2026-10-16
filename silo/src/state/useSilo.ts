@@ -72,6 +72,8 @@ interface SiloState {
   /** The drone is in the air: its camera is the view, and the body waits. */
   droneFlying: boolean
   droneMode: DroneMode
+  /** The level the drone is flying past, while it flies. */
+  droneAt: number
   /** How the last flight ended, for the desk to show. */
   droneResult: { mode: DroneMode; time: number | null; gates: number; bumps: number; reason: string } | null
   muted: boolean
@@ -141,6 +143,13 @@ interface SiloState {
   setBodyReady: (v: boolean) => void
 }
 
+/**
+ * The level the view is at: the body's, or the drone's while it flies. What
+ * is drawn and how it is lit follows the view, not the body.
+ */
+export const viewLevel = (s: { droneFlying: boolean; droneAt: number; level: number }) =>
+  s.droneFlying ? s.droneAt : s.level
+
 /** Where the visitor's own choice of sound on or off is kept. */
 export const SOUND_KEY = 'silo.sound'
 
@@ -168,6 +177,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   hudNote: null,
   droneFlying: false,
   droneMode: 'free',
+  droneAt: 6,
   droneResult: null,
   muted: true, // never autoplay audio before an interaction (spec §8)
   music: true,

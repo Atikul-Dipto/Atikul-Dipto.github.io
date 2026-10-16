@@ -989,6 +989,12 @@ function Chamber() {
       const p = inChamberPolar(cam.x, cam.z)
       if (p.rr < CHAMBER.radius - 0.4 && p.d > CH_FRONT + 0.5 && Math.abs(cam.y - FLOOR6 - 1.6) < 1.5) chamber.litAt = now
     }
+    // And off again once everyone has left and the door is shut behind them.
+    if (chamber.litAt !== null && chamber.door === 0 && !inChamber(cam.x, cam.z) && s.mode === 'walk' && !s.droneFlying) {
+      chamber.litAt = null
+      announced.current = -1
+      breaker(false)
+    }
     // A breaker for each section, as it comes on.
     for (let i = announced.current + 1; i < SECTIONS.length; i++) {
       if (sectionLit(i, now) <= 0) break

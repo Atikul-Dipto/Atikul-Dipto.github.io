@@ -5,7 +5,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { DECK_INNER, PALETTE, SHAFT_RADIUS, contentAngle, walkY } from '../content/floors'
 import { ROOM_INNER, VAULT_ROOM } from '../content/level1'
 import { daylight } from '../lib/daylight'
-import { useSilo } from '../state/useSilo'
+import { useSilo, viewLevel } from '../state/useSilo'
 import { DISH } from '../content/dome'
 
 /**
@@ -69,7 +69,7 @@ export default function Lighting() {
   useFrame(() => {
     const d = daylight()
     const s = useSilo.getState()
-    const level = s.level
+    const level = viewLevel(s)
     const y = walkY(level)
     const top = level === 1
 

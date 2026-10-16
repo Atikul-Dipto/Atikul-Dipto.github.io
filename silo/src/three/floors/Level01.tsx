@@ -1114,7 +1114,7 @@ function SheriffOffice() {
 
 export default function Level01() {
   return (
-    <group>
+    <group name="level1-probe">
       <PortraitWindow />
       <IdentityConsole />
       <CreedWall />

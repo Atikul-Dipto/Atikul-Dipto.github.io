@@ -136,7 +136,11 @@ function Reactor() {
     const rand = seeded(1212)
 
     // The hall: a rough rock bore, banded with lit ribs.
-    const rockGeo = new THREE.CylinderGeometry(R.radius + 0.5, R.radius + 0.5, R.depth + R.height, 64, 24, true)
+    // Open where the tunnel comes in: a full cylinder ran straight across the
+    // gate, and from inside the hall the way out was a wall of rock.
+    const rockR = R.radius + 0.5
+    const gateGap = Math.asin((PASSAGE.radius + 0.7) / rockR)
+    const rockGeo = new THREE.CylinderGeometry(rockR, rockR, R.depth + R.height, 64, 24, true, gateGap, Math.PI * 2 - gateGap * 2)
     const pos = rockGeo.attributes.position
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
@@ -146,9 +150,34 @@ function Reactor() {
       pos.setZ(i, z * k)
     }
     rockGeo.computeVertexNormals()
-    const rock = new THREE.Mesh(rockGeo, new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 1, side: THREE.BackSide }))
+    const rockMat = new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 1, side: THREE.BackSide })
+    const rock = new THREE.Mesh(rockGeo, rockMat)
     rock.position.set(0, (R.height - R.depth) / 2, C)
     g.add(rock)
+    // The face the tunnel comes through, closing the gap round the opening
+    // from the floor of the pit to the roof.
+    const half = rockR * Math.sin(gateGap) + 0.3
+    const gate = new THREE.Shape()
+    gate.moveTo(-half, -R.depth)
+    gate.lineTo(half, -R.depth)
+    gate.lineTo(half, R.height)
+    gate.lineTo(-half, R.height)
+    gate.lineTo(-half, -R.depth)
+    const bore = new THREE.Path()
+    bore.absarc(0, PASSAGE.centre, PASSAGE.radius, 0, Math.PI * 2, true)
+    gate.holes.push(bore)
+    const gateFace = new THREE.Mesh(
+      new THREE.ShapeGeometry(gate, 48),
+      new THREE.MeshStandardMaterial({ color: '#2b2622', roughness: 1, side: THREE.DoubleSide }),
+    )
+    gateFace.position.set(0, 0, -TUNNEL_TO - 0.02)
+    g.add(gateFace)
+    const gateRing = new THREE.Mesh(
+      new THREE.TorusGeometry(PASSAGE.radius + 0.1, 0.14, 10, 64),
+      new THREE.MeshStandardMaterial({ color: '#4fd6e0', emissive: '#4fd6e0', emissiveIntensity: 1.2 }),
+    )
+    gateRing.position.set(0, PASSAGE.centre, -TUNNEL_TO - 0.06)
+    g.add(gateRing)
     const ribMat = new THREE.MeshStandardMaterial({ color: '#1b2a2d', emissive: '#4fd6e0', emissiveIntensity: 0.9 })
     for (let i = 0; i < 16; i++) {
       const phi = (i / 16) * Math.PI * 2 + 0.1
