@@ -5,6 +5,8 @@ import * as THREE from 'three'
 import { DECK_INNER, PALETTE, contentAngle, levelY, walkY } from '../content/floors'
 import * as stairs from '../content/stairs'
 import { dayPhase, daylight, setDayPhase } from '../lib/daylight'
+import { doorTransform, vaultDoor } from '../lib/vault'
+import * as plan from '../content/level1'
 import { useSilo } from '../state/useSilo'
 import Structure from './Structure'
 import Elevator from './Elevator'
@@ -147,6 +149,9 @@ export default function SiloScene() {
             dayPhase,
             setDayPhase,
             geometry: { DECK_INNER, ...stairs },
+            vaultDoor,
+            vaultTransform: doorTransform,
+            plan,
           }
         }
         gl.toneMapping = THREE.ACESFilmicToneMapping

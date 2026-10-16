@@ -70,8 +70,6 @@ export const DECK_OUTER = SHAFT_RADIUS - 0.06
 export const VOID_RAIL_H = 1.15
 /** Clear height from a walking surface up to the soffit of the deck above. */
 export const ROOM_HEIGHT = FLOOR_HEIGHT - DECK_DROP - 0.26
-/** Radial bays each deck is divided into — the corridor framing. */
-export const BAYS = 10
 
 /** Angular slots within a level, measured from its content angle. Keeping
  *  these apart is what stops the fit-out piling up in the centre of the view. */
@@ -101,6 +99,13 @@ export const WALL_ARC = Math.PI * 2 - CUT_HALF * 2
  * convert here and nowhere else.
  */
 export const toTheta = (a: number) => Math.PI / 2 - a
+/**
+ * The wall's cladding comes in 4 m tiles, two panels wide, a whole number of
+ * them round the arc. CLAD_JOINT is the angle between vertical joints; the
+ * first joint is on the cut edge at WALL_START.
+ */
+export const CLAD_TILES = Math.round((SHAFT_RADIUS * WALL_ARC) / 4)
+export const CLAD_JOINT = WALL_ARC / (CLAD_TILES * 2)
 /** thetaStart for the wall shell: the arc runs from one cut edge to the other. */
 export const WALL_THETA_START = toTheta(WALL_START + WALL_ARC)
 /** thetaStart for a sector that covers the cutaway itself, plus `pad`. */
@@ -255,6 +260,13 @@ export const TOP_MARGIN = 8
 export const BOTTOM = -DEPTH - 12
 export const WALL_HEIGHT = TOP_MARGIN - BOTTOM + 16
 export const WALL_CENTER = (TOP_MARGIN + BOTTOM) / 2
+/**
+ * The water in the pit. The shaft goes on below the last deck and is flooded:
+ * the surface lies this far under level 12's deck, and the floor of the pit,
+ * at BOTTOM, is well under it. Nothing walkable reaches it -- it is there to
+ * be looked down at.
+ */
+export const WATER_DROP = 5
 
 /**
  * Structural datum for a level. Level 1 is the top at y = 0. Service runs,

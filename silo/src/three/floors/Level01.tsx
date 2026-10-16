@@ -14,6 +14,7 @@ import {
   SHERIFF,
   SHERIFF_DESK,
   VAULT,
+  VAULT_PORTAL,
   WALL_T,
   WINDOW,
   cafeChairs,
@@ -25,7 +26,6 @@ import {
   sheriffChairs,
   sheriffDesks,
   tangential,
-  vaultPortal,
 } from '../../content/level1'
 import type { Box, Room, Seat } from '../../content/level1'
 import { identity } from '../../content/portfolio'
@@ -33,6 +33,7 @@ import { daylight } from '../../lib/daylight'
 import { useSilo } from '../../state/useSilo'
 import { claddingSurface, concreteSurface, plateSurface, steelSurface, tiled } from '../materials'
 import CreedWall from './CreedWall'
+import Vault from './Vault'
 
 const BASE = import.meta.env.BASE_URL
 
@@ -420,7 +421,7 @@ function Wainscot() {
       group.add(new THREE.Mesh(band(r, a0, a1, FLOOR, 1.3), mat((a1 - a0) * r)))
     }
     // Back wall, either side of the vault portal.
-    const vHalf = (VAULT.radius + 1.05) / (SHAFT_RADIUS - 0.45)
+    const vHalf = (VAULT_PORTAL.outer - 0.02) / (SHAFT_RADIUS - 0.03)
     for (const [a0, a1] of [
       [SHERIFF.from + 0.01, VAULT.angle - vHalf],
       [VAULT.angle + vHalf, SHERIFF.to - 0.01],
@@ -1198,159 +1199,6 @@ function OfficeFittings() {
           ))}
         </group>
       </group>
-    </group>
-  )
-}
-
-/**
- * The records vault: a round door in a deep portal, after the reference's
- * idea -- spokes, a hub, a handwheel -- not its detailing.
- *
- * E (or the panel's button) sets the phase to 'airlock'. The wheel spins, the
- * door draws out of its seat and swings, and the record opens only once it
- * has. Sealing the record swings it shut again.
- */
-function Vault() {
-  const hinge = useRef<THREE.Group>(null)
-  const plug = useRef<THREE.Group>(null)
-  const wheel = useRef<THREE.Group>(null)
-  const warn = useRef<THREE.MeshStandardMaterial>(null)
-  const spill = useRef<THREE.PointLight>(null)
-  const anim = useRef({ t: 0, opened: false })
-
-  const R = VAULT.radius
-  const a = VAULT.angle
-  const r = SHAFT_RADIUS - 0.3
-  const [x, z] = polar(a, r)
-
-  useFrame((_, dt) => {
-    const s = useSilo.getState()
-    const st = anim.current
-    const fast = s.reducedMotion ? 6 : 1
-    const opening = s.phase === 'airlock'
-    // 0..1 wheel spin, 1..1.4 draw out, 1.4..2.6 swing.
-    st.t = opening ? Math.min(2.6, st.t + dt * fast) : Math.max(0, st.t - dt * fast * 2.2)
-    const t = st.t
-    if (wheel.current) wheel.current.rotation.z = -Math.min(1, t) * Math.PI * 2.4
-    if (plug.current) plug.current.position.z = THREE.MathUtils.smoothstep(t, 1, 1.4) * 0.32
-    if (hinge.current) hinge.current.rotation.y = THREE.MathUtils.smoothstep(t, 1.4, 2.6) * 1.75
-    if (warn.current) {
-      warn.current.emissiveIntensity = opening ? 1.2 + Math.max(0, Math.sin(performance.now() / 120)) * 2.5 : 0.5
-    }
-    if (spill.current) spill.current.intensity = THREE.MathUtils.smoothstep(t, 1.2, 2.6) * 40
-    if (opening && t >= 2.6 && !st.opened) {
-      st.opened = true
-      if (!s.cvOpen) s.setCvOpen(true)
-    }
-    if (!opening) st.opened = false
-  })
-
-  const parts = useMemo(() => {
-    const steel = tiled(steelSurface(), 2, 2)
-    const doorMat = new THREE.MeshStandardMaterial({ color: '#8c8476', roughness: 0.55, metalness: 0.7, map: steel.map, normalMap: steel.normalMap })
-    const darkMat = new THREE.MeshStandardMaterial({ color: '#4e4a43', roughness: 0.6, metalness: 0.7 })
-    const portalConc = tiled(concreteSurface(), 2, 2)
-    const portalMat = new THREE.MeshStandardMaterial({ color: '#6c655b', roughness: 0.95, map: portalConc.map, normalMap: portalConc.normalMap })
-    return { doorMat, darkMat, portalMat }
-  }, [])
-
-  const portal = useMemo(() => boxes(vaultPortal(), parts.portalMat), [parts])
-  const hazard = useMemo(
-    () =>
-      canvasTexture(256, 128, (ctx) => {
-        ctx.fillStyle = '#1b1712'
-        ctx.fillRect(0, 0, 256, 128)
-        ctx.fillStyle = '#c99a3c'
-        for (let i = -128; i < 256; i += 40) {
-          ctx.beginPath()
-          ctx.moveTo(i, 128)
-          ctx.lineTo(i + 20, 128)
-          ctx.lineTo(i + 148, 0)
-          ctx.lineTo(i + 128, 0)
-          ctx.fill()
-        }
-      }),
-    [],
-  )
-
-  return (
-    <group>
-      <primitive object={portal} />
-      <group position={[x, FLOOR + VAULT.centre, z]} rotation={[0, Math.PI / 2 - a + Math.PI, 0]}>
-        {/* The seat: a dark round recess the door sits in. */}
-        <mesh position={[0, 0, -0.05]}>
-          <circleGeometry args={[R + 0.12, 64]} />
-          <meshStandardMaterial color="#0e0c0a" />
-        </mesh>
-        <mesh position={[0, 0, 0.02]}>
-          <torusGeometry args={[R + 0.14, 0.16, 12, 64]} />
-          <primitive object={parts.darkMat} attach="material" />
-        </mesh>
-        {/* Light inside, for when it opens. */}
-        <pointLight ref={spill} color="#ffd9a6" intensity={0} distance={10} decay={2} position={[0, 0, -0.6]} />
-        {/* Hinge on the right-hand jamb. */}
-        <group ref={hinge} position={[R + 0.05, 0, 0.1]}>
-          <group ref={plug} position={[0, 0, 0]}>
-            <group position={[-(R + 0.05), 0, 0]}>
-              <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-                <cylinderGeometry args={[R, R, 0.36, 72]} />
-                <primitive object={parts.doorMat} attach="material" />
-              </mesh>
-              {/* Raised rings. */}
-              {[R - 0.12, R * 0.62, R * 0.24].map((rr) => (
-                <mesh key={rr} position={[0, 0, 0.19]}>
-                  <torusGeometry args={[rr, 0.05, 8, 64]} />
-                  <primitive object={parts.darkMat} attach="material" />
-                </mesh>
-              ))}
-              {/* Spokes from hub to rim. */}
-              {Array.from({ length: 8 }, (_, i) => (
-                <mesh key={i} rotation={[0, 0, (i / 8) * Math.PI * 2]} position={[0, 0, 0.2]}>
-                  <boxGeometry args={[0.07, R * 1.72, 0.05]} />
-                  <primitive object={parts.darkMat} attach="material" />
-                </mesh>
-              ))}
-              {/* Viewing slot near the top. */}
-              <mesh position={[0, R * 0.78, 0.2]}>
-                <boxGeometry args={[0.36, 0.14, 0.04]} />
-                <meshStandardMaterial color="#1a1714" roughness={0.3} />
-              </mesh>
-              {/* Handwheel. */}
-              <group ref={wheel} position={[0, 0, 0.34]}>
-                <mesh>
-                  <torusGeometry args={[0.42, 0.04, 8, 32]} />
-                  <primitive object={parts.darkMat} attach="material" />
-                </mesh>
-                {[0, 1, 2, 3].map((i) => (
-                  <mesh key={i} rotation={[0, 0, (i / 4) * Math.PI * 2]}>
-                    <boxGeometry args={[0.04, 0.84, 0.04]} />
-                    <primitive object={parts.darkMat} attach="material" />
-                  </mesh>
-                ))}
-                <mesh rotation={[Math.PI / 2, 0, 0]}>
-                  <cylinderGeometry args={[0.1, 0.1, 0.16, 16]} />
-                  <primitive object={parts.doorMat} attach="material" />
-                </mesh>
-              </group>
-            </group>
-          </group>
-        </group>
-        {/* Warning lamp over the portal. */}
-        <mesh position={[0, R + 0.62, 0.55]}>
-          <boxGeometry args={[0.5, 0.16, 0.16]} />
-          <meshStandardMaterial ref={warn} color="#ffb24a" emissive="#ff8a1e" emissiveIntensity={0.5} />
-        </mesh>
-      </group>
-      {/* Hazard striping on the floor in front of it. */}
-      {(() => {
-        const [hx, hz] = polar(a, SHAFT_RADIUS - 1.6)
-        return (
-          <mesh position={[hx, FLOOR + 0.012, hz]} rotation={[-Math.PI / 2, 0, -a - Math.PI / 2]}>
-            <planeGeometry args={[3.4, 1.4]} />
-            <meshStandardMaterial map={hazard} roughness={0.8} transparent opacity={0.85} depthWrite={false} />
-          </mesh>
-        )
-      })()}
     </group>
   )
 }

@@ -13,7 +13,7 @@ export default function FloorPanel() {
   const level = useSilo((s) => s.level)
   const locked = useSilo((s) => s.pointerLocked)
   const recordOpen = useSilo((s) => s.recordOpen)
-  const enterAirlock = useSilo((s) => s.enterAirlock)
+  const openRecord = useSilo((s) => s.openRecord)
   const floor = floorByLevel(level)
   const rec = levelRecord(level)
   // Up on demand, or whenever the mouse is free on a desktop -- never over
@@ -21,7 +21,7 @@ export default function FloorPanel() {
   // never "locked", so there it is the Record button alone.
   const touch = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches
   const visible =
-    (phase === 'onFloor' || phase === 'airlock') &&
+    phase === 'onFloor' &&
     (mode !== 'walk' || recordOpen || (!locked && !touch))
 
   return (
@@ -36,8 +36,8 @@ export default function FloorPanel() {
           <p className="panel__role">{identity.headline}</p>
           <p className="panel__body">{identity.intro}</p>
           <div className="panel__actions">
-            <button type="button" className="btn btn--primary" onClick={enterAirlock}>
-              Open the records vault
+            <button type="button" className="btn btn--primary" onClick={openRecord}>
+              Open the personnel record
             </button>
           </div>
           <RecordBody rec={rec} />
@@ -59,7 +59,7 @@ export default function FloorPanel() {
 
       <p className="panel__hint">
         {floor.level === 1
-          ? "The vault is in the sheriff's office, behind the round door. The lift and the stair are across the bridge."
+          ? "The record is kept in the vault, behind the round door in the sheriff's office. The lift and the stair are across the bridge."
           : 'This record is also on the wall the bridge faces. The lift and the stair are across the bridge.'}
       </p>
     </main>

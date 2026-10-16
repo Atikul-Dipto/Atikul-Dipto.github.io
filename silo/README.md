@@ -43,9 +43,9 @@ src/
                 records.ts     what each level holds, read by its wall AND its panel
                 floors.ts      the geometry contract + the twelve level definitions
                 stairs.ts      stair, landings, bridges: read by drawing AND collision
-                level1.ts      the level 1 floor plan: rooms, furniture, vault (same)
-                layout.ts      where ribs, lamps and framing go on each level (same)
-                dome.ts        the dome's geometry
+                level1.ts      the level 1 floor plan: rooms, furniture, the vault (same)
+                layout.ts      where ribs, lamps and framing go: one grid, every level (same)
+                dome.ts        the dome's geometry, its ribs and its vents
   state/        useSilo.ts     Zustand store: phase, level, the lift, overlays, preferences
   three/        SiloScene.tsx  the Canvas, fog, field of view, load gate, active floor
                 Lighting.tsx   the shadow-casting sun / work light, fill, environment map
@@ -53,7 +53,8 @@ src/
                 Effects.tsx    ambient occlusion, bloom, vignette
                 materials.ts   procedural concrete, tread plate and brushed steel
                 Structure.tsx  wall, ribs, decks, radial framing, lamps
-                Stairway.tsx   flights, landings, bridges, level signs
+                Water.tsx      the flooded pit under level 12
+                Stairway.tsx   flights, landings, bridges and their lantern posts
                 Elevator.tsx   the capsule, its shaft rings and the landing doors
                 LiftDriver.tsx moves the car: rides with the visitor, and empty calls
                 Rig.tsx        the opening camera only; GSAP tweens a pose object
@@ -133,6 +134,15 @@ them using their own polygon corners, and the deck, landing and bridge share
 one plate material mapped from world position (`planarUV`), so the pattern
 runs straight across the joins.
 
+**The wall's structure is on one grid.** Ribs stand on the cladding's vertical
+joints (`CLAD_JOINT`, counted from the cut edge), at the same angles on every
+level, so they line up as columns down the whole shaft; joists land on every
+other rib and lamps sit between them. They used to be spaced from each level's
+content angle, which turns a little from level to level, so no rib was ever
+under the one above it. The dome is the same: its vents are placed bay by bay
+between its ribs -- one, two and three a bay from the top down -- so none sits
+on a rib.
+
 **Fit-out parts belong on +Z.** A group rotated by `PI/2 - a + PI` has local +Z
 pointing back at the shaft axis, where the visitor stands. A solid box spanning
 an aperture occludes whatever is behind it — window casings are built from four
@@ -188,8 +198,8 @@ character controller.
 | <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> / arrows | Walk |
 | <kbd>Shift</kbd> | Run |
 | Mouse | Look, once the pointer is taken (click the scene) |
-| <kbd>E</kbd> | Use: lift controls, call the lift, open the vault |
-| <kbd>Esc</kbd> | Let go of the mouse; close overlays; seal the vault |
+| <kbd>E</kbd> | Use: lift controls, call the lift, open or shut the vault, read the record |
+| <kbd>Esc</kbd> | Let go of the mouse; close overlays |
 | Touch | Left thumb walks, right thumb looks; the use prompt is a button |
 
 **The camera follows the body, never the other way round.** The body is moved,
@@ -267,18 +277,34 @@ never rebuilds the ground underfoot.
   glass, and it is the same hour out there as in the dome.
 - **Sheriff's office.** Desks with terminals, filing cabinets, green-tiled
   walls, a timber ceiling, a fan, a clock showing the visitor's real time, a
-  fluorescent tube that flickers, and the **records vault**: a round door in the
-  back wall. <kbd>E</kbd> spins the wheel and swings it open, and behind it is
-  the CV.
+  fluorescent tube that flickers, and the **records vault**: a round door in a
+  deep portal in the back wall. <kbd>E</kbd> spins the wheel, draws the door out
+  of its seat and swings it out into the office -- and it will not swing
+  through you: stand in its way and it stops, says so, and waits for you to step
+  back. Behind it a round tunnel goes through the silo wall, one step up, into
+  a room cut into the rock: archive shelving down one side, the terminal with
+  the personnel record (<kbd>E</kbd> reads it) on the other, and at the far end
+  a second round door, marked sealed, which does not open. <kbd>E</kbd> at the
+  open door swings it shut again, as carefully. The door is shared state in
+  `lib/vault.ts`, read by the drawing, by a moving collider, and by the body.
 - **The creed wall.** A curved display of dark glass set into the wall across
   the atrium from the arrival, on a steel plinth between two lit fins. It
   glows faintly from a distance and wakes as you approach, a scan line
   running down the glass and leaving the text at full brightness. The text is
   the creed from the series, quoted as the portfolio owner supplied it and
   credited on the wall.
+- **The level.** Each level's number and name are on its wall display, large,
+  where the bridge lands facing it. There used to be a sign on a post at the
+  end of each bridge; it stood in front of the display and could not be read
+  from the deck.
 - **The wall.** The shaft is clad in precast panels — joints, tie-holes and
   ribbed service strips, in a cool grey — with a line of light round every
   level under the structural band.
+
+Under level 12 the shaft is flooded. Still, dark water fills it wall to wall,
+lit by lamps sunk round the foot of the core and a ring of wall lamps just above
+it, whose reflections are a mirrored copy under the surface seen through it --
+no second render of the scene.
 
 Built from the ideas in the reference images, not their assets: no geometry,
 texture, logo or sound here is copied. The one borrowed thing is the creed's
@@ -293,7 +319,7 @@ the panel carries everything, including links and the full SQL.
 
 | Level | What is there |
 | --- | --- |
-| 01 | Identity: name, headline, tagline, the three figures, bio, links; the CV in the vault |
+| 01 | Identity: name, headline, tagline, the three figures, bio, links; the personnel record in the vault |
 | 02–04 | Cartup, Inspira, ARCED: role, dates, responsibilities, tools |
 | 05 | The postings in sequence, the degree, and the soft skills |
 | 06 | Nothing yet — no personal interests are on record |
@@ -316,10 +342,14 @@ is still to come.
 Verified by walking a body round it in a headless browser with held keys and a
 steering loop that only reads the body's real position, never teleporting it:
 along the promenade, into the cafeteria to its window, into a table (which
-stops it), into the sheriff's office to the vault and open it, over the bridge
+stops it), into the sheriff's office to the vault, over the bridge
 into the lift, a ride to level 3 and out onto its deck, down the stair to level
 4, against the landing doors over an empty shaft (they hold), calling the car
-down and stepping in, and against the rail. W, A, S and D are each checked to
+down and stepping in, and against the rail. The vault is walked separately: the shut door and
+the open leaf are solid, the door stops short of a body in its swing and opens
+once it steps back, the tunnel leads up into the room, the terminal opens the
+record, the far door is sealed and solid, and the door will not shut on anyone
+either; and nothing on level 1 stands where the door swings. W, A, S and D are each checked to
 move the body the way the camera faces. The audio graph is checked by reading
 it — the score starts with the sound, notes register on its bus, and the Music
 and Sound controls stop it. Not verified: real GPU hardware, real phones and

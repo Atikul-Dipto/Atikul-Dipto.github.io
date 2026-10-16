@@ -262,6 +262,18 @@ export function doorSlide(open: boolean) {
   if (open) chime()
 }
 
+/**
+ * A heavy door's bolts: a low, dull thump with a little metal in it. The
+ * vault door makes it as its bolts draw and as it seats, and the sealed door
+ * makes it when tried.
+ */
+export function vaultClunk() {
+  audioStats.doors++
+  if (!engine || !wanted) return
+  burst({ type: 'lowpass', freq: 420, q: 0.8, gain: 0.07, attack: 0.004, decay: 0.32, sweepTo: 90 })
+  burst({ type: 'bandpass', freq: 1100, q: 2.2, gain: 0.012, attack: 0.002, decay: 0.2 })
+}
+
 /** Arrival chime. Two notes, a fifth apart, soft. */
 function chime() {
   if (!engine || !wanted) return

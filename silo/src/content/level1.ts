@@ -15,7 +15,10 @@ import { SHAFT_RADIUS, contentAngle, walkY } from './floors'
  *   1.07 - 2.07   the cutaway: no wall, open to the cavern
  *   ~2.79         ARRIVAL: the bridge from the lift lands here, facing the
  *                 personnel monitor and the portrait on the far wall
- *   3.32 - 4.32   SHERIFF'S OFFICE, with the records vault in its back wall
+ *   3.32 - 4.32   SHERIFF'S OFFICE, with the records vault in its back wall:
+ *                 a round door, and behind it a room cut out of the rock
+ *                 beyond the silo wall, ending at a second door that is
+ *                 sealed
  *   4.56 - 6.22   CAFETERIA, with the long window onto the outside
  *   0.20 - 0.80   THE CREED: a curved display set into the wall, across
  *                 the atrium from the arrival
@@ -63,12 +66,118 @@ export const ARRIVAL = contentAngle(1)
 export const PORTRAIT_ANGLE = ARRIVAL
 export const CONSOLE_ANGLE = ARRIVAL - 0.19
 
-/** The records vault: a round door in the sheriff's back wall. */
+/**
+ * The records vault: a round door in the sheriff's back wall, and the room
+ * behind it.
+ *
+ * Everything about it is placed in its own frame. `s` runs across the door,
+ * to the right as you face it from the office; `d` runs straight out from the
+ * shaft through the door, with d = 0 on the inner face of the silo wall. The
+ * room behind is a straight box, not a ring sector -- it is cut into the rock
+ * beyond the wall, square to the door.
+ *
+ * In section, out from the office:
+ *
+ *   d -0.9 .. 0      the portal: two jambs and a head standing proud of the
+ *                    wall, the door recessed in it
+ *   d -0.58 .. -0.22 the door, shut
+ *   d -0.22 .. 1.3   a round tunnel through the bulkhead and the wall, with
+ *                    a flat sill in it
+ *   d 1.3 .. 7.6     the room, its floor level with the sill
+ *   d 7.6            the far wall, and a second round door that does not open
+ */
 export const VAULT = {
   angle: mid(SHERIFF),
   radius: 1.5,
-  /** Height of the door's centre above the floor. */
-  centre: 1.72,
+  /** Height of the door's centre above the office floor. */
+  centre: 1.55,
+  /** d of the door's own origin: the plane its hinge and seat are set from. */
+  seat: -0.3,
+  /** The sill through the tunnel, and the room's floor, above the office
+   *  floor: one step up, inside the autostep. Low enough that the round
+   *  opening is still 1.6 m wide where the feet go through it. */
+  sill: 0.3,
+}
+
+/** The portal round the door: jambs either side, a head above. */
+export const VAULT_PORTAL = {
+  /** Clear half-width between the jambs: the door's seat ring fits inside. */
+  inner: VAULT.radius + 0.3,
+  outer: VAULT.radius + 1.2,
+  front: -0.9,
+  /** Underside of the head. */
+  head: VAULT.centre + VAULT.radius + 0.25,
+  top: VAULT.centre + VAULT.radius + 0.85,
+}
+
+/** The way through: a round tunnel, collided as a slot the width a body
+ *  can actually use at foot height. */
+export const VAULT_TUNNEL = { from: -0.22, to: 1.3, half: 0.85 }
+
+/** The room behind the door. Clear height is from its floor (the sill). */
+export const VAULT_ROOM = { from: 1.3, to: 7.6, half: 2.3, height: 3.4, wall: 0.3 }
+
+/** The second door, in the far wall. It stays shut. */
+export const INNER_DOOR = { radius: 1.25, d: VAULT_ROOM.to }
+
+/** The terminal in the room that holds the personnel record. */
+export const VAULT_TERMINAL = { s: -1.75, d: 4.2, w: 0.9, depth: 1.5, h: 1.0 }
+
+/** World X, Z of a point in the vault's frame. */
+export function fromVault(sv: number, dv: number): [number, number] {
+  const a = VAULT.angle
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  return [ca * (SHAFT_RADIUS + dv) - sa * sv, sa * (SHAFT_RADIUS + dv) + ca * sv]
+}
+
+/** A world X, Z in the vault's frame. */
+export function toVault(x: number, z: number) {
+  const a = VAULT.angle
+  const ca = Math.cos(a)
+  const sa = Math.sin(a)
+  return { s: -sa * x + ca * z, d: ca * x + sa * z - SHAFT_RADIUS }
+}
+
+/** A box in the vault's frame, from its extents. Heights from the office floor. */
+export function vaultBox(s0: number, s1: number, d0: number, d1: number, y0: number, y1: number): Box {
+  const [x, z] = fromVault((s0 + s1) / 2, (d0 + d1) / 2)
+  return { x, y: FLOOR + (y0 + y1) / 2, z, w: s1 - s0, h: y1 - y0, d: d1 - d0, rotY: -VAULT.angle - Math.PI / 2 }
+}
+
+/**
+ * The way up onto the sill, for the physics only: a ramp across the portal
+ * floor, from the front of the portal up to the sill's edge -- 25 degrees.
+ *
+ * Not a step. The character controller's autostep would not take the sill
+ * with the capsule: its rounded foot meets the edge square on, and it stood
+ * there walking into it. The ramp sits under where the shut door stands,
+ * which costs nothing -- the door is a moving body and a ramp is fixed, and
+ * the two are never tested against each other -- and nobody can be there
+ * while the door is shut.
+ *
+ * Returned as world-space triangles, ready for a trimesh.
+ */
+export function vaultRamp(): [Float32Array, Uint32Array] {
+  const half = VAULT_TUNNEL.half - 0.02
+  const pts: Array<[number, number, number]> = [
+    [-half, VAULT_PORTAL.front, 0],
+    [half, VAULT_PORTAL.front, 0],
+    [half, VAULT_TUNNEL.from - 0.03, VAULT.sill],
+    [-half, VAULT_TUNNEL.from - 0.03, VAULT.sill],
+  ]
+  const v = new Float32Array(pts.length * 3)
+  pts.forEach(([s, d, h], i) => {
+    const [x, z] = fromVault(s, d)
+    v.set([x, FLOOR + h, z], i * 3)
+  })
+  return [v, new Uint32Array([0, 1, 2, 0, 2, 3])]
+}
+
+/** True if a world X, Z is in the tunnel or the room, behind the door. */
+export function inVault(x: number, z: number) {
+  const { s, d } = toVault(x, z)
+  return d > VAULT_TUNNEL.from && d < VAULT_ROOM.to && Math.abs(s) < VAULT_ROOM.half
 }
 
 /** The cafeteria window, along the outer wall. */
@@ -306,12 +415,17 @@ export const cafeChairs: Seat[] = cafeTables.flatMap(({ a, r }) => {
 export const CAFE_COUNTER = radialBox(CAFE.from + 0.07, 14.6, 20.4, 1.02, 0.85)
 
 export const SHERIFF_DESK = { w: 1.7, d: 0.82, h: 0.76 }
-/** Desks either side of the walk from the door to the vault, facing the door. */
+/**
+ * Desks either side of the walk from the door to the vault, facing the door.
+ * The pair nearer the vault stands wide of it: the vault door swings out three
+ * metres into the office, and at the old spacing it swung through a desk and
+ * a chair.
+ */
 export const sheriffDesks: Table[] = [
   { a: mid(SHERIFF) - 0.15, r: 15.9 },
   { a: mid(SHERIFF) + 0.15, r: 15.9 },
-  { a: mid(SHERIFF) - 0.13, r: 18.7 },
-  { a: mid(SHERIFF) + 0.13, r: 18.7 },
+  { a: mid(SHERIFF) - 0.21, r: 18.7 },
+  { a: mid(SHERIFF) + 0.21, r: 18.7 },
 ]
 
 /** A chair behind each desk, on the side away from the door. */
@@ -342,15 +456,49 @@ export const sheriffCabinets: Box[] = (() => {
 
 /** The deep portal the vault door sits in, standing proud of the back wall. */
 export function vaultPortal(): Box[] {
-  const a = VAULT.angle
-  const r = SHAFT_RADIUS - 0.45
-  const R = VAULT.radius
+  const P = VAULT_PORTAL
   return [
-    // Jambs.
-    tangential(a + (R + 0.55) / r, r, 0.9, 3.9, 0.9),
-    tangential(a - (R + 0.55) / r, r, 0.9, 3.9, 0.9),
-    // Head.
-    tangential(a, r, 2 * R + 2.0, 0.55, 0.9, 3.65),
+    vaultBox(P.inner, P.outer, P.front, 0, 0, P.top),
+    vaultBox(-P.outer, -P.inner, P.front, 0, 0, P.top),
+    vaultBox(-P.inner, P.inner, P.front, 0, P.head, P.top),
+  ]
+}
+
+/**
+ * The tunnel and the room, for the physics. The door itself is not here: it
+ * moves, so it is a body of its own (physics/VaultDoorBody.tsx).
+ */
+export function vaultSolids(): Box[] {
+  const T = VAULT_TUNNEL
+  const R = VAULT_ROOM
+  const top = VAULT.sill + R.height
+  const outerS = R.half + R.wall
+  return [
+    // The sill through the tunnel, and the room's floor, level with it.
+    vaultBox(-T.half, T.half, T.from - 0.03, T.to, -0.2, VAULT.sill),
+    vaultBox(-R.half, R.half, R.from, R.to, -0.2, VAULT.sill),
+    // Either side of the tunnel, from the bulkhead to the room: the slot a
+    // body can walk through. The round hole is wider than this above the
+    // knees; the feet decide.
+    vaultBox(T.half, outerS, T.from, R.from, 0, top),
+    vaultBox(-outerS, -T.half, T.from, R.from, 0, top),
+    // The room's side walls and the far wall.
+    vaultBox(R.half, outerS, R.from, R.to + R.wall, 0, top),
+    vaultBox(-outerS, -R.half, R.from, R.to + R.wall, 0, top),
+    vaultBox(-outerS, outerS, R.to, R.to + R.wall, 0, top),
+    // The sealed door, standing proud of the far wall, handwheel and all.
+    vaultBox(-INNER_DOOR.radius, INNER_DOOR.radius, R.to - 0.56, R.to, VAULT.sill, VAULT.sill + INNER_DOOR.radius * 2 + 0.2),
+    // The record terminal.
+    vaultBox(
+      VAULT_TERMINAL.s - VAULT_TERMINAL.w / 2,
+      VAULT_TERMINAL.s + VAULT_TERMINAL.w / 2,
+      VAULT_TERMINAL.d - VAULT_TERMINAL.depth / 2,
+      VAULT_TERMINAL.d + VAULT_TERMINAL.depth / 2,
+      VAULT.sill,
+      VAULT.sill + VAULT_TERMINAL.h,
+    ),
+    // Archive shelving down the right-hand wall.
+    vaultBox(R.half - 0.55, R.half, R.from + 0.5, R.to - 0.5, VAULT.sill, VAULT.sill + 2.6),
   ]
 }
 
@@ -385,8 +533,7 @@ export function level1Colliders(): Box[] {
   }
   out.push(...sheriffCabinets)
   out.push(...vaultPortal())
-  // The vault door itself, shut: a slab across the portal.
-  out.push(tangential(VAULT.angle, SHAFT_RADIUS - 0.25, VAULT.radius * 2 + 0.2, 3.6, 0.5))
+  out.push(...vaultSolids())
   out.push(...arrivalSolids)
   out.push(...creedSolids())
   return out

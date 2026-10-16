@@ -249,39 +249,17 @@ function FlightRails() {
   return <primitive object={nodes} />
 }
 
-/** A sign plate for a level: the number, large, and the floor's name. */
-function signTexture(level: number, name: string) {
-  const c = document.createElement('canvas')
-  c.width = 512
-  c.height = 200
-  const ctx = c.getContext('2d')!
-  ctx.fillStyle = 'rgba(24,20,17,0.97)'
-  ctx.fillRect(0, 0, c.width, c.height)
-  ctx.strokeStyle = 'rgba(201,153,107,0.55)'
-  ctx.lineWidth = 5
-  ctx.strokeRect(10, 10, c.width - 20, c.height - 20)
-  ctx.fillStyle = PALETTE.brassHot
-  ctx.font = 'bold 104px "Segoe UI", system-ui, sans-serif'
-  ctx.textAlign = 'center'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(String(level).padStart(2, '0'), c.width / 2, 88)
-  ctx.font = 'bold 24px "Segoe UI", system-ui, sans-serif'
-  ctx.fillStyle = 'rgba(237,233,230,0.75)'
-  ctx.fillText(name.toUpperCase().slice(0, 30), c.width / 2, 162)
-  const tex = new THREE.CanvasTexture(c)
-  tex.colorSpace = THREE.SRGBColorSpace
-  tex.anisotropy = 4
-  return tex
-}
-
 /**
  * The landings and bridges: one of each per level.
  *
  * The landing wraps the core where the lift doors open and the stair arrives;
- * the bridge spans the void from it to the deck. Each bridge carries the level
- * sign on a post at its deck end -- it used to be bolted to the wall at a fixed
- * offset from the content angle, which on level 1 put it in the cutaway, where
- * there is no wall, floating in mid-air.
+ * the bridge spans the void from it to the deck, and ends between two lantern
+ * posts.
+ *
+ * There is no sign on the posts any more. A plate at the end of the bridge
+ * stood square in front of whatever the level had to show, and from the deck
+ * it was seen edge-on or from behind; the level's number and name are on its
+ * wall display now, which the bridge lands facing.
  */
 function Gangways() {
   const nodes = useMemo(() => {
@@ -359,32 +337,10 @@ function Gangways() {
       const [tx, tz] = bridgePoint(level, BRIDGE_FROM + 0.1, 0)
       addBox(0.12, 0.02, BRIDGE_WIDTH - 0.2, tx, y + 0.01, tz, -a, edgeMat, false)
 
-      // ---- level sign on a post at the deck end of the bridge ----------
+      // ---- a lantern post either side of the deck end of the bridge ----
       for (const across of [-1, 1]) {
         const [sx, sz] = bridgePoint(level, f.parapetTo + 0.35, across * (BRIDGE_WIDTH / 2 + 0.45))
         addBox(0.12, 2.4, 0.12, sx, y + 1.2, sz, -a, m.steel)
-        if (across === 1) {
-          // Two faces back to back, each one-sided. A single double-sided
-          // plane shows its text mirrored to anyone on the far side of it --
-          // which, for a sign at the end of a bridge, is everyone on the deck.
-          const tex = signTexture(level, floor.name)
-          const mat = new THREE.MeshStandardMaterial({
-            map: tex,
-            emissive: new THREE.Color('#ffffff'),
-            emissiveMap: tex,
-            emissiveIntensity: 0.55,
-            roughness: 0.7,
-          })
-          for (const flip of [0, Math.PI]) {
-            const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.625), mat)
-            plate.position.set(sx, y + 2.05, sz)
-            // flip 0 faces back along the bridge, towards whoever is arriving
-            // from the lift; flip PI faces out across the deck.
-            plate.rotation.y = Math.PI / 2 - a + Math.PI + flip
-            plate.translateZ(0.012)
-            group.add(plate)
-          }
-        }
       }
     })
     return group
@@ -423,7 +379,7 @@ function GangwayLamps() {
     <group>
       {lamps.map((lamp) => (
         <group key={lamp.level}>
-          {/* A lantern on top of each sign post at the deck end. */}
+          {/* A lantern on top of each post at the deck end. */}
           {lamp.posts.map((p, i) => (
             <mesh key={i} position={p}>
               <boxGeometry args={[0.22, 0.2, 0.22]} />

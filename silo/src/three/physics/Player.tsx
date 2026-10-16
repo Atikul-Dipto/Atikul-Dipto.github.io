@@ -14,16 +14,16 @@ import {
   PLAYER_HALF,
   PLAYER_HEIGHT,
   PLAYER_RADIUS,
-  SHAFT_RADIUS,
   SHAFT_RING,
   contentAngle,
   walkY,
 } from '../../content/floors'
-import { VAULT } from '../../content/level1'
+import { INNER_DOOR, VAULT_ROOM, VAULT_TERMINAL, toVault } from '../../content/level1'
 import { LANDING_HALF } from '../../content/stairs'
-import { footstep } from '../../lib/audio'
+import { footstep, vaultClunk } from '../../lib/audio'
 import { attachWalkInput, move } from '../../lib/input'
 import { lift } from '../../lib/lift'
+import { vaultDoor } from '../../lib/vault'
 import { useSilo } from '../../state/useSilo'
 import type { Interact } from '../../state/useSilo'
 
@@ -347,7 +347,7 @@ export default function Player() {
     const onDeckOf = Math.abs(feet - walkY(st.level)) < 0.5
     const carHere = st.carLevel === st.level && !st.carMoving
     let here: Interact = null
-    if (!riding && st.phase !== 'airlock') {
+    if (!riding) {
       if (carHere && st.doorsOpen && lift.aboard()) here = 'lift-controls'
       else if (
         onDeckOf &&
@@ -358,9 +358,14 @@ export default function Player() {
       )
         here = 'call-lift'
       else if (st.level === 1 && onDeckOf) {
-        const vx = Math.cos(VAULT.angle) * (SHAFT_RADIUS - 1.4)
-        const vz = Math.sin(VAULT.angle) * (SHAFT_RADIUS - 1.4)
-        if (Math.hypot(px - vx, pz - vz) < 2.6) here = 'vault'
+        // The vault, in its own frame: s across the door, d out through it.
+        const v = toVault(px, pz)
+        if (v.d > VAULT_ROOM.from && Math.abs(v.s) < VAULT_ROOM.half) {
+          if (v.d > INNER_DOOR.d - 1.7) here = 'sealed'
+          else if (Math.abs(v.d - VAULT_TERMINAL.d) < 1.3 && v.s < VAULT_TERMINAL.s + 1.9) here = 'record'
+        } else if (v.d < -0.3 && v.d > -4.2 && Math.abs(v.s) < 2.8) {
+          here = st.vaultOpen ? 'vault-close' : 'vault'
+        }
       }
     }
     if (here !== st.interact) st.setInteract(here)
@@ -372,7 +377,15 @@ export default function Player() {
         if (document.pointerLockElement) document.exitPointerLock()
         st.toggleDirectory(true)
       } else if (here === 'call-lift') st.callLift(st.level)
-      else if (here === 'vault') st.enterAirlock()
+      else if (here === 'vault') st.openVault()
+      else if (here === 'vault-close') st.sealVault()
+      else if (here === 'record') {
+        if (document.pointerLockElement) document.exitPointerLock()
+        st.openRecord()
+      } else if (here === 'sealed') {
+        vaultDoor.knock = performance.now()
+        vaultClunk()
+      }
     }
 
     // ---- head bob and footsteps -------------------------------------------

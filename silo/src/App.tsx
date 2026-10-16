@@ -18,7 +18,7 @@ export default function App() {
   const webglFailed = useSilo((s) => s.webglFailed)
   const setWebglFailed = useSilo((s) => s.setWebglFailed)
   const toggleDirectory = useSilo((s) => s.toggleDirectory)
-  const closeAirlock = useSilo((s) => s.closeAirlock)
+  const closeRecord = useSilo((s) => s.closeRecord)
   const fading = useSilo((s) => s.fading)
   const progress = useSilo((s) => s.progress)
 
@@ -33,11 +33,11 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
       toggleDirectory(false)
-      closeAirlock()
+      closeRecord()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [toggleDirectory, closeAirlock])
+  }, [toggleDirectory, closeRecord])
 
   if (webglFailed) return <Fallback />
 

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { FLOORS, PALETTE, walkY } from '../../content/floors'
+import { FLOORS, PALETTE, floorByLevel, walkY } from '../../content/floors'
 import { RECORD_WALL, recordWallSpan } from '../../content/layout'
 import { levelRecord, type LevelRecord, type RecordItem } from '../../content/records'
 import { useSilo } from '../../state/useSilo'
@@ -222,20 +222,41 @@ function paintRecord(rec: LevelRecord) {
   }
 
   // ---- header ---------------------------------------------------------------
-  ctx.textAlign = 'left'
-  ctx.font = `700 24px ${MONO}`
-  spacing(ctx, 6)
+  // The level, large, at the right: this is the floor's sign now. The plate
+  // that used to stand at the end of the bridge was in the way of this very
+  // display and could not be read from the deck.
+  const num = String(rec.level).padStart(2, '0')
+  ctx.textAlign = 'right'
+  ctx.font = `800 210px ${SANS}`
+  spacing(ctx, 4)
+  ctx.fillStyle = AMBER
+  ctx.fillText(num, TW - MX + 4, 236)
+  const numW = ctx.measureText(num).width
+  ctx.font = `700 26px ${MONO}`
+  spacing(ctx, 10)
   ctx.fillStyle = DIM
-  ctx.fillText(rec.kicker.toUpperCase(), MX, 104)
+  ctx.fillText('LEVEL', TW - MX - numW - 34, 236)
+  ctx.fillStyle = FAINT
+  ctx.fillRect(TW - MX - numW - 18, 70, 2, 170)
+
+  ctx.textAlign = 'left'
+  // The floor's name over the record's title -- unless they are the same.
+  const name = floorByLevel(rec.level).name
+  if (name.toUpperCase() !== rec.title.toUpperCase()) {
+    ctx.font = `700 26px ${MONO}`
+    spacing(ctx, 7)
+    ctx.fillStyle = DIM
+    ctx.fillText(name.toUpperCase(), MX, 100)
+  }
   ctx.font = `700 72px ${SANS}`
   spacing(ctx, 8)
-  ctx.fillStyle = AMBER
-  ctx.fillText(rec.title.toUpperCase(), MX, 190)
+  ctx.fillStyle = INK
+  ctx.fillText(rec.title.toUpperCase(), MX, 186)
   if (rec.subtitle) {
     ctx.font = `600 26px ${MONO}`
     spacing(ctx, 3)
     ctx.fillStyle = DIM
-    ctx.fillText(rec.subtitle.toUpperCase(), MX, 240)
+    ctx.fillText(rec.subtitle.toUpperCase(), MX, 236)
   }
   ctx.fillStyle = FAINT
   ctx.fillRect(MX, 266, TW - MX * 2, 2)

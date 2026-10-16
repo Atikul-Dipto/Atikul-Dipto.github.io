@@ -14,7 +14,7 @@ import {
   walkY,
 } from '../../content/floors'
 import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
-import { level1Colliders } from '../../content/level1'
+import { VAULT, VAULT_TUNNEL, level1Colliders, vaultRamp } from '../../content/level1'
 import type { Box } from '../../content/level1'
 import {
   BRIDGE_WIDTH,
@@ -34,6 +34,7 @@ import {
 } from '../../content/stairs'
 import { useSilo } from '../../state/useSilo'
 import { DOOR_HALF } from '../Elevator'
+import VaultDoorBody from './VaultDoorBody'
 
 /**
  * Static collision for the part of the silo a body can currently reach.
@@ -168,8 +169,18 @@ function DeckColliders({ level }: { level: number }) {
     f.rotateX(-Math.PI / 2)
     f.translate(0, y, 0)
 
-    const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
-    w.translate(0, y + ROOM_HEIGHT / 2, 0)
+    // Closed right round -- except on level 1, where the vault tunnel goes
+    // out through it. The gap is the tunnel's own width; the boxes either
+    // side of the tunnel close the rest.
+    const gap = (VAULT_TUNNEL.half + 0.02) / DECK_OUTER
+    const wall =
+      level === 1
+        ? gappedRing(DECK_OUTER, y, ROOM_HEIGHT, VAULT.angle - gap, VAULT.angle + gap)
+        : (() => {
+            const w = new THREE.CylinderGeometry(DECK_OUTER, DECK_OUTER, ROOM_HEIGHT, SEGMENTS, 1, true)
+            w.translate(0, y + ROOM_HEIGHT / 2, 0)
+            return trimesh(w)
+          })()
 
     const edges: Array<[Float32Array, Uint32Array]> = []
     for (const side of [-1, 1] as const) {
@@ -210,9 +221,10 @@ function DeckColliders({ level }: { level: number }) {
 
     return {
       floor: trimesh(f),
-      wall: trimesh(w),
+      wall,
       voidRail: gappedRing(DECK_INNER, y, VOID_RAIL_H, a - RAIL_GAP_HALF, a + RAIL_GAP_HALF),
       landing: trimesh(landingSurface(level)),
+      ramp: level === 1 ? vaultRamp() : null,
       edges,
       solids,
     }
@@ -225,6 +237,7 @@ function DeckColliders({ level }: { level: number }) {
         <TrimeshCollider args={parts.voidRail} />
         <TrimeshCollider args={parts.wall} />
         <TrimeshCollider args={parts.landing} />
+        {parts.ramp && <TrimeshCollider args={parts.ramp} />}
         {parts.edges.map((e, i) => (
           <TrimeshCollider key={i} args={e} />
         ))}
@@ -233,6 +246,7 @@ function DeckColliders({ level }: { level: number }) {
         ))}
       </RigidBody>
       <ShaftColliders level={level} />
+      {level === 1 && <VaultDoorBody />}
     </>
   )
 }

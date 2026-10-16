@@ -7,7 +7,6 @@ export type Phase =
   | 'exterior' // cinematic approach
   | 'riding' // travelling: the opening flight in, or aboard the lift
   | 'onFloor' // standing somewhere in the silo
-  | 'airlock' // the records vault on level 1 is open
 
 export type Quality = 'high' | 'low'
 
@@ -20,7 +19,14 @@ export type Quality = 'high' | 'low'
 export type Mode = 'cinematic' | 'walk'
 
 /** What pressing E would do, right here. Drives the on-screen prompt. */
-export type Interact = 'lift-controls' | 'call-lift' | 'vault' | null
+export type Interact =
+  | 'lift-controls'
+  | 'call-lift'
+  | 'vault' // open the vault door
+  | 'vault-close' // swing it shut again
+  | 'record' // read the personnel record, at the terminal in the vault
+  | 'sealed' // the second door, which does not open
+  | null
 
 interface SiloState {
   phase: Phase
@@ -40,6 +46,11 @@ interface SiloState {
   pendingDest: number | null
   directoryOpen: boolean
   cvOpen: boolean
+  /** The vault door on level 1 is wanted open. Whether it IS open is the
+   *  door's own business (lib/vault.ts): it will not swing through a body. */
+  vaultOpen: boolean
+  /** The vault door is waiting for someone to step out of its way. */
+  doorBlocked: boolean
   muted: boolean
   /** The score, which plays with the sound unless turned off on its own. */
   music: boolean
@@ -73,11 +84,14 @@ interface SiloState {
   clearLiftCall: () => void
   toggleDirectory: (open?: boolean) => void
   setCvOpen: (open: boolean) => void
-  /** Open the records vault on level 1; the vault opens the record itself
-   *  once its door has swung. */
-  enterAirlock: () => void
-  /** Seal it again. */
-  closeAirlock: () => void
+  /** The personnel record, straight away, from anywhere: it is never locked
+   *  behind the walk. In the silo it is read at the terminal in the vault. */
+  openRecord: () => void
+  closeRecord: () => void
+  /** Swing the vault door open, or shut. Level 1 only. */
+  openVault: () => void
+  sealVault: () => void
+  setDoorBlocked: (v: boolean) => void
   toggleMute: () => void
   toggleMusic: () => void
   setReducedMotion: (v: boolean) => void
@@ -111,6 +125,8 @@ export const useSilo = create<SiloState>((set, get) => ({
   pendingDest: null,
   directoryOpen: false,
   cvOpen: false,
+  vaultOpen: false,
+  doorBlocked: false,
   muted: true, // never autoplay audio before an interaction (spec §8)
   music: true,
   reducedMotion: Boolean(prefersReduced),
@@ -149,7 +165,7 @@ export const useSilo = create<SiloState>((set, get) => ({
     }
     // A journey by lift. The lift driver boards the visitor if they are not
     // already aboard, shuts the doors and carries them; arrival comes from it.
-    set({ phase: 'riding', target: next, directoryOpen: false, interact: null })
+    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false })
   },
 
   arrive: () =>
@@ -179,19 +195,16 @@ export const useSilo = create<SiloState>((set, get) => ({
   toggleDirectory: (open) => set((s) => ({ directoryOpen: open ?? !s.directoryOpen })),
   setCvOpen: (cvOpen) => set({ cvOpen }),
 
-  enterAirlock: () => {
-    const s = get()
-    if (s.level !== 1 || (s.phase !== 'onFloor' && s.phase !== 'airlock')) {
-      // The record is never locked behind the walk: from anywhere else it
-      // opens directly.
-      set({ cvOpen: true, directoryOpen: false })
-      return
-    }
-    set({ phase: 'airlock', directoryOpen: false })
-  },
+  openRecord: () => set({ cvOpen: true, directoryOpen: false }),
+  closeRecord: () => set({ cvOpen: false }),
 
-  closeAirlock: () =>
-    set((s) => ({ cvOpen: false, phase: s.phase === 'airlock' ? 'onFloor' : s.phase })),
+  openVault: () => {
+    const s = get()
+    if (s.level === 1 && s.phase === 'onFloor') set({ vaultOpen: true })
+  },
+  sealVault: () => set({ vaultOpen: false }),
+  setDoorBlocked: (doorBlocked) => set({ doorBlocked }),
+
   toggleMute: () => set((s) => ({ muted: !s.muted })),
   toggleMusic: () => set((s) => ({ music: !s.music })),
   setReducedMotion: (reducedMotion) => set({ reducedMotion }),
@@ -203,7 +216,7 @@ export const useSilo = create<SiloState>((set, get) => ({
     set((s) => {
       const next = clampLevel(level)
       if (s.level === next) return {}
-      return { level: next, target: next }
+      return { level: next, target: next, vaultOpen: next === 1 ? s.vaultOpen : false }
     }),
 
   setMode: (mode) => set({ mode }),

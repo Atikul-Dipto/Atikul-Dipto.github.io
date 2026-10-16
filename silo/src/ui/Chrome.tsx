@@ -114,10 +114,11 @@ export function CallPanel() {
   )
 }
 
-/** The CV airlock viewer. The record is reachable without any animation. */
+/** The personnel record. Read at the terminal in the vault, or opened
+ *  straight from the panel: it is reachable without any walking. */
 export function CvViewer() {
   const open = useSilo((s) => s.cvOpen)
-  const closeAirlock = useSilo((s) => s.closeAirlock)
+  const closeRecord = useSilo((s) => s.closeRecord)
   if (!open) return null
 
   return (
@@ -128,8 +129,8 @@ export function CvViewer() {
             <p className="cv__eyebrow">Personnel record</p>
             <h2>{identity.name}</h2>
           </div>
-          <button type="button" className="btn btn--ghost" onClick={closeAirlock}>
-            Seal airlock
+          <button type="button" className="btn btn--ghost" onClick={closeRecord}>
+            Close the record
           </button>
         </div>
 

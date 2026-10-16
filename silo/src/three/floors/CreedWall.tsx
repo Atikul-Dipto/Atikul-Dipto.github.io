@@ -48,10 +48,40 @@ function paintDisplay() {
   const faint = 'rgba(201,153,107,0.28)'
   const ink = '#f4e8d2'
 
+  // ---- top left: the level, large -----------------------------------------
+  // This is the floor's sign: the plate on a post at the end of the bridge
+  // stood in front of this wall and could not be read from the deck. The
+  // name keeps left of the first mullion, at 0.235 of the width.
+  {
+    const level = FLOORS[0]
+    const num = String(level.level).padStart(2, '0')
+    ctx.textAlign = 'left'
+    ctx.font = '600 24px ui-monospace, "Cascadia Mono", Consolas, monospace'
+    ls(10)
+    ctx.fillStyle = dim
+    ctx.fillText('LEVEL', 100, 84)
+    ctx.font = '800 200px "Segoe UI", "Helvetica Neue", Arial, sans-serif'
+    ls(4)
+    ctx.fillStyle = amber
+    ctx.fillText(num, 88, 280)
+    const nx = 100 + ctx.measureText(num).width + 24
+    ctx.font = '700 34px "Segoe UI", "Helvetica Neue", Arial, sans-serif'
+    ls(4)
+    ctx.fillStyle = ink
+    const words = level.name.toUpperCase().split(' ')
+    const lines: string[] = []
+    for (const w of words) {
+      const last = lines[lines.length - 1]
+      if (last && ctx.measureText(`${last} ${w}`).width <= 660 - nx) lines[lines.length - 1] = `${last} ${w}`
+      else lines.push(w)
+    }
+    lines.forEach((l, i) => ctx.fillText(l, nx, 196 + i * 46 - (lines.length - 2) * 23))
+  }
+
   // ---- left: the silo in plan ------------------------------------------
   const cx = 360
-  const cy = TH / 2 + 10
-  const R = 270
+  const cy = 650
+  const R = 200
   ctx.strokeStyle = dim
   ctx.lineWidth = 3
   // The wall, open at the cutaway.

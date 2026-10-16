@@ -25,6 +25,9 @@ const LABEL: Record<Exclude<Interact, null>, string> = {
   'lift-controls': 'Lift controls',
   'call-lift': 'Call the lift',
   vault: 'Open the records vault',
+  'vault-close': 'Swing the vault shut',
+  record: 'Read the personnel record',
+  sealed: 'Sealed. This door does not open',
 }
 
 function ThumbRing() {
@@ -60,6 +63,7 @@ export default function WalkHud() {
   const directoryOpen = useSilo((s) => s.directoryOpen)
   const cvOpen = useSilo((s) => s.cvOpen)
   const bodyReady = useSilo((s) => s.bodyReady)
+  const doorBlocked = useSilo((s) => s.doorBlocked)
   const [touch] = useState(isTouchDevice)
   const [hintSeen, setHintSeen] = useState(false)
 
@@ -72,6 +76,12 @@ export default function WalkHud() {
       {riding && (
         <div className="walk-status" role="status">
           Lift · travelling to level <strong>{String(target).padStart(2, '0')}</strong>
+        </div>
+      )}
+
+      {doorBlocked && !riding && !modal && (
+        <div className="walk-status" role="status">
+          Step back · the vault door swings out towards you
         </div>
       )}
 

@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { CY, DISH, RS, T_BASE, T_OCULUS, domeY } from '../content/dome'
+import { CY, DISH, DOME_RIBS, DOME_RIB_HALF, RS, T_BASE, T_OCULUS, VENT, domeY, ventAngles } from '../content/dome'
 import { daylight } from '../lib/daylight'
 import { CABLE_TOP } from './Elevator'
 import { concreteSurface, tiled } from './materials'
@@ -92,10 +92,9 @@ export default function Dome() {
     // ---- meridian ribs, from the wall head up to the oculus ------------
     // A torus drawn in XY covers angle psi; a point on the dome at polar
     // angle t sits at psi = PI/2 - t in the vertical plane through the axis.
-    const ribs = 16
-    const ribGeo = new THREE.TorusGeometry(RS - 0.18, 0.22, 6, 40, T_BASE - T_OCULUS)
-    for (let i = 0; i < ribs; i++) {
-      const a = (i / ribs) * Math.PI * 2
+    const ribGeo = new THREE.TorusGeometry(RS - 0.18, DOME_RIB_HALF, 6, 40, T_BASE - T_OCULUS)
+    for (let i = 0; i < DOME_RIBS; i++) {
+      const a = (i / DOME_RIBS) * Math.PI * 2
       const rib = new THREE.Mesh(ribGeo, ribMat)
       rib.position.y = CY
       rib.rotation.set(0, -a, Math.PI / 2 - T_BASE)
@@ -111,9 +110,9 @@ export default function Dome() {
       group.add(ring)
     }
 
-    // ---- vents, in three rings between the ribs -------------------------
-    const outline = pill(2.3, 1.05)
-    const hole = pill(2.0, 0.78)
+    // ---- vents, in three rings, each bay between two ribs ----------------
+    const outline = pill(VENT.w, VENT.h)
+    const hole = pill(VENT.w - 0.3, VENT.h - 0.27)
     const frameShape = outline.clone()
     frameShape.holes.push(new THREE.Path(hole.getPoints(24)))
     const frameGeo = new THREE.ExtrudeGeometry(frameShape, { depth: 0.28, bevelEnabled: false, curveSegments: 12 })
@@ -122,9 +121,11 @@ export default function Dome() {
     {
       const pos = panelGeo.attributes.position
       const uv = new Float32Array(pos.count * 2)
+      const hw = (VENT.w - 0.3) / 2
+      const hh = (VENT.h - 0.27) / 2
       for (let i = 0; i < pos.count; i++) {
-        uv[i * 2] = (pos.getX(i) + 1.0) / 2.0
-        uv[i * 2 + 1] = (pos.getY(i) + 0.39) / 0.78
+        uv[i * 2] = (pos.getX(i) + hw) / (hw * 2)
+        uv[i * 2 + 1] = (pos.getY(i) + hh) / (hh * 2)
       }
       panelGeo.setAttribute('uv', new THREE.BufferAttribute(uv, 2))
     }
@@ -136,41 +137,34 @@ export default function Dome() {
       roughness: 0.6,
     })
 
-    const rings: Array<[number, number]> = [
-      [T_BASE - 0.1, 30],
-      [T_BASE - 0.26, 24],
-      [T_BASE - 0.42, 17],
-    ]
-    const total = rings.reduce((n, [, c]) => n + c, 0)
-    const frames = new THREE.InstancedMesh(frameGeo, frameMat, total)
-    const panels = new THREE.InstancedMesh(panelGeo, louvreMat, total)
+    const vents = ventAngles()
+    const frames = new THREE.InstancedMesh(frameGeo, frameMat, vents.length)
+    const panels = new THREE.InstancedMesh(panelGeo, louvreMat, vents.length)
     const basis = new THREE.Matrix4()
     const X = new THREE.Vector3()
     const Y = new THREE.Vector3()
     const Z = new THREE.Vector3()
     let n = 0
-    for (const [t, count] of rings) {
-      for (let k = 0; k < count; k++) {
-        const a = ((k + 0.5) / count) * Math.PI * 2
-        const p = new THREE.Vector3(Math.sin(t) * Math.cos(a), Math.cos(t), Math.sin(t) * Math.sin(a))
-        // Local +Z faces down into the atrium (towards the sphere's centre),
-        // local X runs along the line of latitude.
-        Z.copy(p).negate()
-        X.set(-Math.sin(a), 0, Math.cos(a))
-        Y.crossVectors(Z, X).normalize()
-        X.crossVectors(Y, Z).normalize()
-        basis.makeBasis(X, Y, Z)
-        const at = p.clone().multiplyScalar(RS - 0.12).add(new THREE.Vector3(0, CY, 0))
-        dummy.position.copy(at)
-        dummy.quaternion.setFromRotationMatrix(basis)
-        dummy.scale.set(1, 1, 1)
-        dummy.updateMatrix()
-        frames.setMatrixAt(n, dummy.matrix)
-        dummy.position.add(Z.clone().multiplyScalar(0.02))
-        dummy.updateMatrix()
-        panels.setMatrixAt(n, dummy.matrix)
-        n++
-      }
+    // One, two and three to a bay, top to bottom: see content/dome.ts.
+    for (const { t, a } of vents) {
+      const p = new THREE.Vector3(Math.sin(t) * Math.cos(a), Math.cos(t), Math.sin(t) * Math.sin(a))
+      // Local +Z faces down into the atrium (towards the sphere's centre),
+      // local X runs along the line of latitude.
+      Z.copy(p).negate()
+      X.set(-Math.sin(a), 0, Math.cos(a))
+      Y.crossVectors(Z, X).normalize()
+      X.crossVectors(Y, Z).normalize()
+      basis.makeBasis(X, Y, Z)
+      const at = p.clone().multiplyScalar(RS - 0.12).add(new THREE.Vector3(0, CY, 0))
+      dummy.position.copy(at)
+      dummy.quaternion.setFromRotationMatrix(basis)
+      dummy.scale.set(1, 1, 1)
+      dummy.updateMatrix()
+      frames.setMatrixAt(n, dummy.matrix)
+      dummy.position.add(Z.clone().multiplyScalar(0.02))
+      dummy.updateMatrix()
+      panels.setMatrixAt(n, dummy.matrix)
+      n++
     }
     frames.instanceMatrix.needsUpdate = true
     panels.instanceMatrix.needsUpdate = true

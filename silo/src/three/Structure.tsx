@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import {
-  BAYS,
-  BOTTOM,
+  CLAD_TILES,
   CUT_HALF,
   CUT_MID,
   DECK_INNER,
@@ -22,9 +22,11 @@ import {
   levelY,
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
-import { CAFE, CREED, SHERIFF } from '../content/level1'
-import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
+import { CAFE, CREED, FLOOR, SHERIFF, VAULT } from '../content/level1'
+import { useSilo } from '../state/useSilo'
+import { BAYS_PER_FLOOR, RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, bayAngles, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
+import Water from './Water'
 import { claddingSurface, concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
@@ -63,6 +65,7 @@ function radial(mesh: THREE.InstancedMesh, i: number, angle: number, radius: num
  * panel looks cut away rather than merely absent.
  */
 function ConcreteWall() {
+  const hole = useMemo(() => ({ value: 1 }), [])
   const nodes = useMemo(() => {
     const group = new THREE.Group()
 
@@ -93,11 +96,9 @@ function ConcreteWall() {
     // Precast cladding panels, one 4 m tile at a time round the arc and up
     // the height. The repeat comes from the real dimensions: a fixed count
     // stretched the old concrete to nearly 7 m wide when the shaft grew.
-    const clad = tiled(
-      claddingSurface(),
-      Math.round((SHAFT_RADIUS * WALL_ARC) / 4),
-      Math.round(WALL_HEIGHT / 4),
-    )
+    // CLAD_TILES is shared with content/layout, which stands the ribs on
+    // the joints.
+    const clad = tiled(claddingSurface(), CLAD_TILES, Math.round(WALL_HEIGHT / 4))
     const shell = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 1,
@@ -108,6 +109,52 @@ function ConcreteWall() {
       roughnessMap: clad.roughnessMap,
       normalScale: new THREE.Vector2(0.7, 0.7),
     })
+    // The vault on level 1 goes straight through the wall, so the wall has a
+    // round hole in it there: both shells are cut away inside the door's
+    // circle, and the tunnel drawn behind the door lines the bore. Cut in the
+    // shader rather than the mesh, because a 72-segment cylinder has no
+    // vertices anywhere near a 3 m circle. Closed for the approach, when the
+    // room behind it is not drawn.
+    const va = VAULT.angle
+    shell.onBeforeCompile = (shader) => {
+      shader.uniforms.uHole = hole
+      shader.uniforms.uN = { value: new THREE.Vector2(Math.cos(va), Math.sin(va)) }
+      shader.uniforms.uT = { value: new THREE.Vector2(-Math.sin(va), Math.cos(va)) }
+      shader.uniforms.uHoleY = { value: FLOOR + VAULT.centre }
+      shader.uniforms.uHoleR = { value: VAULT.radius }
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying vec3 vShellPos;`,
+        )
+        .replace(
+          '#include <project_vertex>',
+          `#include <project_vertex>
+          vShellPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`,
+        )
+      shader.fragmentShader = shader.fragmentShader
+        .replace(
+          '#include <common>',
+          `#include <common>
+          varying vec3 vShellPos;
+          uniform float uHole;
+          uniform vec2 uN;
+          uniform vec2 uT;
+          uniform float uHoleY;
+          uniform float uHoleR;`,
+        )
+        .replace(
+          'void main() {',
+          `void main() {
+          if (uHole > 0.5) {
+            float lat = dot(vShellPos.xz, uT);
+            float dy = vShellPos.y - uHoleY;
+            if (dot(vShellPos.xz, uN) > 10.0 && lat * lat + dy * dy < uHoleR * uHoleR) discard;
+          }`,
+        )
+    }
+    shell.customProgramCacheKey = () => 'shaft-wall-vault-hole'
 
     const inner = new THREE.Mesh(
       mottle(
@@ -155,7 +202,11 @@ function ConcreteWall() {
       group.add(face)
     }
     return group
-  }, [])
+  }, [hole])
+
+  useFrame(() => {
+    hole.value = useSilo.getState().phase === 'exterior' ? 0 : 1
+  })
 
   return <primitive object={nodes} />
 }
@@ -415,7 +466,7 @@ function Decks() {
 function Corridors() {
   const nodes = useMemo(() => {
     const group = new THREE.Group()
-    const max = FLOORS.length * BAYS
+    const max = FLOORS.length * BAYS_PER_FLOOR
     const span = SHAFT_RADIUS - DECK_INNER
 
     const brushed = tiled(steelSurface(), 6, 1)
@@ -508,16 +559,6 @@ function Lamps() {
   return <primitive object={nodes} />
 }
 
-/** The floor of the pit, below level 12. The top is the dome (Dome.tsx). */
-function Caps() {
-  return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, BOTTOM + 1, 0]} receiveShadow>
-      <circleGeometry args={[SHAFT_RADIUS, 56]} />
-      <meshStandardMaterial color={PALETTE.concreteDark} roughness={1} side={THREE.DoubleSide} />
-    </mesh>
-  )
-}
-
 export default function Structure() {
   return (
     <group>
@@ -528,7 +569,7 @@ export default function Structure() {
       <Corridors />
       <Stairway />
       <Lamps />
-      <Caps />
+      <Water />
     </group>
   )
 }
