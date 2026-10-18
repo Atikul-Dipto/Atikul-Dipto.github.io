@@ -1,4 +1,4 @@
-import { DRONE, GATES, GATE_R, constrain, padPoint } from '../content/drone'
+import { DRONE, GATES, GATE_R, PAD, constrain, padPoint } from '../content/drone'
 
 /**
  * The drone in flight: its state, its controls and one step of its flight.
@@ -158,3 +158,8 @@ export function addToBoard(name: string, time: number) {
   const i = board.indexOf(entry)
   return i < 0 ? null : i + 1
 }
+
+/** The touch screen's climb and descend buttons, held. */
+export const droneTouch = { up: false, down: false }
+/** The level the drone is flying past, for the HUD. */
+export const droneLevel = { current: PAD.level }

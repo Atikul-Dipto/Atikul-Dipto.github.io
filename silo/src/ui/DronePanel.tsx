@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { DRONE, GATES } from '../content/drone'
 import { addToBoard, drone, readBoard, type BoardEntry } from '../lib/drone'
-import { droneLevel, droneTouch } from '../three/DroneFlight'
+import { droneLevel, droneTouch } from '../lib/drone'
 import { useSilo } from '../state/useSilo'
 
 const fmt = (s: number) => `${s.toFixed(2)} s`

@@ -27,7 +27,8 @@ import { aimHit, aimMiss, aimShot } from '../../lib/audio'
 import { citizens, loadCitizens } from '../../lib/citizens'
 import { move } from '../../lib/input'
 import { useSilo } from '../../state/useSilo'
-import { canvasTexture, centreSection, droneModel, droneScreen, litMaker, roomGroup, roomShell, sectionAt, useRoomLights, WHOLE, type Lit } from './Level06'
+import { droneModel } from '../droneModel'
+import { canvasTexture, centreSection, droneScreen, litMaker, roomGroup, roomShell, sectionAt, useRoomLights, WHOLE, type Lit } from './Level06'
 
 /**
  * The newer rooms behind the recreation maze: the citizens' wall, poems and

@@ -4,10 +4,10 @@ import * as THREE from 'three'
 import { DRONE, GATES, GATE_R, PAD, padPoint } from '../content/drone'
 import { FLOOR_HEIGHT, DECK_DROP } from '../content/floors'
 import { arcadeBlip, droneBump, setDroneHum } from '../lib/audio'
-import { controls, drone, stepDrone } from '../lib/drone'
+import { controls, drone, droneLevel, droneTouch, stepDrone } from '../lib/drone'
 import { move } from '../lib/input'
 import { useSilo } from '../state/useSilo'
-import { droneModel } from './floors/Level06'
+import { droneModel } from './droneModel'
 
 /**
  * The drone, flown from the desk in the recreation chamber.
@@ -48,7 +48,6 @@ function useFlightKeys(active: boolean) {
 }
 
 /** The on-screen climb and descend buttons press these. */
-export const droneTouch = { up: false, down: false }
 
 function Gates() {
   const parts = useMemo(() => {
@@ -168,8 +167,6 @@ function Flight() {
   return null
 }
 
-/** The level the drone is flying past, for the HUD. */
-export const droneLevel = { current: 6 }
 
 /** Everything of the drone's that is drawn: its pad, and in a race, the gates. */
 export default function DroneFlight() {
