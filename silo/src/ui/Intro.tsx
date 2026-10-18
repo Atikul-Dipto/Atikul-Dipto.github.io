@@ -1,3 +1,4 @@
+import { LEVEL_COUNT } from '../content/floors'
 import { identity } from '../content/portfolio'
 import { useSilo } from '../state/useSilo'
 
@@ -14,7 +15,7 @@ export default function Intro() {
     <div className="intro">
       <div className="intro__vignette" aria-hidden="true" />
       <div className="intro__inner">
-        <p className="intro__eyebrow">Structure 01 · Depth 12 levels · Status operational</p>
+        <p className="intro__eyebrow">Structure 01 · Depth {LEVEL_COUNT} levels · Status operational</p>
         <h1 className="intro__name">{identity.name}</h1>
         <p className="intro__headline">{identity.headline}</p>
         <p className="intro__blurb">{identity.intro}</p>

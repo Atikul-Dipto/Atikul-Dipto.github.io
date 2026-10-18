@@ -1,4 +1,4 @@
-import { certifications, dashboards, education, experience, projects, skillGroups, sqlQueries, writing } from './portfolio'
+import { certifications, dashboards, education, experience, projects, skillGroups, writing } from './portfolio'
 
 /**
  * Geometry of the structure. Everything — stairs, decks, the camera rig, the
@@ -77,12 +77,12 @@ export const SLOT = { console: -0.52, window: 0.13, airlock: 0.78 } as const
 
 /**
  * THE CUTAWAY. One sector of the wall is simply not built, so the structure
- * reads as an architectural section from outside — twelve decks, the stair
+ * reads as an architectural section from outside — every deck, the stair
  * helix and the elevator all visible on the approach before you ever go in.
  *
  * Because that sector is missing, nothing may ever be fitted out into it, and
  * no wall rib or corridor bulkhead may be built there either. `contentAngle`
- * below distributes the twelve levels across the arc that remains, and
+ * below distributes the levels across the arc that remains, and
  * `inCut()` is the one predicate every generator checks.
  */
 export const CUT_MID = Math.PI * 0.5
@@ -118,14 +118,12 @@ export const inCut = (a: number, pad = 0) => Math.abs(fromCut(a)) < CUT_HALF + p
 
 export type FloorKind =
   | 'monitoring'
-  | 'residence'
-  | 'timeline'
+  | 'careers'
+  | 'skills'
   | 'recreation'
   | 'laboratory'
   | 'education'
   | 'certification'
-  | 'systems'
-  | 'methods'
   | 'core'
 
 export interface FloorDef {
@@ -139,11 +137,15 @@ export interface FloorDef {
   accent?: 'brass' | 'green' | 'red'
   /** Count shown on the directory, derived from real content. */
   itemCount?: number
-  /** Which record this floor is bound to, where it is a one-record floor. */
-  recordId?: string
   ready: boolean
 }
 
+/**
+ * Eight floors. There were twelve: a residence for each job, a corridor
+ * between them, and the tools and methods on two more floors of their own.
+ * The jobs are now three rooms on one floor, and everything the visitor can
+ * do with data is three rooms on the next.
+ */
 export const FLOORS: FloorDef[] = [
   {
     level: 1,
@@ -155,42 +157,24 @@ export const FLOORS: FloorDef[] = [
   },
   {
     level: 2,
-    id: 'res-cartup',
-    name: 'Residence — Cartup',
-    kind: 'residence',
-    blurb: experience[0].role,
-    recordId: experience[0].id,
-    ready: true,
-  },
-  {
-    level: 3,
-    id: 'res-inspira',
-    name: 'Residence — Inspira',
-    kind: 'residence',
-    blurb: experience[1].role,
-    recordId: experience[1].id,
-    ready: true,
-  },
-  {
-    level: 4,
-    id: 'res-arced',
-    name: 'Residence — ARCED',
-    kind: 'residence',
-    blurb: experience[2].role,
-    recordId: experience[2].id,
-    ready: true,
-  },
-  {
-    level: 5,
-    id: 'timeline',
-    name: 'Career Corridor',
-    kind: 'timeline',
-    blurb: 'The postings in sequence, and the soft skills between them.',
+    id: 'careers',
+    name: 'Careers',
+    kind: 'careers',
+    blurb: 'Three rooms, one for each posting. The current one has its lights on.',
     itemCount: experience.length,
     ready: true,
   },
   {
-    level: 6,
+    level: 3,
+    id: 'skills',
+    name: 'Skills',
+    kind: 'skills',
+    blurb: 'Three rooms: the tools, the analysis, and the people side of the work.',
+    itemCount: [...skillGroups.software, ...skillGroups.analytics, ...skillGroups.soft].reduce((n, g) => n + g.items.length, 0),
+    ready: true,
+  },
+  {
+    level: 4,
     id: 'recreation',
     name: 'Recreation',
     kind: 'recreation',
@@ -199,7 +183,7 @@ export const FLOORS: FloorDef[] = [
     ready: true,
   },
   {
-    level: 7,
+    level: 5,
     id: 'laboratory',
     name: 'Project Laboratory',
     kind: 'laboratory',
@@ -208,7 +192,7 @@ export const FLOORS: FloorDef[] = [
     ready: true,
   },
   {
-    level: 8,
+    level: 6,
     id: 'education',
     name: 'Education Archive',
     kind: 'education',
@@ -217,7 +201,7 @@ export const FLOORS: FloorDef[] = [
     ready: true,
   },
   {
-    level: 9,
+    level: 7,
     id: 'certification',
     name: 'Certification Archive',
     kind: 'certification',
@@ -226,25 +210,7 @@ export const FLOORS: FloorDef[] = [
     ready: true,
   },
   {
-    level: 10,
-    id: 'systems',
-    name: 'Technical Systems',
-    kind: 'systems',
-    blurb: 'The tools, by what they are for.',
-    itemCount: skillGroups.software.reduce((n, g) => n + g.items.length, 0),
-    ready: true,
-  },
-  {
-    level: 11,
-    id: 'methods',
-    name: 'Analytical Methods',
-    kind: 'methods',
-    blurb: 'How the analysis is done, and the SQL behind it.',
-    itemCount: sqlQueries.length,
-    ready: true,
-  },
-  {
-    level: 12,
+    level: 8,
     id: 'core',
     name: 'Deep Core & Contact',
     kind: 'core',
@@ -283,7 +249,7 @@ export const levelY = (level: number) => -(level - 1) * FLOOR_HEIGHT
  * Deck plate, elevator car floor, landing sill and the camera's feet are all
  * on this and nothing else. They were not: the decks sat here while the shaft,
  * car and landing portals were built on `levelY`, which put the car floor
- * 1.89 m above the deck on all twelve levels. Nothing showed it, because the
+ * 1.89 m above the deck on every level. Nothing showed it, because the
  * camera was tweened between poses and never had to step anywhere -- but it is
  * a 1.89 m drop out of the lift the moment the visitor has a body.
  *

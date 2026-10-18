@@ -44,6 +44,8 @@ export interface ExperienceRecord {
   tools?: string[]
   /** Only ever set from verified sources. */
   achievements?: string[]
+  /** What the posting taught. Only ever set from the user's own words. */
+  learned?: string[]
   relatedProjects?: Id[]
   floor: number
 }
@@ -173,7 +175,7 @@ export const experience: ExperienceRecord[] = [
       'Prepared client-facing reports, presentations, and proposals while coordinating with stakeholders on business strategy and policy advisory initiatives.',
     ],
     tools: ['Excel', 'SPSS', 'STATA', 'Market Research'],
-    floor: 3,
+    floor: 2,
   },
   {
     id: 'arced',
@@ -192,7 +194,7 @@ export const experience: ExperienceRecord[] = [
       'Supported research operations through data transcription, SurveyCTO form management, and analytical reporting.',
     ],
     tools: ['SurveyCTO', 'Kobo Toolbox', 'Excel', 'Data Quality Audits'],
-    floor: 4,
+    floor: 2,
   },
 ]
 
@@ -698,17 +700,18 @@ export const dashboards: DashboardCase[] = [
 ]
 
 /**
- * Gaps the 12-level spec asks for that we do NOT have verified content for.
+ * Gaps the silo's floors ask for that we do NOT have verified content for.
  * Surfaced in the UI (Deep Core > records status) rather than filled with
  * invented values. Supply any of these and the relevant level fills itself.
  */
 export const MISSING_CONTENT = [
   'Unlocked CV PDF (the published file is password-protected)',
   'Silo cutaway blueprint referenced as the architectural reference',
-  'Thesis / research work and research interests (Level 08)',
-  'Certification issue dates, expiry dates and verification URLs (Level 09)',
-  'Personal interests and hobbies (Level 06)',
-  'Verified project metrics, dataset scale and client names (Level 07)',
+  'Thesis / research work and research interests (Level 06)',
+  'Certification issue dates, expiry dates and verification URLs (Level 07)',
+  'Personal interests and hobbies (Level 04)',
+  'Verified project metrics, dataset scale and client names (Level 05)',
   'Real product screenshots — current previews are illustrative mockups',
-  'A contact-form backend endpoint (Level 12 falls back to mailto)',
+  'A contact-form backend endpoint (Level 08 falls back to mailto)',
+  'What was accomplished and learned in each posting (Level 02 shows the duties until then)',
 ] as const

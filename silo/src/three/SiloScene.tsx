@@ -8,6 +8,8 @@ import { dayPhase, daylight, setDayPhase } from '../lib/daylight'
 import { doorTransform, vaultDoor } from '../lib/vault'
 import * as plan from '../content/level1'
 import * as plan6 from '../content/level6'
+import { LEVEL as REC_LEVEL } from '../content/level6'
+import { LEVEL as CORE_LEVEL } from '../content/level12'
 import { chamber } from '../lib/chamber'
 import { jukeboxDebug } from '../lib/jukebox'
 import { drone } from '../lib/drone'
@@ -31,6 +33,8 @@ import Dome from './Dome'
 import Lighting from './Lighting'
 import LiftDriver from './LiftDriver'
 import Level01 from './floors/Level01'
+import WallRooms from './floors/WallRooms'
+import { CAREERS_LEVEL, SKILLS_LEVEL } from '../content/wallRooms'
 import Level06 from './floors/Level06'
 import Level12, { PowerConduits } from './floors/Level12'
 import DroneFlight from './DroneFlight'
@@ -65,14 +69,19 @@ function ActiveFloor() {
   // page has a quiet moment -- not at boot, where it would lengthen the
   // loading screen, and not on Enter, where building its rooms and uploading
   // their textures stuttered the flight in.
-  const [early, setEarly] = useState(false)
+  // Built in steps, each in its own quiet moment, so no one step is a long
+  // stall: level 1, then the careers rooms, then the skills rooms.
+  const [early, setEarly] = useState(0)
   useEffect(() => {
-    if (!approach || early) return
+    if (!approach || early >= 3) return
     const idle = window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 200))
     let handle = 0
-    const id = window.setTimeout(() => {
-      handle = idle(() => setEarly(true), { timeout: 2500 }) as number
-    }, 1200)
+    const id = window.setTimeout(
+      () => {
+        handle = idle(() => setEarly((n) => n + 1), { timeout: 2500 }) as number
+      },
+      early === 0 ? 1200 : 600,
+    )
     return () => {
       window.clearTimeout(id)
       window.cancelIdleCallback?.(handle)
@@ -81,17 +90,26 @@ function ActiveFloor() {
   const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - view) <= 1 || Math.abs(n - bound) <= 1
   return (
     <>
-      {near(1) && (inside || early) && (
+      {near(1) && (inside || early >= 1) && (
         <FloorGuard name="level 1">
           <Level01 />
         </FloorGuard>
       )}
-      {near(6) && (
+      {[CAREERS_LEVEL, SKILLS_LEVEL].map(
+        (L, i) =>
+          near(L) &&
+          (inside || early >= 2 + i) && (
+            <FloorGuard key={L} name={`level ${L}`}>
+              <WallRooms level={L} />
+            </FloorGuard>
+          ),
+      )}
+      {near(REC_LEVEL) && (
         <FloorGuard name="level 6">
           <Level06 />
         </FloorGuard>
       )}
-      {near(12) && (
+      {near(CORE_LEVEL) && (
         <FloorGuard name="level 12">
           <Level12 />
         </FloorGuard>

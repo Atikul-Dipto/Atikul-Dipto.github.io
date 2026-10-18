@@ -1,5 +1,5 @@
-import { DECK_INNER, LEVEL_COUNT, ROOM_HEIGHT, SHAFT_RADIUS, contentAngle, levelY, walkY } from './floors'
-import { ARRIVAL, MAZE, overMaze } from './level6'
+import { DECK_INNER, FLOOR_HEIGHT, LEVEL_COUNT, ROOM_HEIGHT, SHAFT_RADIUS, contentAngle, levelY, walkY } from './floors'
+import { ARRIVAL, LEVEL as REC_LEVEL, MAZE, overMaze } from './level6'
 import { BRIDGE_WIDTH, STAIR_OUTER } from './stairs'
 
 /**
@@ -23,8 +23,8 @@ export const DRONE = {
   radius: 0.35,
 }
 
-/** The pad on level 6, on the promenade by the plaza. */
-export const PAD = { angle: ARRIVAL + 0.3, r: 9.6, level: 6 }
+/** The pad on the recreation level, on the promenade by the plaza. */
+export const PAD = { angle: ARRIVAL + 0.3, r: 9.6, level: REC_LEVEL }
 export const padPoint = () => {
   const [x, z] = [Math.cos(PAD.angle) * PAD.r, Math.sin(PAD.angle) * PAD.r]
   return { x, y: walkY(PAD.level) + 1.1, z }
@@ -87,8 +87,8 @@ export function constrain(x: number, y: number, z: number, prevY: number) {
       hit = true
     }
     let maxR = OVER_DECK_R
-    // Over the maze on level 6 it may not come down among the hedges.
-    if (L === 6 && overMaze(a) && y < walkY(6) + MAZE.hedge.h + 0.6) maxR = 10.2
+    // Over the maze on the recreation level it may not come down among the hedges.
+    if (L === REC_LEVEL && overMaze(a) && y < walkY(REC_LEVEL) + MAZE.hedge.h + 0.6) maxR = 10.2
     if (L !== null && r > maxR) {
       r = maxR
       hit = true
@@ -116,11 +116,15 @@ export function constrain(x: number, y: number, z: number, prevY: number) {
 }
 
 /**
- * The race: twelve gates spiralling down the void from level 6, round the
- * stair, to level 10. The ring of open air is three metres wide, so the
- * gates fill most of it -- the challenge is the turn and the drop.
+ * The race: twelve gates spiralling down the void from the recreation level,
+ * round the stair, three levels down -- clear of the core level at the
+ * bottom, whose reactor fills the void. The ring of open air is three metres
+ * wide, so the gates fill most of it -- the challenge is the turn and the
+ * drop.
  */
 export const GATE_R = 1.2
+/** Drop from one gate to the next: twelve of them over three levels. */
+const GATE_DROP = (3 * FLOOR_HEIGHT) / 12
 const COURSE_R = (CORE_R + DECK_INNER - 0.2) / 2
 export interface Gate {
   x: number
@@ -132,7 +136,7 @@ export interface Gate {
 }
 export const GATES: Gate[] = Array.from({ length: 12 }, (_, k) => {
   const a = PAD.angle - 0.55 - k * 0.78
-  const y = walkY(6) + 2.2 - k * 3.8
+  const y = walkY(REC_LEVEL) + 2.2 - k * GATE_DROP
   // Travelling round the shaft in the direction of decreasing angle.
   return { x: Math.cos(a) * COURSE_R, y, z: Math.sin(a) * COURSE_R, nx: Math.sin(a), nz: -Math.cos(a) }
 })

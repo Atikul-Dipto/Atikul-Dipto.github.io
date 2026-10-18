@@ -4,7 +4,8 @@ import type { Box } from './level1'
 import { identity } from './portfolio'
 
 /**
- * LEVEL 12 — DEEP CORE & CONTACT. The plan.
+ * LEVEL 8 — DEEP CORE & CONTACT. The plan. (Level 12 when the silo had
+ * twelve floors; the file keeps its old name.)
  *
  * The bottom of the silo. Across the atrium from where the bridge lands, two
  * round openings in the wall lead out into the rock:
@@ -22,7 +23,7 @@ import { identity } from './portfolio'
  * Both are laid out in their door's wall frame (content/frame.ts).
  */
 
-export const LEVEL = 12
+export const LEVEL = 8
 export const FLOOR12 = walkY(LEVEL)
 
 /** The two openings: round, their bottoms under the floor. */

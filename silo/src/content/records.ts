@@ -72,7 +72,7 @@ const posting = (e: ExperienceRecord): RecordSection[] => [
       {
         // The role is the record's subtitle already.
         meta: [e.orgNote, period(e), e.location].filter(Boolean).join('  ·  '),
-        bullets: e.responsibilities,
+        bullets: [...e.responsibilities, ...(e.achievements ?? [])],
         tags: e.tools,
         links: e.orgUrl ? [{ label: e.org, href: e.orgUrl }] : undefined,
       },
@@ -99,23 +99,33 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
           },
         ],
       }
-    case 'residence': {
-      const e = experience.find((x) => x.id === floor.recordId)!
-      return { title: e.org, subtitle: e.role, sections: posting(e) }
-    }
-    case 'timeline':
+    case 'careers':
       return {
-        title: 'Career Corridor',
-        subtitle: 'The postings in sequence, and what carried between them',
+        title: 'Careers',
+        subtitle: 'Three rooms, one for each posting; the current one is lit',
+        sections: experience.map((e) => ({ heading: `${e.org}  ·  ${e.role}`, items: posting(e)[0].items })),
+      }
+    case 'skills':
+      return {
+        title: 'Skills',
+        subtitle: 'Three rooms: the tools, the analysis, and working with people',
         sections: [
+          ...skillGroups.software.map((g) => ({ heading: `Tools  ·  ${g.group}`, items: [{ tags: g.items }] })),
+          ...skillGroups.analytics.map((g) => ({ heading: `Analytics  ·  ${g.group}`, items: [{ tags: g.items }] })),
+          ...skillGroups.soft.map((g) => ({ heading: `Soft skills  ·  ${g.group}`, items: [{ tags: g.items }] })),
           {
-            heading: 'Postings',
-            items: [
-              ...experience.map((e) => ({ title: `${e.role}, ${e.org}`, meta: `${period(e)}  ·  Level ${String(e.floor).padStart(2, '0')}` })),
-              ...education.map((d) => ({ title: `${d.qualification}, ${d.institution}`, meta: `${d.start} — ${d.end}  ·  Level 08` })),
-            ],
+            heading: 'SQL showcase',
+            items: sqlQueries.map((q) => ({
+              title: q.title,
+              meta: `${q.project}  ·  ${q.dialect}`,
+              text: q.question,
+              tags: q.techniques,
+            })),
           },
-          ...skillGroups.soft.map((g) => ({ heading: g.group, items: [{ tags: g.items }] })),
+          {
+            heading: 'The queries',
+            items: sqlQueries.map((q) => ({ panelOnly: true, title: q.title, text: q.note, code: q.sql })),
+          },
         ],
       }
     case 'laboratory':
@@ -198,33 +208,6 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
         sections: [
           {
             items: certifications.map((c) => ({ title: c.name, meta: c.issuer })),
-          },
-        ],
-      }
-    case 'systems':
-      return {
-        title: 'Technical Systems',
-        subtitle: 'The tools, by what they are for',
-        sections: skillGroups.software.map((g) => ({ heading: g.group, items: [{ tags: g.items }] })),
-      }
-    case 'methods':
-      return {
-        title: 'Analytical Methods',
-        subtitle: 'How the analysis is done, and the SQL behind it',
-        sections: [
-          ...skillGroups.analytics.map((g) => ({ heading: g.group, items: [{ tags: g.items }] })),
-          {
-            heading: 'SQL showcase',
-            items: sqlQueries.map((q) => ({
-              title: q.title,
-              meta: `${q.project}  ·  ${q.dialect}`,
-              text: q.question,
-              tags: q.techniques,
-            })),
-          },
-          {
-            heading: 'The queries',
-            items: sqlQueries.map((q) => ({ panelOnly: true, title: q.title, text: q.note, code: q.sql })),
           },
         ],
       }

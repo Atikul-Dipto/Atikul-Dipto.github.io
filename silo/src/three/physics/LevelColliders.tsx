@@ -15,9 +15,10 @@ import {
 } from '../../content/floors'
 import { RIB, recordWallSolids, ribAngles } from '../../content/layout'
 import { hallSillRamps, level1Colliders, vaultRamp } from '../../content/level1'
-import { FLOOR6, ROOMS6, level6Colliders } from '../../content/level6'
+import { FLOOR6, LEVEL as REC_LEVEL, ROOMS6, level6Colliders } from '../../content/level6'
 import { openingsOn } from '../../content/openings'
-import { FLOOR12, PLATFORM, level12Colliders, platformCentre } from '../../content/level12'
+import { wallRoomColliders } from '../../content/wallRooms'
+import { FLOOR12, LEVEL as CORE_LEVEL, PLATFORM, level12Colliders, platformCentre } from '../../content/level12'
 import type { Box } from '../../content/level1'
 import {
   BRIDGE_WIDTH,
@@ -270,8 +271,9 @@ function DeckColliders({ level }: { level: number }) {
 
     if (level === 1) solids.push(...level1Colliders())
     else solids.push(...recordWallSolids(level))
-    if (level === 6) solids.push(...level6Colliders())
-    if (level === 12) solids.push(...level12Colliders())
+    if (level === REC_LEVEL) solids.push(...level6Colliders())
+    solids.push(...wallRoomColliders(level))
+    if (level === CORE_LEVEL) solids.push(...level12Colliders())
 
     return {
       floor: trimesh(f),
@@ -303,9 +305,9 @@ function DeckColliders({ level }: { level: number }) {
       </RigidBody>
       <ShaftColliders level={level} />
       {level === 1 && <VaultDoorBody />}
-      {level === 6 && <ChamberFloor />}
-      {level === 6 && ROOMS6.map((_, k) => <ChamberDoorBody key={k} k={k} />)}
-      {level === 12 && <ReactorPlatform />}
+      {level === REC_LEVEL && <ChamberFloor />}
+      {level === REC_LEVEL && ROOMS6.map((_, k) => <ChamberDoorBody key={k} k={k} />)}
+      {level === CORE_LEVEL && <ReactorPlatform />}
     </>
   )
 }

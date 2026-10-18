@@ -16,6 +16,7 @@ import {
   FLOOR6,
   FRONT,
   GRAMOPHONE,
+  LEVEL,
   MAP_BOARD,
   MAZE,
   MAZE_FROM,
@@ -47,7 +48,7 @@ import { drawMazeMap } from '../../lib/mazeMap'
 import { useSilo } from '../../state/useSilo'
 
 /**
- * LEVEL 6 — RECREATION, drawn from content/level6.ts.
+ * LEVEL 4 — RECREATION, drawn from content/level6.ts.
  *
  * A hedge maze right round the ring from the plaza where the bridge lands; a
  * map of it on the plaza; and at the back of the maze three round doors that
@@ -268,7 +269,7 @@ function droneScreen(kind: 'link' | 'board') {
       g.font = '22px "Courier New", monospace'
       g.fillText('STATUS ..... READY', 30, 120)
       g.fillText('BATTERY .... 60 s', 30, 160)
-      g.fillText('PAD ........ LEVEL 06', 30, 200)
+      g.fillText(`PAD ........ LEVEL ${String(LEVEL).padStart(2, '0')}`, 30, 200)
       g.fillStyle = '#f2c94c'
       g.fillText('PRESS E TO FLY', 30, 260)
       // Crosshair.
@@ -528,7 +529,7 @@ function RoomDoor({ k }: { k: number }) {
     const body = s.mode === 'walk' && s.bodyReady && !s.droneFlying ? { x: state.camera.position.x, z: state.camera.position.z } : null
     const before = chamber.doors[k]
     const fast = s.reducedMotion ? 4 : 1
-    chamber.doors[k] = stepChamberDoor(k, before, s.chambersOpen[k] && s.level === 6, Math.min(dt, 1 / 20) * fast, body)
+    chamber.doors[k] = stepChamberDoor(k, before, s.chambersOpen[k] && s.level === LEVEL, Math.min(dt, 1 / 20) * fast, body)
     const t = chamber.doors[k]
     if (t !== before) setVaultGrind(0.7)
     else if (!chamber.doors.some((v, i) => i !== k && v > 0 && v < 1)) setVaultGrind(0)
@@ -1374,7 +1375,7 @@ function MazeClock() {
   useEffect(() => () => useSilo.getState().setHudNote(null), [])
   useFrame((state) => {
     const s = useSilo.getState()
-    if (s.mode !== 'walk' || s.level !== 6 || s.droneFlying) return
+    if (s.mode !== 'walk' || s.level !== LEVEL || s.droneFlying) return
     const now = performance.now()
     const p = state.camera.position
     const cell = mazeCell(p.x, p.z)

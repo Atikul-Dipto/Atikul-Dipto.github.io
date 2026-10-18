@@ -22,6 +22,8 @@ export interface WallFrame {
   box: (s0: number, s1: number, d0: number, d1: number, y0: number, y1: number) => Box
   /** Yaw that turns a box's local X onto the frame's s. */
   yaw: number
+  /** The floor the frame's heights are measured from. */
+  floorY: number
 }
 
 export function wallFrame(angle: number, floorY: number): WallFrame {
@@ -38,6 +40,7 @@ export function wallFrame(angle: number, floorY: number): WallFrame {
       return { x, y: floorY + (y0 + y1) / 2, z, w: s1 - s0, h: y1 - y0, d: d1 - d0, rotY: yaw }
     },
     yaw,
+    floorY,
   }
 }
 

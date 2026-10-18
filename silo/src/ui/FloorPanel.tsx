@@ -62,9 +62,9 @@ export default function FloorPanel() {
       <p className="panel__hint">
         {floor.level === 1
           ? "The record is kept in the vault, behind the round door in the sheriff's office. The lift and the stair are across the bridge."
-          : floor.level === 6
+          : floor.kind === 'recreation'
             ? 'The maze runs right round the floor from the plaza where the bridge lands; its map stands on the plaza. The lift and the stair are across the bridge.'
-            : floor.level === 12
+            : floor.kind === 'core'
               ? 'Across the atrium from the bridge: the reactor that powers the silo, and the communications room, where every contact is on the floor.'
               : 'This record is also on the wall the bridge faces. The lift and the stair are across the bridge.'}
       </p>

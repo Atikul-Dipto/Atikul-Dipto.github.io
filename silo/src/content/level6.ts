@@ -3,7 +3,8 @@ import { seeded, wallFrame, type WallFrame } from './frame'
 import type { Box } from './level1'
 
 /**
- * LEVEL 6 — RECREATION. The plan.
+ * LEVEL 4 — RECREATION. The plan. (Level 6 when the silo had twelve floors;
+ * the file keeps its old name.)
  *
  * As on level 1, every solid thing here is described once, as data, and read
  * twice: by `three/floors/Level06.tsx` to draw it and by the physics to stand
@@ -29,7 +30,7 @@ import type { Box } from './level1'
  * centre.
  */
 
-export const LEVEL = 6
+export const LEVEL = 4
 export const FLOOR6 = walkY(LEVEL)
 const OUTER = SHAFT_RADIUS - 0.06
 const polar = (a: number, r: number): [number, number] => [Math.cos(a) * r, Math.sin(a) * r]

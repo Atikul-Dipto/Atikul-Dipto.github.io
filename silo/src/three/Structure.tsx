@@ -59,6 +59,14 @@ function faceAxis(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z:
  */
 function ConcreteWall() {
   const hole = useMemo(() => ({ value: 1 }), [])
+  // The shader's opening slots; `useFrame` below fills them.
+  const holes = useMemo(
+    () => ({
+      holeA: Array.from({ length: MAX_OPENINGS }, () => new THREE.Vector4(1, 0, 1e6, 0)),
+      holeT: Array.from({ length: MAX_OPENINGS }, () => new THREE.Vector4(0, 1, 0, 0)),
+    }),
+    [],
+  )
   const nodes = useMemo(() => {
     const group = new THREE.Group()
 
@@ -102,22 +110,18 @@ function ConcreteWall() {
       roughnessMap: clad.roughnessMap,
       normalScale: new THREE.Vector2(0.7, 0.7),
     })
-    // Doors go straight through the wall -- the vault on level 1, the
-    // recreation chamber on level 6 -- so the wall has round holes in it
-    // there: both shells are cut away inside each opening's circle, and the
-    // tunnel drawn behind each door lines the bore. Cut in the shader rather
-    // than the mesh, because a 72-segment cylinder has no vertices anywhere
-    // near a 3 m circle. Closed for the approach, when the rooms behind them
-    // are not drawn.
-    if (OPENINGS.length > MAX_OPENINGS) throw new Error('more wall openings than the shader holds')
-    const holeA = Array.from({ length: MAX_OPENINGS }, (_, i) => {
-      const o = OPENINGS[i]
-      return o ? new THREE.Vector4(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.halfW) : new THREE.Vector4(1, 0, 1e6, 0)
-    })
-    const holeT = Array.from({ length: MAX_OPENINGS }, (_, i) => {
-      const o = OPENINGS[i]
-      return o ? new THREE.Vector4(-Math.sin(o.angle), Math.cos(o.angle), o.halfH, o.radius) : new THREE.Vector4(0, 1, 0, 0)
-    })
+    // Doors go straight through the wall -- rooms on several levels -- so the
+    // wall has holes in it there: both shells are cut away inside each
+    // opening's outline, and the tunnel drawn behind each door lines the bore.
+    // Cut in the shader rather than the mesh, because a 72-segment cylinder
+    // has no vertices anywhere near a 3 m circle. Closed for the approach,
+    // when the rooms behind them are not drawn.
+    //
+    // The shader holds MAX_OPENINGS; there are more openings than that in
+    // the silo, so each frame the slots are given to the ones nearest the
+    // camera in height (`useFrame` below). A fixed count, so it never
+    // recompiles; the doorways of distant levels are not drawn anyway.
+    const { holeA, holeT } = holes
     shell.onBeforeCompile = (shader) => {
       shader.uniforms.uHole = hole
       shader.uniforms.uHoleA = { value: holeA }
@@ -206,10 +210,23 @@ function ConcreteWall() {
       group.add(face)
     }
     return group
-  }, [hole])
+  }, [hole, holes])
 
-  useFrame(() => {
+  useFrame(({ camera }) => {
     hole.value = useSilo.getState().phase === 'exterior' ? 0 : 1
+    const h = holes
+    const y = camera.position.y
+    const near = OPENINGS.length <= MAX_OPENINGS ? OPENINGS : [...OPENINGS].sort((a, b) => Math.abs(a.centreY - y) - Math.abs(b.centreY - y))
+    for (let i = 0; i < MAX_OPENINGS; i++) {
+      const o = near[i]
+      if (o) {
+        h.holeA[i].set(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.halfW)
+        h.holeT[i].set(-Math.sin(o.angle), Math.cos(o.angle), o.halfH, o.radius)
+      } else {
+        h.holeA[i].set(1, 0, 1e6, 0)
+        h.holeT[i].set(0, 1, 0, 0)
+      }
+    }
   })
 
   return <primitive object={nodes} />

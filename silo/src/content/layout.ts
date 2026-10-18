@@ -1,6 +1,7 @@
 import { CLAD_JOINT, SHAFT_RADIUS, WALL_START, contentAngle, inCut, walkY } from './floors'
-import { ROOMS6 } from './level6'
-import { CX_FRAME, RX_FRAME } from './level12'
+import { LEVEL as REC_LEVEL, ROOMS6 } from './level6'
+import { CX_FRAME, LEVEL as CORE_LEVEL, RX_FRAME } from './level12'
+import { wallRoomsOn } from './wallRooms'
 import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential, type Box } from './level1'
 
 /**
@@ -15,21 +16,22 @@ import { CONSOLE_ANGLE, FLOOR, PORTRAIT_ANGLE, inCreed, inLevel1Room, tangential
 
 /**
  * Wall angles taken by fit-out on a level, which nothing repeating may cover.
- * Levels 2-12 have only their record display, which `wallFree` handles.
+ * The other levels have only their record display, which `wallFree` handles.
  */
 function reserved(level: number): number[] {
   if (level === 1) return [PORTRAIT_ANGLE, CONSOLE_ANGLE]
   // The chamber's round door, in the wall at the back of the maze.
-  if (level === 6) return ROOMS6.map((r) => r.frame.angle)
+  if (level === REC_LEVEL) return ROOMS6.map((r) => r.frame.angle)
   // The reactor's and the communications room's openings.
-  if (level === 12) return [RX_FRAME.angle, CX_FRAME.angle]
-  return []
+  if (level === CORE_LEVEL) return [RX_FRAME.angle, CX_FRAME.angle]
+  // The careers and skills rooms' gates.
+  return wallRoomsOn(level).map((r) => r.frame.angle)
 }
 
 const angDist = (a: number, b: number) => Math.abs(((a - b + Math.PI * 3) % (Math.PI * 2)) - Math.PI)
 
 /**
- * The record display on levels 2-12: a curved glass display centred on the
+ * The record display on every level below the first: a curved glass display centred on the
  * level's content angle, so the bridge lands facing it. Same section as the
  * creed wall on level 1 -- glass from `plinth` to `top`, its face at `r`.
  */

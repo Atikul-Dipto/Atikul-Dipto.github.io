@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useLoader, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { boxes, canvasTexture, framed, gatePassage, roomShell } from '../roomKit'
+import IronName from './IronName'
 import { buildSurface, screenMaterial } from '../surface'
 import { PALETTE, SHAFT_RADIUS, WALL_THICK } from '../../content/floors'
 import {
@@ -30,8 +32,8 @@ import {
   tableAxes,
   tableBox,
 } from '../../content/level1'
-import type { Box, Gate, Seat, Table } from '../../content/level1'
-import { identity } from '../../content/portfolio'
+import type { Box, Seat, Table } from '../../content/level1'
+import { identity, profile } from '../../content/portfolio'
 import { daylight } from '../../lib/daylight'
 import { useSilo } from '../../state/useSilo'
 import { claddingSurface, concreteSurface, plateSurface, steelSurface, tiled } from '../materials'
@@ -39,6 +41,7 @@ import CreedWall from './CreedWall'
 import Vault from './Vault'
 
 const BASE = import.meta.env.BASE_URL
+const dummy = new THREE.Object3D()
 
 /**
  * LEVEL 1, drawn from content/level1.ts.
@@ -49,40 +52,9 @@ const BASE = import.meta.env.BASE_URL
  * touches -- ceilings, lamps, screens, plates on the tables.
  */
 
-const dummy = new THREE.Object3D()
-const unitBox = new THREE.BoxGeometry(1, 1, 1)
-
-/** One instanced mesh for a list of boxes, each scaled to its own size. */
-function boxes(list: Box[], material: THREE.Material, shadow = true) {
-  const mesh = new THREE.InstancedMesh(unitBox, material, Math.max(1, list.length))
-  list.forEach((b, i) => {
-    dummy.position.set(b.x, b.y, b.z)
-    dummy.rotation.set(0, b.rotY, 0)
-    dummy.scale.set(b.w, b.h, b.d)
-    dummy.updateMatrix()
-    mesh.setMatrixAt(i, dummy.matrix)
-  })
-  mesh.count = list.length
-  mesh.instanceMatrix.needsUpdate = true
-  mesh.castShadow = shadow
-  mesh.receiveShadow = true
-  return mesh
-}
 
 
 
-function canvasTexture(w: number, h: number, paint: (ctx: CanvasRenderingContext2D) => void) {
-  const c = document.createElement('canvas')
-  c.width = w
-  c.height = h
-  const ctx = c.getContext('2d')!
-  paint(ctx)
-  const t = new THREE.CanvasTexture(c)
-  t.colorSpace = THREE.SRGBColorSpace
-  t.anisotropy = 4
-  t.wrapS = t.wrapT = THREE.RepeatWrapping
-  return t
-}
 
 
 // ===========================================================================
@@ -104,48 +76,47 @@ function makePanel(width: number, height: number) {
  * abstract trace -- decorative, and never implying live operational data.
  */
 function IdentityConsole() {
-  const panel = useMemo(() => makePanel(512, 320), [])
-  const trace = useRef(0)
-  const nextDraw = useRef(0)
-
-  useFrame((_, dt) => {
-    trace.current += dt
-    if (trace.current < nextDraw.current) return
-    nextDraw.current = trace.current + 1 / 12
-    const { ctx, canvas, texture } = panel
-    const t = trace.current
+  // The summary, drawn once: who, what, and the profile's own bio.
+  const panel = useMemo(() => {
+    const p = makePanel(1536, 963)
+    const { ctx, canvas } = p
+    const W = canvas.width
     ctx.fillStyle = '#120e0b'
-    ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.fillRect(0, 0, W, canvas.height)
     ctx.fillStyle = 'rgba(201,153,107,0.045)'
-    for (let yy = 0; yy < canvas.height; yy += 4) ctx.fillRect(0, yy, canvas.width, 1)
+    for (let yy = 0; yy < canvas.height; yy += 6) ctx.fillRect(0, yy, W, 2)
+    ctx.strokeStyle = 'rgba(201,153,107,0.7)'
+    ctx.lineWidth = 6
+    ctx.strokeRect(14, 14, W - 28, canvas.height - 28)
     ctx.fillStyle = PALETTE.brassHot
-    ctx.font = 'bold 20px "Segoe UI", system-ui, sans-serif'
-    ctx.fillText('PERSONNEL RECORD', 24, 40)
-    ctx.font = 'bold 30px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = '#f3ece6'
-    ctx.fillText(identity.name, 24, 82)
-    ctx.font = '15px "Segoe UI", system-ui, sans-serif'
-    ctx.fillStyle = 'rgba(237,233,230,0.68)'
-    ctx.fillText(identity.headline, 24, 110)
-    ctx.font = 'bold 12px "Cascadia Code", monospace'
-    ctx.fillStyle = PALETTE.brass
-    identity.specialisms.slice(0, 4).forEach((s, i) => ctx.fillText('> ' + s.toUpperCase(), 24, 148 + i * 22))
-    ctx.strokeStyle = 'rgba(201,153,107,0.85)'
-    ctx.lineWidth = 2
+    ctx.font = 'bold 44px "Segoe UI", system-ui, sans-serif'
+    ctx.fillText('PERSONNEL SUMMARY', 70, 100)
+    ctx.fillStyle = '#8fd08a'
     ctx.beginPath()
-    for (let x = 0; x <= 464; x += 4) {
-      const v = Math.sin(x * 0.045 + t * 1.6) * 0.5 + Math.sin(x * 0.011 - t * 0.9) * 0.5
-      const yy = 268 + v * 22
-      if (x === 0) ctx.moveTo(24 + x, yy)
-      else ctx.lineTo(24 + x, yy)
-    }
-    ctx.stroke()
-    ctx.fillStyle = Math.sin(t * 2.2) > 0 ? '#8fd08a' : 'rgba(143,208,138,0.25)'
-    ctx.beginPath()
-    ctx.arc(canvas.width - 34, 34, 7, 0, Math.PI * 2)
+    ctx.arc(W - 90, 86, 16, 0, Math.PI * 2)
     ctx.fill()
-    texture.needsUpdate = true
-  })
+    ctx.font = 'bold 96px "Segoe UI", system-ui, sans-serif'
+    ctx.fillStyle = '#f3ece6'
+    ctx.fillText(identity.name, 70, 210)
+    ctx.font = '600 44px "Segoe UI", system-ui, sans-serif'
+    ctx.fillStyle = PALETTE.brass
+    ctx.fillText(identity.headline, 72, 275, W - 140)
+    ctx.font = '38px "Segoe UI", system-ui, sans-serif'
+    ctx.fillStyle = 'rgba(243,236,230,0.92)'
+    let line = ''
+    let y = 360
+    for (const word of profile.bio.split(/\s+/)) {
+      const next = line ? `${line} ${word}` : word
+      if (ctx.measureText(next).width > W - 150 && line) {
+        ctx.fillText(line, 72, y)
+        line = word
+        y += 54
+      } else line = next
+    }
+    if (line) ctx.fillText(line, 72, y)
+    p.texture.needsUpdate = true
+    return p
+  }, [])
 
   const r = SHAFT_RADIUS - 0.3
   const a = CONSOLE_ANGLE
@@ -156,7 +127,7 @@ function IdentityConsole() {
     // it back to face the shaft axis, which is where the visitor stands.
     <group position={[Math.cos(a) * r, yScreen, Math.sin(a) * r]} rotation={[0, Math.PI / 2 - a + Math.PI, 0]}>
       <group>
-        <mesh position={[0, 0, 0.06]}>
+        <mesh position={[0, 0, 0.1]}>
           <planeGeometry args={[2.6, 1.63]} />
           <meshBasicMaterial map={panel.texture} toneMapped={false} />
         </mesh>
@@ -243,127 +214,6 @@ function PortraitWindow() {
 // The rooms behind the wall
 // ===========================================================================
 
-type Frame = typeof OFFICE_F
-type RoomSize = typeof OFFICE
-
-/** A group in a room's frame: local x = s, local z = -d, origin on the deck
- *  floor at the silo wall's inner face. */
-function framed(F: Frame) {
-  const g = new THREE.Group()
-  const [x, z] = F.to(0, 0)
-  g.position.set(x, FLOOR, z)
-  g.rotation.y = F.yaw
-  return g
-}
-
-/** A rounded rectangle as a path, centred on (0, cy). */
-function roundedRect<T extends THREE.Path>(p: T, halfW: number, halfH: number, r: number, cy: number, reverse = false) {
-  const x0 = -halfW
-  const x1 = halfW
-  const y0 = cy - halfH
-  const y1 = cy + halfH
-  if (!reverse) {
-    p.moveTo(x0 + r, y0)
-    p.lineTo(x1 - r, y0)
-    p.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0, false)
-    p.lineTo(x1, y1 - r)
-    p.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2, false)
-    p.lineTo(x0 + r, y1)
-    p.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, false)
-    p.lineTo(x0, y0 + r)
-    p.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, false)
-  } else {
-    p.moveTo(x0 + r, y0)
-    p.absarc(x0 + r, y0 + r, r, Math.PI * 1.5, Math.PI, true)
-    p.lineTo(x0, y1 - r)
-    p.absarc(x0 + r, y1 - r, r, Math.PI, Math.PI / 2, true)
-    p.lineTo(x1 - r, y1)
-    p.absarc(x1 - r, y1 - r, r, Math.PI / 2, 0, true)
-    p.lineTo(x1, y0 + r)
-    p.absarc(x1 - r, y0 + r, r, 0, -Math.PI / 2, true)
-  }
-  return p
-}
-
-/** A rectangle of wall with a gate-shaped hole in it, as a flat mesh. */
-function wallWithHole(halfW: number, y0: number, y1: number, gate: Gate | null, mat: THREE.Material, round?: { r: number; cy: number }) {
-  const sh = new THREE.Shape()
-  sh.moveTo(-halfW, y0)
-  sh.lineTo(halfW, y0)
-  sh.lineTo(halfW, y1)
-  sh.lineTo(-halfW, y1)
-  sh.lineTo(-halfW, y0)
-  if (gate) sh.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
-  if (round) {
-    const h = new THREE.Path()
-    h.absarc(0, round.cy, round.r, 0, Math.PI * 2, true)
-    sh.holes.push(h)
-  }
-  return new THREE.Mesh(new THREE.ShapeGeometry(sh, 32), mat)
-}
-
-/**
- * The passage through the silo wall: the gate's outline extruded through the
- * wall's thickness, with a face round it standing just proud of the wall on
- * the deck side. Its trim is a separate ring, so it can be brass or timber.
- */
-function gatePassage(gate: Gate, lining: THREE.Material, trim: THREE.Material) {
-  const g = new THREE.Group()
-  // The lining's outside follows the outline too: a rectangle here showed as
-  // a block over the opening and a frame round it inside.
-  const pad = 0.12
-  const outer = roundedRect(new THREE.Shape(), gate.halfW + pad, gate.halfH + pad, gate.radius + pad, gate.centre)
-  outer.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
-  const body = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: WALL_THICK + 0.04, bevelEnabled: false, curveSegments: 24 }), lining)
-  body.position.z = -WALL_THICK - 0.01
-  body.receiveShadow = true
-  g.add(body)
-  // The trim: a band round the outline on the deck face.
-  const ring = new THREE.Shape()
-  roundedRect(ring, gate.halfW + 0.16, gate.halfH + 0.16, gate.radius + 0.16, gate.centre)
-  ring.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
-  const band = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.08, bevelEnabled: false, curveSegments: 24 }), trim)
-  band.position.z = 0.02
-  g.add(band)
-  return g
-}
-
-/** The shell of a room behind the wall: floor, ceiling, four walls. */
-function roomShell(
-  g: THREE.Group,
-  R: RoomSize,
-  gate: Gate,
-  mats: { wall: THREE.Material; floor: THREE.Material; ceil: THREE.Material },
-  back?: { r: number; cy: number },
-) {
-  const len = R.to - R.from
-  // Out through the passage in the wall too, to meet the deck.
-  // Starting at the wall's face, so it does not overlap the deck and flicker.
-  const floor = new THREE.Mesh(new THREE.PlaneGeometry(R.half * 2, R.to), mats.floor)
-  floor.rotation.x = -Math.PI / 2
-  floor.position.set(0, 0.006, -R.to / 2)
-  floor.receiveShadow = true
-  g.add(floor)
-  const ceil = new THREE.Mesh(new THREE.PlaneGeometry(R.half * 2, len), mats.ceil)
-  ceil.rotation.x = Math.PI / 2
-  ceil.position.set(0, R.height, -(R.from + R.to) / 2)
-  g.add(ceil)
-  for (const side of [-1, 1]) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(len, R.height), mats.wall)
-    w.position.set(side * R.half, R.height / 2, -(R.from + R.to) / 2)
-    w.rotation.y = -side * (Math.PI / 2)
-    w.receiveShadow = true
-    g.add(w)
-  }
-  const backWall = wallWithHole(R.half, 0, R.height, null, mats.wall, back)
-  backWall.position.z = -R.to
-  backWall.receiveShadow = true
-  g.add(backWall)
-  const front = wallWithHole(R.half, -0.4, R.height, gate, mats.wall)
-  front.position.z = -R.from + 0.01
-  front.rotation.y = Math.PI
-  g.add(front)
-}
 
 function woodCeiling() {
   const t = canvasTexture(512, 256, (ctx) => {
@@ -1172,6 +1022,7 @@ export default function Level01() {
     <group name="level1-probe">
       <PortraitWindow />
       <IdentityConsole />
+      <IronName />
       <CreedWall />
       <SheriffOffice />
       <Cafeteria />

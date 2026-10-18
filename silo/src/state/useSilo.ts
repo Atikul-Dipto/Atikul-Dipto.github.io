@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { drone, launch, type DroneMode } from '../lib/drone'
 import { LEVEL_COUNT } from '../content/floors'
+import { LEVEL as REC_LEVEL } from '../content/level6'
 import { isLowPower, isModestGpu } from '../lib/capability'
 
 /** Where the visitor is in the experience, not where the camera is. */
@@ -34,7 +35,7 @@ export type Interact =
   | 'jukebox' // the gramophone and the cassettes
   | `arcade:${string}` // one of the game cabinets
   | 'drone' // the drone's controls
-  | 'reactor' // the reactor's console, level 12
+  | 'reactor' // the reactor's console, on the core level
   | `contact:${string}` // a contact plate in the communications room
   | null
 
@@ -64,8 +65,7 @@ interface SiloState {
   vaultOpen: boolean
   /** The vault door is waiting for someone to step out of its way. */
   doorBlocked: boolean
-  /** The recreation chamber's round door is wanted open (level 6). */
-  /** Each of the recreation rooms' round doors is wanted open (level 6). */
+  /** Each of the recreation rooms' round doors is wanted open. */
   chambersOpen: boolean[]
   /** A panel opened from the chamber, and which game the arcade is showing. */
   panel: Panel
@@ -266,7 +266,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   setDoorBlocked: (doorBlocked) => set({ doorBlocked }),
   openChamber: (k) => {
     const s = get()
-    if (s.level === 6 && s.phase === 'onFloor') set({ chambersOpen: s.chambersOpen.map((v, i) => (i === k ? true : v)) })
+    if (s.level === REC_LEVEL && s.phase === 'onFloor') set({ chambersOpen: s.chambersOpen.map((v, i) => (i === k ? true : v)) })
   },
   closeChamber: (k) => set((s) => ({ chambersOpen: s.chambersOpen.map((v, i) => (i === k ? false : v)) })),
   openPanel: (panel, game = null) => set({ panel, arcadeGame: game, directoryOpen: false }),
@@ -312,7 +312,7 @@ export const useSilo = create<SiloState>((set, get) => ({
         level: next,
         target: next,
         vaultOpen: next === 1 ? s.vaultOpen : false,
-        chambersOpen: next === 6 ? s.chambersOpen : [false, false, false],
+        chambersOpen: next === REC_LEVEL ? s.chambersOpen : [false, false, false],
       }
     }),
 
