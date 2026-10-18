@@ -77,7 +77,7 @@ export const overMaze = (a: number) => {
 // The rooms behind the wall
 // ---------------------------------------------------------------------------
 
-export type RoomId = 'chamber' | 'music' | 'empty'
+export type RoomId = 'chamber' | 'music' | 'citizens' | 'poems' | 'drone' | 'aim'
 export interface Room {
   id: RoomId
   /** The maze sector whose outermost cell the door opens from. */
@@ -96,7 +96,30 @@ function room(id: RoomId, sector: number, radius: number, height: number): Room 
   return { id, sector, frame: wallFrame(sectorMid(sector), FLOOR6), radius, centre: FRONT + radius, height }
 }
 
-export const ROOMS6: Room[] = [room('chamber', 2, 10, 7.6), room('music', 5, 9, 6.8), room('empty', 8, 8, 5.6)]
+/**
+ * Six rooms round the back of the maze, three sectors apart: game theory,
+ * music and the citizens' wall one way from the plaza; poems and writings,
+ * drone control and the aim range the other way. Sectors 10 to 16 lie behind
+ * the cutaway, where there is no wall and no rock to cut a room into.
+ */
+export const ROOMS6: Room[] = [
+  room('chamber', 2, 10, 7.6),
+  room('music', 5, 9, 6.8),
+  room('citizens', 8, 9, 6.6),
+  room('poems', 23, 8, 5.8),
+  room('drone', 20, 8.5, 6.4),
+  room('aim', 17, 8.5, 6.4),
+]
+/** What each room is called, and its own colour: on the map, over its door,
+ *  in its light. */
+export const ROOM_INFO: Record<RoomId, { label: string; colour: string }> = {
+  chamber: { label: 'Game theory', colour: '#f2c94c' },
+  music: { label: 'Music hall', colour: '#7fe0c4' },
+  citizens: { label: 'Citizens', colour: '#8fd3ff' },
+  poems: { label: 'Poems & writings', colour: '#c3a6ff' },
+  drone: { label: 'Drone control', colour: '#6cff9a' },
+  aim: { label: 'Aim range', colour: '#ff5a4f' },
+}
 export const roomById = (id: RoomId) => ROOMS6.find((r) => r.id === id)!
 
 /** The round door, the same in every opening. It stands inside the wall's
@@ -141,10 +164,16 @@ export interface Corridor {
   phiB: number
 }
 const centreOf = (r: Room) => r.frame.to(0, r.centre)
-export const CORRIDORS: Corridor[] = [
-  [ROOMS6[0], ROOMS6[1]],
-  [ROOMS6[1], ROOMS6[2]],
-].map(([a, b]) => {
+/** Every room joined to the next: out from the chamber both ways. */
+const LINKS: Array<[RoomId, RoomId]> = [
+  ['chamber', 'music'],
+  ['music', 'citizens'],
+  ['chamber', 'poems'],
+  ['poems', 'drone'],
+  ['drone', 'aim'],
+]
+export const CORRIDORS: Corridor[] = LINKS.map(([a, b]) => [roomById(a), roomById(b)])
+  .map(([a, b]) => {
   const [ax, az] = centreOf(a)
   const [bx, bz] = centreOf(b)
   const len = Math.hypot(bx - ax, bz - az)
@@ -187,7 +216,7 @@ export const behindWall = (x: number, z: number) => ROOMS6.some((r) => inRoom(r,
 
 // ---- what is in them ---------------------------------------------------------
 
-/** The chamber: the arcade at the back, drone control on the left, the
+/** The chamber -- the game theory room: the arcade at the back, the
  *  corridor to the music hall on the right. */
 export const CHAMBER = ROOMS6[0]
 export const CABINET = { rr: 8.9, w: 0.86, h: 1.95, depth: 0.82 }
@@ -200,11 +229,11 @@ export const ARCADE_GAMES = [
 ] as const
 export type ArcadeGame = (typeof ARCADE_GAMES)[number]['id']
 export const cabinetPhi = (k: number) => (k - (ARCADE_GAMES.length - 1) / 2) * 0.27
-export const DRONE_DESK = { phi: -1.78, rr: 8.3, w: 3.2, depth: 0.85, h: 0.78 }
-export const DRONE_PLINTH = { phi: -1.3, rr: 7.3 }
+
 /** Curved display counters round the chamber's wall, between the alcoves. */
 export const SHELF_RUNS: Array<[number, number]> = [
-  [-2.62, -2.12],
+  // Where drone control stood; the corridor to the poems room opens past it.
+  [-2.05, -1.5],
   [-1.12, -0.74],
   [0.74, 1.05],
   [2.12, 2.62],
@@ -220,8 +249,31 @@ export const CLOSETS = [-0.62, 0.62].map((phi) => ({ phi, rr: 8.25, w: 1.9, h: 2
 export const SEATS = [-1.0, -0.5, 0, 0.5, 1.0].map((off) => ({ phi: Math.PI + off, rr: 3.4 }))
 export const SPEAKERS = [-0.3, 0.3].map((phi) => ({ phi, rr: 7.9 }))
 
-/** The empty room: nothing yet. */
-export const EMPTY = ROOMS6[2]
+/** The citizens' room: its whole wall a screen of names, and the kiosk in
+ *  the middle where a visitor adds theirs. */
+export const CITIZENS = ROOMS6[2]
+export const KIOSK = { rr: 0, w: 1.5, depth: 1.0, h: 1.15 }
+
+/** Poems and writings: a lectern at the back, framed pieces round the wall. */
+export const POEMS = ROOMS6[3]
+export const LECTERN = { phi: 0, rr: 4.6, w: 1.1, depth: 0.7, h: 1.15 }
+
+/** Drone control: the desk at the back, the drone on a plinth in the middle. */
+export const DRONE = ROOMS6[4]
+export const DRONE_DESK = { phi: 0, rr: 6.2, w: 3.2, depth: 0.85, h: 0.78 }
+export const DRONE_PLINTH = { phi: Math.PI, rr: 0.6 }
+
+/**
+ * The aim range. A rail runs across the room a little past its centre: the
+ * visitor stands on the near side, the targets come up on the far one. The
+ * console that starts a round stands on the near side, by the rail's left end.
+ */
+export const AIM = ROOMS6[5]
+/** The firing line: its distance past the room's centre, and its height. */
+export const AIM_RAIL = { f: 1.2, h: 1.05 }
+export const AIM_CONSOLE = { phi: -1.3, rr: 2.6, w: 0.9, depth: 0.6, h: 1.1 }
+/** Where targets may come up: angles and distances from the centre, and heights. */
+export const AIM_FIELD = { phi: 0.95, rr0: 3.4, rr1: 7.8, y0: 0.7, y1: 4.6 }
 
 /** The map of the maze, standing on the plaza facing the bridge. */
 export const MAP_BOARD = { angle: ARRIVAL + 0.26, r: 13.2, w: 2.6, h: 1.8 }
@@ -235,7 +287,10 @@ export const MAP_BOARD = { angle: ARRIVAL + 0.26, r: 13.2, w: 2.6, h: 1.8 }
 export const ROOM_SECTIONS: Record<RoomId, number[]> = {
   chamber: [-2.37, -1.6, -0.93, 0, 0.93, 1.6, 2.37, Math.PI],
   music: [-2.2, -1.2, -0.4, 0.4, 1.2, 2.2, Math.PI],
-  empty: [-1.6, 0, 1.6, Math.PI],
+  citizens: [-1.6, 0, 1.6, Math.PI],
+  poems: [-1.6, 0, 1.6, Math.PI],
+  drone: [-1.6, 0, 1.6, Math.PI],
+  aim: [-1.6, 0, 1.6, Math.PI],
 }
 export const SECTION_GAP = 0.42
 
@@ -415,8 +470,6 @@ export function roomSolids(): Box[] {
   // The chamber.
   const C = CHAMBER
   ARCADE_GAMES.forEach((_, k) => out.push(roomBox(C, cabinetPhi(k), CABINET.rr, CABINET.w, CABINET.depth, CABINET.h)))
-  out.push(roomBox(C, DRONE_DESK.phi, DRONE_DESK.rr, DRONE_DESK.w, DRONE_DESK.depth, 1.0))
-  out.push(roomBox(C, DRONE_PLINTH.phi, DRONE_PLINTH.rr, 0.9, 0.9, 1.0))
   for (const [a0, a1] of SHELF_RUNS) {
     const n = Math.ceil(((a1 - a0) * SHELF.r1) / 1.2)
     for (let i = 0; i < n; i++) {
@@ -430,6 +483,16 @@ export function roomSolids(): Box[] {
   for (const c of CLOSETS) out.push(roomBox(M, c.phi, c.rr, c.w, c.depth, c.h))
   for (const sp of SPEAKERS) out.push(roomBox(M, sp.phi, sp.rr, 0.9, 0.7, 1.9))
   for (const seat of SEATS) out.push(roomBox(M, seat.phi, seat.rr, 1.5, 0.8, 0.8))
+  // The citizens' kiosk; the poems' lectern.
+  out.push(roomBox(CITIZENS, 0, KIOSK.rr, KIOSK.w, KIOSK.depth, KIOSK.h))
+  out.push(roomBox(POEMS, LECTERN.phi, LECTERN.rr, LECTERN.w, LECTERN.depth, LECTERN.h))
+  // Drone control.
+  out.push(roomBox(DRONE, DRONE_DESK.phi, DRONE_DESK.rr, DRONE_DESK.w, DRONE_DESK.depth, 1.0))
+  out.push(roomBox(DRONE, DRONE_PLINTH.phi, DRONE_PLINTH.rr, 1.1, 1.1, 1.0))
+  // The aim range: its rail right across the room, and its console.
+  const railHalf = Math.sqrt(AIM.radius ** 2 - AIM_RAIL.f ** 2)
+  out.push(roomBox(AIM, 0, AIM_RAIL.f, railHalf * 2, 0.3, AIM_RAIL.h))
+  out.push(roomBox(AIM, AIM_CONSOLE.phi, AIM_CONSOLE.rr, AIM_CONSOLE.w, AIM_CONSOLE.depth, AIM_CONSOLE.h))
   return out
 }
 
@@ -470,11 +533,14 @@ export function level6Interact(x: number, z: number, open: boolean[]): string | 
     for (let k = 0; k < ARCADE_GAMES.length; k++) {
       if (near(x, z, CHAMBER, cabinetPhi(k), CABINET.rr - 1.05, 0.95)) return `arcade:${ARCADE_GAMES[k].id}`
     }
-    if (near(x, z, CHAMBER, DRONE_DESK.phi, DRONE_DESK.rr - 1.2, 1.7)) return 'drone'
   }
   if (inRoom(MUSIC, x, z)) {
     if (near(x, z, MUSIC, GRAMOPHONE.phi, GRAMOPHONE.rr - 1.9, 1.6)) return 'jukebox'
     for (const c of CLOSETS) if (near(x, z, MUSIC, c.phi, c.rr - 1, 1.6)) return 'jukebox'
   }
+  if (inRoom(CITIZENS, x, z) && near(x, z, CITIZENS, Math.PI, 1.1, 1.7)) return 'citizen'
+  if (inRoom(POEMS, x, z) && near(x, z, POEMS, LECTERN.phi, LECTERN.rr - 1.0, 1.4)) return 'poems'
+  if (inRoom(DRONE, x, z) && near(x, z, DRONE, DRONE_DESK.phi, DRONE_DESK.rr - 1.2, 1.7)) return 'drone'
+  if (inRoom(AIM, x, z) && near(x, z, AIM, AIM_CONSOLE.phi, AIM_CONSOLE.rr - 0.9, 1.4)) return 'aim'
   return null
 }

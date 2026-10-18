@@ -29,3 +29,9 @@ npx wrangler pages deploy dist --project-name atikul-islam-portfolio --branch ma
 `public/_headers` sets the caching there: hashed scripts and styles for a year,
 media for a week, pages always revalidated. GitHub Pages ignores it and caches
 everything for ten minutes.
+
+`functions/api/citizens.ts` is the one server-side piece: the silo's citizens
+register, a Pages Function deployed with the site, storing names in a free D1
+database (`silo-citizens`; schema in `migrations/`, binding in `wrangler.toml`).
+Its private take-down token is a Pages secret, `ADMIN_TOKEN`, kept by the owner
+outside the repository.

@@ -673,3 +673,33 @@ body:has(.fallback) { overflow: auto; }
 /* ---------- the maze map ---------- */
 .mazemap { display: grid; place-items: center; }
 .mazemap canvas { width: 100%; max-width: 640px; height: auto; border-radius: 50%; }
+
+/* ---- recreation: the citizens' kiosk -------------------------------------- */
+.citizen__q { font: 600 22px/1.35 var(--sans, inherit); margin: 4px 0 10px; }
+.citizen__note { color: rgba(237, 233, 230, 0.7); font-size: 13px; line-height: 1.5; margin: 10px 0; }
+.citizen__error { color: #ff9a8a; font-size: 14px; margin: 8px 0; }
+.citizen__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+.citizen__form label { display: block; font: 700 11px/1 var(--mono); letter-spacing: 0.18em; text-transform: uppercase; color: var(--camel); margin-bottom: 10px; }
+.citizen__form input { width: 100%; padding: 12px 14px; font-size: 18px; color: #f3ece6; background: rgba(0, 0, 0, 0.35); border: 1px solid var(--edge); border-radius: 2px; }
+.citizen__form input:focus { outline: 2px solid #8fd3ff; outline-offset: 1px; }
+.citizen__cert { display: block; width: 100%; height: auto; border: 1px solid var(--edge); }
+
+/* ---- recreation: the poems' lectern --------------------------------------- */
+.poems__empty { color: rgba(237, 233, 230, 0.75); line-height: 1.6; }
+.poems__list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.poems__item { width: 100%; text-align: left; display: grid; gap: 2px; padding: 12px 14px; color: inherit; background: rgba(195, 166, 255, 0.06); border: 1px solid rgba(195, 166, 255, 0.25); cursor: pointer; }
+.poems__item:hover { background: rgba(195, 166, 255, 0.14); }
+.poems__item small { color: #c3a6ff; font: 700 10px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.poems__item span { color: rgba(237, 233, 230, 0.6); font-size: 12px; }
+.poems__kind { color: #c3a6ff; font: 700 11px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.poems__body { white-space: pre-wrap; font: 400 18px/1.75 Georgia, serif; max-height: 60vh; overflow: auto; }
+
+/* ---- recreation: the aim range -------------------------------------------- */
+.aimhud { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; align-items: baseline; gap: 18px; padding: 8px 18px; color: #fff; background: rgba(20, 8, 8, 0.72); border: 1px solid rgba(255, 90, 79, 0.6); font: 600 14px/1 var(--mono); pointer-events: none; }
+.aimhud strong { font-size: 28px; color: #ff8a7f; }
+.aimhud__count { font-size: 44px !important; }
+.aimhud--result { flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.aimhud--result small { color: rgba(255, 255, 255, 0.6); font-size: 11px; }
+.aimhud__cross { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 40; pointer-events: none; border: 2px solid rgba(255, 90, 79, 0.9); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 90, 79, 0.8); }
+.aimhud__cross::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #fff; border-radius: 50%; }
+.aimhud__fire { position: fixed; right: 24px; bottom: 140px; z-index: 41; width: 84px; height: 84px; border-radius: 50%; color: #fff; font: 700 14px/1 var(--mono); background: rgba(255, 90, 79, 0.35); border: 2px solid #ff5a4f; }

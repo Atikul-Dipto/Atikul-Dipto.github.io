@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { drone, launch, type DroneMode } from '../lib/drone'
 import { LEVEL_COUNT } from '../content/floors'
-import { LEVEL as REC_LEVEL } from '../content/level6'
+import { LEVEL as REC_LEVEL, ROOMS6 } from '../content/level6'
 import { isLowPower, isModestGpu } from '../lib/capability'
 
 /** Where the visitor is in the experience, not where the camera is. */
@@ -35,12 +35,15 @@ export type Interact =
   | 'jukebox' // the gramophone and the cassettes
   | `arcade:${string}` // one of the game cabinets
   | 'drone' // the drone's controls
+  | 'citizen' // the citizens' kiosk
+  | 'poems' // the lectern in the poems room
+  | 'aim' // the aim range's console
   | 'reactor' // the reactor's console, on the core level
   | `contact:${string}` // a contact plate in the communications room
   | null
 
 /** The panels that open over the walk from things in the recreation chamber. */
-export type Panel = 'jukebox' | 'arcade' | 'drone' | 'map' | null
+export type Panel = 'jukebox' | 'arcade' | 'drone' | 'map' | 'citizen' | 'poems' | null
 
 interface SiloState {
   phase: Phase
@@ -176,7 +179,7 @@ export const useSilo = create<SiloState>((set, get) => ({
   cvOpen: false,
   vaultOpen: false,
   doorBlocked: false,
-  chambersOpen: [false, false, false],
+  chambersOpen: ROOMS6.map(() => false),
   panel: null,
   arcadeGame: null,
   hudNote: null,
@@ -225,7 +228,7 @@ export const useSilo = create<SiloState>((set, get) => ({
     }
     // A journey by lift. The lift driver boards the visitor if they are not
     // already aboard, shuts the doors and carries them; arrival comes from it.
-    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false, chambersOpen: [false, false, false], panel: null })
+    set({ phase: 'riding', target: next, directoryOpen: false, interact: null, vaultOpen: false, chambersOpen: ROOMS6.map(() => false), panel: null })
   },
 
   arrive: () =>
@@ -312,7 +315,7 @@ export const useSilo = create<SiloState>((set, get) => ({
         level: next,
         target: next,
         vaultOpen: next === 1 ? s.vaultOpen : false,
-        chambersOpen: next === REC_LEVEL ? s.chambersOpen : [false, false, false],
+        chambersOpen: next === REC_LEVEL ? s.chambersOpen : ROOMS6.map(() => false),
       }
     }),
 

@@ -416,7 +416,7 @@ so each frame its slots go to the ones nearest the camera in height.
 ## Level 4 — Recreation
 
 Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
-`three/floors/Level06.tsx`.
+`three/floors/Level06.tsx` and, for the four newer rooms, `three/floors/RecRooms.tsx`.
 
 - **The plaza and the map.** The bridge lands on a plaza; everything else on
   the floor is maze. A map of it stands on the plaza, and <kbd>E</kbd> opens it
@@ -428,10 +428,14 @@ Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
   every visit, with a way in from the plaza at each end. Hedges are boxes,
   drawn as they are collided. It keeps time to whichever door you reach first,
   and the best run on this device.
-- **Three round doors** at the back of the maze. Each stands inside the wall's
+- **Six round doors** at the back of the maze, three sectors apart: game theory,
+  music and the citizens one way from the plaza; poems, drone control and the
+  aim range the other. Sectors 10 to 16 lie behind the cutaway, where there is
+  no wall and no rock to cut a room into, so nothing is built there. Each stands inside the wall's
   thickness and rolls aside into a pocket in the wall on a track sunk in the
   floor; it will not roll back across anyone in the doorway. Behind them,
-  rooms cut into the rock and joined to one another by corridors. Each room is
+  rooms cut into the rock and joined to one another by corridors, out from the
+  chamber both ways; the wall closes again over each corridor's mouth. Each room is
   dark until someone walks in, then lit a section at a time with a breaker for
   each, and dark again once everyone has left it and its door is shut.
 - **The chamber.** An orrery and paper birds under the dome, chalkboards of
@@ -441,17 +445,42 @@ Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
   (payoff- against risk-dominance), Guess 2/3 (iterated reasoning and level-k
   thinking) -- one round each, then explained, the other player always the
   machine and each game saying how it chose -- and Maze Run, with the
-  right-hand rule played out. And drone control: a minute of battery, freely
-  round the silo or the shaft race, twelve gates spiralling down the void.
-  Where the drone may fly is worked out from the architecture
-  (`content/drone.ts`); while it flies, the floors it passes are fitted out and
-  lit. Race times go on a board kept on this device.
+  right-hand rule played out.
 - **The music hall.** A large round room: fluted red walls, a chandelier, a rug,
   leather seats facing a stage, and on the stage the gramophone, with a cassette
   closet either side. A tape plays through the gramophone's own chain, louder
   the nearer you stand, while the silo's score waits. The tapes are listed in
   `content/cassettes.ts`: put a file in `public/audio/tapes/` and add a line.
-- **The empty room.** Waiting to be fitted out.
+- **Citizens.** The whole wall of the room is one screen of names, laid out
+  round it as large as they will go and small enough for ten thousand; the
+  door and the corridors are cut out of it. At the kiosk in the middle a
+  visitor is asked whether they would like to become a member of the Silo,
+  gives a name, and gets a certificate to download, and the name goes up for
+  everyone. The register is a Cloudflare Pages Function at the site root
+  (`functions/api/citizens.ts`, a free D1 database, `migrations/`): a visit
+  reads one row (a JSON snapshot of the list); names are 2 to 40 letters in any
+  script, abuse in English and Bangla is refused, one connection may add one a
+  minute and three a day (by a salted hash that changes daily, cleared after
+  two days), and the owner can take a name down with a private token. If the
+  register cannot be reached the wall says so; nothing is shown as added that
+  was not. `lib/citizens.ts`, `ui/CitizenPanel.tsx`.
+- **Poems and writings.** A violet reading room: a lectern at the back that opens
+  the collection, framed pieces round the wall, pages drifting under the dome.
+  The pieces are in `content/writings.ts`, the owner's own words only; until
+  there are any, the room and the lectern say the collection is being
+  gathered.
+- **Drone control.** The desk at the back, two big screens, the drone on a plinth
+  with a hologram of the silo turning over it. A minute of battery, freely
+  round the silo or the shaft race, twelve gates spiralling down the void.
+  Where the drone may fly is worked out from the architecture
+  (`content/drone.ts`); while it flies, the floors it passes are fitted out and
+  lit. Race times go on a board kept on this device.
+- **The aim range.** A rail across the room, a grid and target boards on the
+  back wall, a console by the rail. A round is thirty seconds: targets come up
+  past the rail, more at a time as it goes on, and drop if not hit within two
+  seconds; a quick hit scores more. Click to fire while the pointer is held (a
+  fire button on touch screens). Walking off ends the round; the best score is
+  kept on this device. `lib/aim.ts`, `ui/AimHud.tsx`.
 
 ## Level 8 — Deep Core & Contact
 

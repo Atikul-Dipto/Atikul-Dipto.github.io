@@ -1,5 +1,5 @@
 import { DECK_INNER, SHAFT_RADIUS } from '../content/floors'
-import { ARRIVAL, CORRIDORS, ENTRANCES, MAZE, PLAZA_HALF, ROOMS6, mazeHedges, sectorMid, type RoomId } from '../content/level6'
+import { ARRIVAL, CORRIDORS, ENTRANCES, MAZE, PLAZA_HALF, ROOMS6, ROOM_INFO, mazeHedges, sectorMid, type RoomId } from '../content/level6'
 
 /**
  * The map of the maze, drawn on a canvas: for the board on the plaza, and for
@@ -9,8 +9,8 @@ import { ARRIVAL, CORRIDORS, ENTRANCES, MAZE, PLAZA_HALF, ROOMS6, mazeHedges, se
  * the map is the way you face reading it, out toward the wall.
  */
 
-export const ROOM_LABEL: Record<RoomId, string> = { chamber: 'Chamber', music: 'Music hall', empty: 'Empty room' }
-const ROOM_COLOUR: Record<RoomId, string> = { chamber: '#f2c94c', music: '#7fe0c4', empty: '#c9c2b3' }
+export const ROOM_LABEL = Object.fromEntries(Object.entries(ROOM_INFO).map(([k, v]) => [k, v.label])) as Record<RoomId, string>
+const ROOM_COLOUR = Object.fromEntries(Object.entries(ROOM_INFO).map(([k, v]) => [k, v.colour])) as Record<RoomId, string>
 
 /** How far out the map reaches: past the rooms behind the wall. */
 const EXTENT = 44

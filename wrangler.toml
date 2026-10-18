@@ -1,0 +1,11 @@
+# Cloudflare Pages: the whole site (built into dist/ by scripts/build-site.mjs)
+# and its one function, the silo's citizens register (functions/api/citizens.ts).
+name = "atikul-islam-portfolio"
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "silo-citizens"
+database_id = "89f5d097-dfd8-41ae-81ed-aa91ef679ad0"
+migrations_dir = "migrations"

@@ -17,6 +17,8 @@ import { move } from '../lib/input'
 import { contactLog } from '../lib/contact'
 import { droneTouch } from './DroneFlight'
 import { reactor } from '../lib/reactor'
+import { aim, aimFire } from '../lib/aim'
+import { citizens } from '../lib/citizens'
 import * as plan12 from '../content/level12'
 import { useSilo, viewLevel } from '../state/useSilo'
 import FloorGuard from './FloorGuard'
@@ -365,6 +367,8 @@ export default function SiloScene() {
             contactLog,
             reactor,
             plan12,
+            aim: { state: aim, fire: aimFire },
+            citizens,
           }
         }
         // Checking every shader for errors makes each one block until it has

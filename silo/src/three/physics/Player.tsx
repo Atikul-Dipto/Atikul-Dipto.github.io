@@ -21,6 +21,7 @@ import {
 import { INNER_DOOR, VAULT_ROOM, VAULT_TERMINAL, toVault } from '../../content/level1'
 import { LANDING_HALF } from '../../content/stairs'
 import { LEVEL as LEVEL6, level6Interact } from '../../content/level6'
+import { startAim } from '../../lib/aim'
 import { CONTACTS, LEVEL as LEVEL12, level12Interact } from '../../content/level12'
 import { drone } from '../../lib/drone'
 import { reactor } from '../../lib/reactor'
@@ -423,11 +424,12 @@ export default function Player() {
         const plate = CONTACTS.find((c) => `contact:${c.id}` === here)
         if (plate) openContact(plate)
       }
-      else if (here === 'jukebox' || here === 'drone' || here?.startsWith('arcade:')) {
+      else if (here === 'aim') startAim()
+      else if (here === 'jukebox' || here === 'drone' || here === 'citizen' || here === 'poems' || here?.startsWith('arcade:')) {
         // A panel: hand the pointer back so it can be used.
         if (document.pointerLockElement) document.exitPointerLock()
         if (here.startsWith('arcade:')) st.openPanel('arcade', here.slice('arcade:'.length))
-        else st.openPanel(here as 'jukebox' | 'drone')
+        else st.openPanel(here as 'jukebox' | 'drone' | 'citizen' | 'poems')
       }
     }
 

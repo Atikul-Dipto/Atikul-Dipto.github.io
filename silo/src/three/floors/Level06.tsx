@@ -11,12 +11,11 @@ import {
   CLOSETS,
   CORRIDOR,
   CORRIDORS,
-  DRONE_DESK,
-  DRONE_PLINTH,
   FLOOR6,
   FRONT,
   GRAMOPHONE,
   LEVEL,
+  ROOM_INFO,
   MAP_BOARD,
   MAZE,
   MAZE_FROM,
@@ -39,6 +38,7 @@ import {
   roomWallGaps,
   type Room,
 } from '../../content/level6'
+import { AimRoom, CitizensRoom, DroneRoom, PoemsRoom } from './RecRooms'
 import { seeded } from '../../content/frame'
 import type { Box } from '../../content/level1'
 import { breaker, setVaultGrind, vaultClunk, vaultStop } from '../../lib/audio'
@@ -53,7 +53,7 @@ import { useSilo } from '../../state/useSilo'
  * A hedge maze right round the ring from the plaza where the bridge lands; a
  * map of it on the plaza; and at the back of the maze three round doors that
  * roll aside into the wall. Behind them, rooms cut into the rock and joined by
- * corridors -- the chamber with its orrery, arcade and drone control, the
+ * corridors -- the chamber with its orrery and arcade, the
  * music hall, and an empty room -- each dark until someone walks in, then lit
  * a section at a time round the room, and dark again once everyone has gone
  * and its door is shut.
@@ -80,7 +80,7 @@ function boxes(list: Box[], material: THREE.Material, shadow = true) {
   return mesh
 }
 
-function canvasTexture(w: number, h: number, paint: (g: CanvasRenderingContext2D) => void, repeat = false) {
+export function canvasTexture(w: number, h: number, paint: (g: CanvasRenderingContext2D) => void, repeat = false) {
   const c = document.createElement('canvas')
   c.width = w
   c.height = h
@@ -255,7 +255,7 @@ function cabinetScreen(title: string) {
 }
 
 /** The drone desk's screens. */
-function droneScreen(kind: 'link' | 'board') {
+export function droneScreen(kind: 'link' | 'board') {
   return canvasTexture(512, 300, (g) => {
     g.fillStyle = '#061016'
     g.fillRect(0, 0, 512, 300)
@@ -426,14 +426,14 @@ function MapBoard() {
       c.font = '22px "Courier New", monospace'
       c.fillStyle = '#ffd166'
       c.fillText('● WAYS IN', 770, 160)
-      c.fillStyle = '#f2c94c'
-      c.fillText('● CHAMBER', 770, 210)
-      c.fillStyle = '#7fe0c4'
-      c.fillText('● MUSIC HALL', 770, 250)
-      c.fillStyle = '#c9c2b3'
-      c.fillText('● EMPTY ROOM', 770, 290)
+      c.font = '20px "Courier New", monospace'
+      ROOMS6.forEach((rm, i) => {
+        c.fillStyle = ROOM_INFO[rm.id].colour
+        c.fillText(`● ${ROOM_INFO[rm.id].label.toUpperCase()}`, 770, 205 + i * 36, 240)
+      })
       c.fillStyle = 'rgba(233,226,212,0.7)'
-      c.fillText('PLAZA AT TOP', 770, 360)
+      c.font = '22px "Courier New", monospace'
+      c.fillText('PLAZA AT TOP', 770, 450)
       c.fillText('PRESS E FOR', 770, 600)
       c.fillText('A MAP THAT', 770, 630)
       c.fillText('FOLLOWS YOU', 770, 660)
@@ -565,16 +565,16 @@ function RoomDoor({ k }: { k: number }) {
 // ---------------------------------------------------------------------------
 
 /** A material the room's lights reveal, keyed to the section that lights it. */
-interface Lit {
+export interface Lit {
   m: THREE.MeshStandardMaterial
   color: THREE.Color
   emissive: number
   section: number
 }
 /** For the room itself -- floor, walls, ceiling: comes up with the whole. */
-const WHOLE = -1
+export const WHOLE = -1
 
-function litMaker(list: Lit[]) {
+export function litMaker(list: Lit[]) {
   return (p: THREE.MeshStandardMaterialParameters, section: number) => {
     const m = new THREE.MeshStandardMaterial(p)
     list.push({ m, color: m.color.clone(), emissive: m.emissiveIntensity, section })
@@ -583,7 +583,7 @@ function litMaker(list: Lit[]) {
 }
 
 /** Index of the section nearest an angle round a room (not its centre). */
-function sectionAt(r: Room, phi: number) {
+export function sectionAt(r: Room, phi: number) {
   const secs = ROOM_SECTIONS[r.id]
   let best = 0
   let d = Infinity
@@ -596,10 +596,10 @@ function sectionAt(r: Room, phi: number) {
   })
   return best
 }
-const centreSection = (r: Room) => ROOM_SECTIONS[r.id].length - 1
+export const centreSection = (r: Room) => ROOM_SECTIONS[r.id].length - 1
 
 /** A room's group, in its frame, with a helper to place things round it. */
-function roomGroup(r: Room) {
+export function roomGroup(r: Room) {
   const g = new THREE.Group()
   const [fx, fz] = r.frame.to(0, 0)
   g.position.set(fx, FLOOR6, fz)
@@ -619,17 +619,17 @@ function roomGroup(r: Room) {
  * corridor), the face round the tunnel, and a shallow dome of a ceiling with
  * rings of light in it.
  */
-function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStandardMaterialParameters, s: number) => THREE.MeshStandardMaterial, look: { wall: THREE.Texture | null; wallColor: string; floor: THREE.Texture | null; floorColor: string; ring: string }) {
+export function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStandardMaterialParameters, s: number) => THREE.MeshStandardMaterial, look: { wall: THREE.Texture | null; wallColor: string; floor: THREE.Texture | null; floorColor: string; ring: string }) {
   const R = r.radius
   const H = r.height
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(R + 0.4, 96), mat({ map: look.floor ?? undefined, color: look.floorColor, roughness: 0.7, metalness: 0.15 }, WHOLE))
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(R + 0.4, 96), mat({ ...(look.floor ? { map: look.floor } : {}), color: look.floorColor, roughness: 0.7, metalness: 0.15 }, WHOLE))
   floor.rotation.x = -Math.PI / 2
   floor.position.set(0, 0.004, C)
   floor.receiveShadow = true
   g.add(floor)
   // The wall, in pieces between its openings. A thing at phi round the room
   // sits at cylinder theta = PI - phi.
-  const wallMat = mat({ map: look.wall ?? undefined, color: look.wallColor, roughness: 0.85, side: THREE.BackSide }, WHOLE)
+  const wallMat = mat({ ...(look.wall ? { map: look.wall } : {}), color: look.wallColor, roughness: 0.85, side: THREE.BackSide }, WHOLE)
   const gaps = roomWallGaps(r)
     .map(([c, h]) => {
       let t0 = Math.PI - c - h
@@ -645,6 +645,14 @@ function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStanda
     piece.position.set(0, H / 2, C)
     g.add(piece)
   })
+  // Over each corridor's mouth the wall closes again: the corridor is only
+  // CORRIDOR.height tall, and the opening used to run on up to the ceiling.
+  for (const [c, h] of roomWallGaps(r).slice(1)) {
+    const top = H - CORRIDOR.height
+    const lintel = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.02, R + 0.02, top, 12, 1, true, Math.PI - c - h, h * 2), wallMat)
+    lintel.position.set(0, CORRIDOR.height + top / 2, C)
+    g.add(lintel)
+  }
   // The face round the tunnel.
   const face = new THREE.Shape()
   face.moveTo(-2.3, -0.5)
@@ -655,7 +663,7 @@ function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStanda
   const hole = new THREE.Path()
   hole.absarc(0, CH_OPENING.centre, CH_OPENING.radius, 0, Math.PI * 2, true)
   face.holes.push(hole)
-  const front = new THREE.Mesh(new THREE.ShapeGeometry(face, 48), mat({ map: look.wall ?? undefined, color: look.wallColor, roughness: 0.85, side: THREE.DoubleSide }, WHOLE))
+  const front = new THREE.Mesh(new THREE.ShapeGeometry(face, 48), mat({ ...(look.wall ? { map: look.wall } : {}), color: look.wallColor, roughness: 0.85, side: THREE.DoubleSide }, WHOLE))
   front.position.set(0, 0, -(FRONT + 0.03))
   g.add(front)
   // Ceiling: a shallow dome with rings of light let into it.
@@ -679,7 +687,7 @@ function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStanda
  * Bring a room's lights up when someone walks in, a section at a time, with a
  * breaker for each; and down again once they have left and the door is shut.
  */
-function useRoomLights(k: number, lit: Lit[], lights: Array<{ l: THREE.PointLight; max: number; section: number }>) {
+export function useRoomLights(k: number, lit: Lit[], lights: Array<{ l: THREE.PointLight; max: number; section: number }>) {
   const r = ROOMS6[k]
   const announced = useRef(-1)
   useEffect(() => {
@@ -723,7 +731,7 @@ function useRoomLights(k: number, lit: Lit[], lights: Array<{ l: THREE.PointLigh
 }
 
 // ---------------------------------------------------------------------------
-// The chamber: the orrery, the arcade, drone control
+// The chamber -- game theory: the orrery and the arcade
 // ---------------------------------------------------------------------------
 
 function ChamberRoom() {
@@ -902,49 +910,6 @@ function ChamberRoom() {
       place(cab, cabinetPhi(q), CABINET.rr)
     })
 
-    // Drone control.
-    const droneSec = sectionAt(r, DRONE_DESK.phi)
-    const desk = new THREE.Group()
-    const deskMat = mat({ color: '#2d3438', roughness: 0.5, metalness: 0.5 }, droneSec)
-    const deskTop = new THREE.Mesh(new THREE.BoxGeometry(DRONE_DESK.w, 0.06, DRONE_DESK.depth), deskMat)
-    deskTop.position.y = DRONE_DESK.h
-    desk.add(deskTop)
-    for (const sx of [-1, 1]) {
-      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, DRONE_DESK.h, DRONE_DESK.depth - 0.1), deskMat)
-      leg.position.set(sx * (DRONE_DESK.w / 2 - 0.1), DRONE_DESK.h / 2, 0)
-      desk.add(leg)
-    }
-    for (const [kind, sx] of [
-      ['board', -1.05],
-      ['link', 0],
-      ['board', 1.05],
-    ] as Array<['link' | 'board', number]>) {
-      const tex = droneScreen(kind)
-      const mon = new THREE.Mesh(new THREE.BoxGeometry(0.96, 0.58, 0.04), [
-        deskMat,
-        deskMat,
-        deskMat,
-        deskMat,
-        mat({ map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 1 }, droneSec),
-        deskMat,
-      ])
-      mon.position.set(sx, DRONE_DESK.h + 0.42, -0.18)
-      mon.rotation.y = -sx * 0.22
-      desk.add(mon)
-    }
-    const pad = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.22), deskMat)
-    pad.position.set(0, DRONE_DESK.h + 0.055, 0.2)
-    desk.add(pad)
-    place(desk, DRONE_DESK.phi, DRONE_DESK.rr)
-    const plinthG = new THREE.Group()
-    const pl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.48, 1.0, 24), deskMat)
-    pl.position.y = 0.5
-    plinthG.add(pl)
-    const model = droneModel(mat({ color: '#d7dde0', roughness: 0.4, metalness: 0.4 }, droneSec), mat({ color: '#e8553b', emissive: '#e8553b', emissiveIntensity: 1.2 }, droneSec))
-    model.position.y = 1.12
-    plinthG.add(model)
-    place(plinthG, DRONE_PLINTH.phi, DRONE_PLINTH.rr)
-
     // Paper birds overhead.
     const birdGeo = new THREE.BufferGeometry()
     birdGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0.18, -0.2, 0.06, -0.08, 0, 0, -0.1, 0, 0, 0.18, 0, 0, -0.1, 0.2, 0.06, -0.08], 3))
@@ -970,7 +935,7 @@ function ChamberRoom() {
     }
     addLight(-1.2, 6.5, 3.4, 26, 10, sectionAt(r, -1.2))
     addLight(0, 6.4, 3.6, 26, 10, arcade, '#ffe0b0')
-    addLight(DRONE_DESK.phi, 6.6, 3.4, 22, 10, droneSec, '#bfe8ff')
+    addLight(-1.78, 6.6, 3.4, 22, 10, sectionAt(r, -1.78), '#ffd8a8')
     addLight(1.3, 6.4, 3.4, 20, 10, sectionAt(r, 1.3))
     addLight(0, 0, 6.6, 60, 20, ORR)
     return { g, lit, rings, orr, flock, data, lights, webMat, ORR }
@@ -1287,37 +1252,6 @@ function MusicRoom() {
 // The empty room
 // ---------------------------------------------------------------------------
 
-/** Waiting to be fitted out: a floor, a wall, and its lights. */
-function EmptyRoom() {
-  const k = 2
-  const r = ROOMS6[2]
-  const parts = useMemo(() => {
-    const lit: Lit[] = []
-    const mat = litMaker(lit)
-    const { g, C } = roomGroup(r)
-    roomShell(r, g, C, mat, { wall: null, wallColor: '#8a8178', floor: null, floorColor: '#4a453f', ring: '#e8f4ff' })
-    // A line of light round the foot of the wall.
-    const strip = new THREE.Mesh(new THREE.TorusGeometry(r.radius - 0.05, 0.03, 6, 128), mat({ color: '#e8f4ff', emissive: '#cfe6ff', emissiveIntensity: 1.4 }, centreSection(r)))
-    strip.rotation.x = Math.PI / 2
-    strip.position.set(0, 0.08, C)
-    g.add(strip)
-    const lights: Array<{ l: THREE.PointLight; max: number; section: number }> = []
-    for (const [phi, section] of [
-      [-1.6, 0],
-      [0, 1],
-      [1.6, 2],
-    ] as Array<[number, number]>) {
-      const l = new THREE.PointLight('#eef4ff', 0, 10, 2)
-      l.position.set(Math.sin(phi) * 4.5, 3.4, C - Math.cos(phi) * 4.5)
-      g.add(l)
-      lights.push({ l, max: 18, section })
-    }
-    return { g, lit, lights }
-  }, [r])
-  useRoomLights(k, parts.lit, parts.lights)
-  return <primitive object={parts.g} />
-}
-
 // ---------------------------------------------------------------------------
 // The corridors between them
 // ---------------------------------------------------------------------------
@@ -1423,7 +1357,10 @@ export default function Level06() {
       ))}
       <ChamberRoom />
       <MusicRoom />
-      <EmptyRoom />
+      <CitizensRoom />
+      <PoemsRoom />
+      <DroneRoom />
+      <AimRoom />
       <Corridors />
       <MazeClock />
     </>

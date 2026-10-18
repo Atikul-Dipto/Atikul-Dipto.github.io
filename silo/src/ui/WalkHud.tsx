@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
 import type { Interact } from '../state/useSilo'
-import { ARCADE_GAMES, ROOMS6, type RoomId } from '../content/level6'
+import { ARCADE_GAMES, ROOMS6, ROOM_INFO, type RoomId } from '../content/level6'
 
-const ROOM_NAMES: Record<RoomId, string> = { chamber: 'the chamber', music: 'the music hall', empty: 'an empty room' }
+const ROOM_NAMES = Object.fromEntries(Object.entries(ROOM_INFO).map(([k, v]) => [k, v.label.toLowerCase()])) as Record<RoomId, string>
 import { CONTACTS } from '../content/level12'
 
 /**
@@ -35,6 +35,9 @@ const LABEL: Record<string, string> = {
   'maze-map': 'Read the map of the maze',
   jukebox: 'Choose a cassette for the gramophone',
   drone: 'Take the drone',
+  citizen: 'Become a citizen of the Silo',
+  poems: 'Read the poems and writings',
+  aim: 'Start a round on the aim range',
   reactor: 'Run a surge test on the core',
 }
 

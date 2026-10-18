@@ -705,6 +705,26 @@ export function reactorSurge() {
   tone({ type: 'sine', freq: 880, gain: 0.04, attack: 0.01, decay: 1.8, delay: 1 })
 }
 
+/** The aim range: a shot, a hit, a target dropping unhit. */
+export function aimShot() {
+  if (!engine || !wanted) return
+  count('aim-shot')
+  burst({ type: 'bandpass', freq: 2400, q: 0.9, gain: 0.1, attack: 0.001, decay: 0.07 })
+  tone({ type: 'square', freq: 220, to: 90, gain: 0.04, attack: 0.002, decay: 0.08, soften: 1800 })
+}
+export function aimHit() {
+  if (!engine || !wanted) return
+  count('aim-hit')
+  aimShot()
+  tone({ type: 'sine', freq: 1568, gain: 0.07, attack: 0.003, decay: 0.18, delay: 0.03 })
+  tone({ type: 'sine', freq: 2093, gain: 0.05, attack: 0.003, decay: 0.22, delay: 0.07 })
+}
+export function aimMiss() {
+  if (!engine || !wanted) return
+  count('aim-drop')
+  tone({ type: 'triangle', freq: 330, to: 196, gain: 0.04, attack: 0.005, decay: 0.2 })
+}
+
 /** A contact plate pressed. */
 export function contactBlip() {
   if (!engine || !wanted) return
