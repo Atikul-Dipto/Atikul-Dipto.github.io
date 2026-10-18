@@ -56,33 +56,59 @@ export function framed(F: WallFrame) {
   return g
 }
 
-/** A rounded rectangle as a path, centred on (0, cy). */
-export function roundedRect<T extends THREE.Path>(p: T, halfW: number, halfH: number, r: number, cy: number, reverse = false) {
-  const x0 = -halfW
-  const x1 = halfW
-  const y0 = cy - halfH
-  const y1 = cy + halfH
-  if (!reverse) {
-    p.moveTo(x0 + r, y0)
-    p.lineTo(x1 - r, y0)
-    p.absarc(x1 - r, y0 + r, r, -Math.PI / 2, 0, false)
-    p.lineTo(x1, y1 - r)
-    p.absarc(x1 - r, y1 - r, r, 0, Math.PI / 2, false)
-    p.lineTo(x0 + r, y1)
-    p.absarc(x0 + r, y1 - r, r, Math.PI / 2, Math.PI, false)
-    p.lineTo(x0, y0 + r)
-    p.absarc(x0 + r, y0 + r, r, Math.PI, Math.PI * 1.5, false)
-  } else {
-    p.moveTo(x0 + r, y0)
-    p.absarc(x0 + r, y0 + r, r, Math.PI * 1.5, Math.PI, true)
-    p.lineTo(x0, y1 - r)
-    p.absarc(x0 + r, y1 - r, r, Math.PI, Math.PI / 2, true)
-    p.lineTo(x1 - r, y1)
-    p.absarc(x1 - r, y1 - r, r, Math.PI / 2, 0, true)
-    p.lineTo(x1, y0 + r)
-    p.absarc(x1 - r, y0 + r, r, 0, -Math.PI / 2, true)
+/** A rounded rectangle's outline as points, anticlockwise. */
+function outline(halfW: number, halfH: number, r: number, cy: number, seg = 16) {
+  const pts: THREE.Vector2[] = []
+  const corner = (cx: number, cy0: number, a0: number) => {
+    for (let i = 0; i <= seg; i++) {
+      const a = a0 + (i / seg) * (Math.PI / 2)
+      pts.push(new THREE.Vector2(cx + Math.cos(a) * r, cy0 + Math.sin(a) * r))
+    }
   }
-  return p
+  corner(halfW - r, cy - halfH + r, -Math.PI / 2)
+  corner(halfW - r, cy + halfH - r, 0)
+  corner(-halfW + r, cy + halfH - r, Math.PI / 2)
+  corner(-halfW + r, cy - halfH + r, Math.PI)
+  return pts
+}
+
+/** The part of a closed outline at or above the floor (y = 0), as an open
+ *  chain from its right foot, over the top, to its left foot. */
+function aboveFloor(pts: THREE.Vector2[]) {
+  // Start at a point under the floor, so the chain above it is unbroken.
+  const start = pts.findIndex((p) => p.y < 0)
+  const n = pts.length
+  const out: THREE.Vector2[] = []
+  for (let k = 0; k < n; k++) {
+    const p = pts[(start + k) % n]
+    const q = pts[(start + k + 1) % n]
+    if (p.y >= 0) out.push(p)
+    if (p.y >= 0 !== q.y >= 0) {
+      const t = p.y / (p.y - q.y)
+      out.push(new THREE.Vector2(p.x + (q.x - p.x) * t, 0))
+    }
+  }
+  return out
+}
+
+/** Does this gate's outline dip under its floor? */
+const sinks = (gate: Gate, pad = 0) => gate.centre - gate.halfH - pad < 0
+
+/**
+ * The band between two outlines of a gate, `inner` and `inner + pad`. Where
+ * the gate is sunk under its floor, an arch standing on the floor rather than
+ * a closed loop: a loop's bottom hung under the deck and showed from the
+ * level below.
+ */
+function gateBand(gate: Gate, pad: number) {
+  const o = outline(gate.halfW + pad, gate.halfH + pad, gate.radius + pad, gate.centre)
+  const i = outline(gate.halfW, gate.halfH, gate.radius, gate.centre)
+  if (!sinks(gate, pad)) {
+    const sh = new THREE.Shape(o)
+    sh.holes.push(new THREE.Path(i))
+    return sh
+  }
+  return new THREE.Shape([...aboveFloor(o), ...aboveFloor(i).reverse()])
 }
 
 /** A rectangle of wall with a gate-shaped hole in it, as a flat mesh. */
@@ -93,7 +119,11 @@ export function wallWithHole(halfW: number, y0: number, y1: number, gate: Gate |
   sh.lineTo(halfW, y1)
   sh.lineTo(-halfW, y1)
   sh.lineTo(-halfW, y0)
-  if (gate) sh.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  if (gate) {
+    const pts = outline(gate.halfW, gate.halfH, gate.radius, gate.centre)
+    // Cut flat at the floor: no hole in the wall under it.
+    sh.holes.push(new THREE.Path(sinks(gate) ? aboveFloor(pts) : pts))
+  }
   if (round) {
     const h = new THREE.Path()
     h.absarc(0, round.cy, round.r, 0, Math.PI * 2, true)
@@ -112,16 +142,13 @@ export function gatePassage(gate: Gate, lining: THREE.Material, trim: THREE.Mate
   // The lining's outside follows the outline too: a rectangle here showed as
   // a block over the opening and a frame round it inside.
   const pad = 0.12
-  const outer = roundedRect(new THREE.Shape(), gate.halfW + pad, gate.halfH + pad, gate.radius + pad, gate.centre)
-  outer.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  const outer = gateBand(gate, pad)
   const body = new THREE.Mesh(new THREE.ExtrudeGeometry(outer, { depth: WALL_THICK + 0.04, bevelEnabled: false, curveSegments: 24 }), lining)
   body.position.z = -WALL_THICK - 0.01
   body.receiveShadow = true
   g.add(body)
   // The trim: a band round the outline on the deck face.
-  const ring = new THREE.Shape()
-  roundedRect(ring, gate.halfW + 0.16, gate.halfH + 0.16, gate.radius + 0.16, gate.centre)
-  ring.holes.push(roundedRect(new THREE.Path(), gate.halfW, gate.halfH, gate.radius, gate.centre, true))
+  const ring = gateBand(gate, 0.16)
   const band = new THREE.Mesh(new THREE.ExtrudeGeometry(ring, { depth: 0.08, bevelEnabled: false, curveSegments: 24 }), trim)
   band.position.z = 0.02
   g.add(band)

@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
+import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { SHAFT_RADIUS } from '../../content/floors'
 import { FLOOR, PORTRAIT_ANGLE } from '../../content/level1'
 import { identity } from '../../content/portfolio'
+import { reactor } from '../../lib/reactor'
 
 /**
  * The name, in iron, on the wall above the portrait.
@@ -13,6 +15,10 @@ import { identity } from '../../content/portfolio'
  * heavy, the kind of lettering bolted to a bulkhead. Each outline is on a box
  * one unit high; only the letters the name needs are drawn, and a letter
  * without an outline is left as a gap.
+ *
+ * Behind the iron, a glow in the reactor's colour: the power conduits run up
+ * from the core and end in level 1's floor, and the light runs on through the
+ * name, pulsing with them -- brighter while the core surges.
  */
 
 type Outline = { w: number; pts: Array<[number, number]>; hole?: Array<[number, number]> }
@@ -48,7 +54,7 @@ function letterGeometry(o: Outline) {
   return new THREE.ExtrudeGeometry(sh, { depth: 0.14, bevelEnabled: true, bevelThickness: 0.025, bevelSize: 0.02, bevelSegments: 2 })
 }
 
-function nameGeometry(text: string) {
+function nameGeometry(text: string, halo = 0) {
   const chars = text.toUpperCase().split('')
   const widths = chars.map((c) => (LETTERS[c] ? LETTERS[c].w : SPACE))
   const raw = widths.reduce((a, b) => a + b, 0) + GAP * (chars.length - 1)
@@ -69,6 +75,11 @@ function nameGeometry(text: string) {
       m.makeRotationY(Math.PI / 2 - a + Math.PI)
       m.setPosition(Math.cos(a) * R, 0, Math.sin(a) * R)
       g.translate(-w / 2, -scale / 2, 0)
+      if (halo) {
+        // A little larger and set back against the wall: the glow behind.
+        g.scale(1 + halo, 1 + halo * 1.3, 0.4)
+        g.translate(0, 0, -0.07)
+      }
       g.applyMatrix4(m)
       parts.push(g)
     }
@@ -87,9 +98,43 @@ export default function IronName() {
     m.castShadow = true
     return m
   }, [])
+  const glow = useMemo(() => {
+    const uTime = { value: 0 }
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uTime, uSurge: reactor.uSurge },
+      vertexShader: /* glsl */ `
+        varying vec3 vW;
+        void main() {
+          vec4 w = modelMatrix * vec4(position, 1.0);
+          vW = w.xyz;
+          gl_Position = projectionMatrix * viewMatrix * w;
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform float uTime;
+        uniform float uSurge;
+        varying vec3 vW;
+        void main() {
+          // A pulse running along the name, the way it runs up the conduits.
+          float along = atan(vW.z, vW.x) * 22.0;
+          float p = fract(along * 0.12 - uTime * (0.35 + uSurge * 1.5));
+          float pulse = smoothstep(0.0, 0.1, p) * smoothstep(0.35, 0.1, p);
+          vec3 col = vec3(0.25, 0.85, 0.95) * (0.75 + pulse * 2.2 + uSurge * 2.0);
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+      toneMapped: false,
+    })
+    const m = new THREE.Mesh(nameGeometry(identity.name, 0.16), mat)
+    m.position.y = FLOOR + CENTRE_Y
+    return { m, uTime }
+  }, [])
+  useFrame((s) => {
+    glow.uTime.value = s.clock.elapsedTime
+  })
   const light = useMemo(() => {
-    // A warm wash from below, so the letters stand out from the concrete.
-    const l = new THREE.PointLight('#ffb27a', 14, 9, 2)
+    // The glow's light on the wall round the letters.
+    const l = new THREE.PointLight('#5fd8e6', 10, 9, 2)
     const a = PORTRAIT_ANGLE
     const r = SHAFT_RADIUS - 1.6
     l.position.set(Math.cos(a) * r, FLOOR + CENTRE_Y - 1.2, Math.sin(a) * r)
@@ -98,6 +143,7 @@ export default function IronName() {
   return (
     <>
       <primitive object={mesh} />
+      <primitive object={glow.m} />
       <primitive object={light} />
     </>
   )

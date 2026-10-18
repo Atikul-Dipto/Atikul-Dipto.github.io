@@ -64,6 +64,8 @@ function ConcreteWall() {
     () => ({
       holeA: Array.from({ length: MAX_OPENINGS }, () => new THREE.Vector4(1, 0, 1e6, 0)),
       holeT: Array.from({ length: MAX_OPENINGS }, () => new THREE.Vector4(0, 1, 0, 0)),
+      // Each opening's floor: the wall is never cut below it.
+      holeF: Array.from({ length: MAX_OPENINGS }, () => 1e6),
     }),
     [],
   )
@@ -121,11 +123,12 @@ function ConcreteWall() {
     // the silo, so each frame the slots are given to the ones nearest the
     // camera in height (`useFrame` below). A fixed count, so it never
     // recompiles; the doorways of distant levels are not drawn anyway.
-    const { holeA, holeT } = holes
+    const { holeA, holeT, holeF } = holes
     shell.onBeforeCompile = (shader) => {
       shader.uniforms.uHole = hole
       shader.uniforms.uHoleA = { value: holeA }
       shader.uniforms.uHoleT = { value: holeT }
+      shader.uniforms.uHoleF = { value: holeF }
       shader.vertexShader = shader.vertexShader
         .replace(
           '#include <common>',
@@ -144,7 +147,8 @@ function ConcreteWall() {
           varying vec3 vShellPos;
           uniform float uHole;
           uniform vec4 uHoleA[${MAX_OPENINGS}];
-          uniform vec4 uHoleT[${MAX_OPENINGS}];`,
+          uniform vec4 uHoleT[${MAX_OPENINGS}];
+          uniform float uHoleF[${MAX_OPENINGS}];`,
         )
         .replace(
           'void main() {',
@@ -157,7 +161,9 @@ function ConcreteWall() {
               vec2 p = abs(vec2(dot(vShellPos.xz, t.xy), vShellPos.y - h.z));
               vec2 q = p - vec2(h.w, t.z) + t.w;
               float dist = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - t.w;
-              if (dot(vShellPos.xz, h.xy) > 10.0 && dist < 0.0) discard;
+              // Only above the floor: a gate whose outline dips under it would
+              // otherwise leave a hole in the wall seen from the level below.
+              if (dot(vShellPos.xz, h.xy) > 10.0 && dist < 0.0 && vShellPos.y > uHoleF[i]) discard;
             }
           }`,
         )
@@ -222,9 +228,11 @@ function ConcreteWall() {
       if (o) {
         h.holeA[i].set(Math.cos(o.angle), Math.sin(o.angle), o.centreY, o.halfW)
         h.holeT[i].set(-Math.sin(o.angle), Math.cos(o.angle), o.halfH, o.radius)
+        h.holeF[i] = walkY(o.level) - 0.01
       } else {
         h.holeA[i].set(1, 0, 1e6, 0)
         h.holeT[i].set(0, 1, 0, 0)
+        h.holeF[i] = 1e6
       }
     }
   })

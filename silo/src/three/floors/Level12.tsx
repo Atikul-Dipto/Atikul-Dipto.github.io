@@ -2,7 +2,7 @@ import { useEffect, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { identity } from '../../content/portfolio'
-import { SHAFT_RADIUS, WALL_THICK, levelY } from '../../content/floors'
+import { SHAFT_RADIUS, WALL_THICK, walkY } from '../../content/floors'
 import {
   CATWALK,
   COMMS,
@@ -719,7 +719,9 @@ function Comms() {
 export function PowerConduits() {
   const parts = useMemo(() => {
     const g = new THREE.Group()
-    const top = levelY(1) + 6
+    // Up to level 1's floor and into it: from there the power lights the
+    // name over the portrait (IronName.tsx), not a bare pipe on the wall.
+    const top = walkY(1) - 0.03
     const bottom = FLOOR12 + PASSAGE.centre + PASSAGE.radius + 0.6
     const h = top - bottom
     const uTime = { value: 0 }
