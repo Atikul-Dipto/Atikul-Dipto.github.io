@@ -687,12 +687,20 @@ body:has(.fallback) { overflow: auto; }
 /* ---- recreation: the poems' lectern --------------------------------------- */
 .poems__empty { color: rgba(237, 233, 230, 0.75); line-height: 1.6; }
 .poems__list { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
-.poems__item { width: 100%; text-align: left; display: grid; gap: 2px; padding: 12px 14px; color: inherit; background: rgba(195, 166, 255, 0.06); border: 1px solid rgba(195, 166, 255, 0.25); cursor: pointer; }
-.poems__item:hover { background: rgba(195, 166, 255, 0.14); }
-.poems__item small { color: #c3a6ff; font: 700 10px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.poems__item { width: 100%; text-align: left; display: grid; gap: 2px; padding: 12px 14px; color: inherit; background: rgba(211, 107, 255, 0.06); border: 1px solid rgba(211, 107, 255, 0.25); cursor: pointer; }
+.poems__item:hover { background: rgba(211, 107, 255, 0.14); }
+.poems__item small { color: #d36bff; font: 700 10px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
 .poems__item span { color: rgba(237, 233, 230, 0.6); font-size: 12px; }
-.poems__kind { color: #c3a6ff; font: 700 11px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
-.poems__body { white-space: pre-wrap; font: 400 18px/1.75 Georgia, serif; max-height: 60vh; overflow: auto; }
+.poems__kind { color: #d36bff; font: 700 11px/1 var(--mono); letter-spacing: 0.2em; text-transform: uppercase; }
+.poems__read { text-align: center; }
+.poems__read[lang='bn'], .poems__item[lang='bn'] strong { font-family: 'Nirmala UI', 'Noto Sans Bengali', 'Hind Siliguri', 'Vrinda', 'Bangla Sangam MN', var(--sans); }
+.poems__title { margin: 8px 0 18px; font-size: 28px; line-height: 1.4; color: #fff; }
+.poems__body { max-height: 56vh; overflow: auto; padding: 4px 8px; font-size: 19px; line-height: 2; color: rgba(243, 236, 246, 0.95); }
+.poems__body p { margin: 0 0 1.2em; }
+.poems__body span { display: block; }
+.poems__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(211, 107, 255, 0.25); }
+.poems__source { color: #d36bff; font-size: 13px; }
+.poems__list { max-height: 60vh; overflow: auto; }
 
 /* ---- recreation: the aim range -------------------------------------------- */
 .aimhud { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); z-index: 40; display: flex; align-items: baseline; gap: 18px; padding: 8px 18px; color: #fff; background: rgba(20, 8, 8, 0.72); border: 1px solid rgba(255, 90, 79, 0.6); font: 600 14px/1 var(--mono); pointer-events: none; }
@@ -703,3 +711,18 @@ body:has(.fallback) { overflow: auto; }
 .aimhud__cross { position: fixed; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 40; pointer-events: none; border: 2px solid rgba(255, 90, 79, 0.9); border-radius: 50%; box-shadow: 0 0 6px rgba(255, 90, 79, 0.8); }
 .aimhud__cross::after { content: ''; position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px 0 0 -2px; background: #fff; border-radius: 50%; }
 .aimhud__fire { position: fixed; right: 24px; bottom: 140px; z-index: 41; width: 84px; height: 84px; border-radius: 50%; color: #fff; font: 700 14px/1 var(--mono); background: rgba(255, 90, 79, 0.35); border: 2px solid #ff5a4f; }
+
+/* ---- recreation: the sound box ----------------------------------------------- */
+.soundbox__list { list-style: none; padding: 0; margin: 0 0 8px; display: grid; gap: 8px; }
+.soundbox__list li { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px; border: 1px solid rgba(127, 224, 196, 0.3); background: rgba(127, 224, 196, 0.05); }
+.soundbox__list li.is-on { border-color: #7fe0c4; background: rgba(127, 224, 196, 0.14); }
+.soundbox__list div { display: grid; gap: 2px; }
+.soundbox__list span { color: rgba(237, 233, 230, 0.75); font-size: 13px; }
+.soundbox__list small { color: #7fe0c4; font: 700 10px/1.2 var(--mono); letter-spacing: 0.14em; text-transform: uppercase; }
+.soundbox-player { position: fixed; left: 16px; bottom: 16px; z-index: 45; display: none; width: 320px; border: 1px solid #7fe0c4; background: #05080a; box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5); }
+.soundbox-player.is-on { display: block; }
+.soundbox-player__video { width: 320px; height: 180px; }
+.soundbox-player__video iframe { display: block; width: 320px; height: 180px; border: 0; }
+.soundbox-player__bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 10px; color: #e9f6f1; font: 600 12px/1.2 var(--sans); }
+.soundbox-player__bar button { padding: 4px 10px; color: #05080a; background: #7fe0c4; border: 0; font: 700 11px/1 var(--mono); cursor: pointer; }
+@media (max-width: 600px) { .soundbox-player, .soundbox-player__video, .soundbox-player__video iframe { width: 240px; } .soundbox-player__video, .soundbox-player__video iframe { height: 135px; } }

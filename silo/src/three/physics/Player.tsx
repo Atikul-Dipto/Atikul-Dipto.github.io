@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { PROBE } from '../../lib/probe'
 import { useFrame, useThree } from '@react-three/fiber'
 import { CapsuleCollider, RigidBody, useRapier } from '@react-three/rapier'
 import type { RapierRigidBody } from '@react-three/rapier'
@@ -226,7 +227,7 @@ export default function Player() {
    * check that the wall stops it.
    */
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!PROBE) return
     const w = window as unknown as { __silo?: Record<string, unknown> }
     if (!w.__silo) return
     w.__silo.walkLook = (yaw: number, pitch = 0) => {
@@ -425,11 +426,15 @@ export default function Player() {
         if (plate) openContact(plate)
       }
       else if (here === 'aim') startAim()
-      else if (here === 'jukebox' || here === 'drone' || here === 'citizen' || here === 'poems' || here?.startsWith('arcade:')) {
+      else if (here?.startsWith('poem:')) {
+        if (document.pointerLockElement) document.exitPointerLock()
+        st.openPanel('poems', here.slice('poem:'.length))
+      }
+      else if (here === 'jukebox' || here === 'drone' || here === 'citizen' || here === 'poems' || here === 'soundbox' || here?.startsWith('arcade:')) {
         // A panel: hand the pointer back so it can be used.
         if (document.pointerLockElement) document.exitPointerLock()
         if (here.startsWith('arcade:')) st.openPanel('arcade', here.slice('arcade:'.length))
-        else st.openPanel(here as 'jukebox' | 'drone' | 'citizen' | 'poems')
+        else st.openPanel(here as 'jukebox' | 'drone' | 'citizen' | 'poems' | 'soundbox')
       }
     }
 

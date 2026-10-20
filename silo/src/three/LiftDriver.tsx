@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { PROBE } from '../lib/probe'
 import { useFrame } from '@react-three/fiber'
 import { walkY } from '../content/floors'
 import { lift } from '../lib/lift'
@@ -158,7 +159,7 @@ export default function LiftDriver() {
 
   // DEV: let an audit see what the lift is doing without guessing.
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!PROBE) return
     const w = window as unknown as { __silo?: Record<string, unknown> }
     if (!w.__silo) return
     w.__silo.liftJob = () => (job.current ? { ...job.current } : null)

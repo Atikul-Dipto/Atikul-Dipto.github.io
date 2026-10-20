@@ -180,6 +180,9 @@ shadow-casting light.
 couple of hundred programs, and on Windows (ANGLE over Direct3D) each one is
 slow and blocks the page when first drawn. So:
 
+- A local build with the test handle (`window.__silo`) for profiling a
+  production bundle: `vite build --mode probe --outDir dist-probe`
+  (`.env.probe`, `lib/probe.ts`). The published build never has it.
 - Nothing is drawn until `LoadGate` has had them all compiled in the background
   (`compileAsync`, `KHR_parallel_shader_compile`) and settled one a frame;
   `three/warm.ts` compiles them for the target they will really be drawn into
@@ -411,7 +414,12 @@ an abstract hologram over it -- decoration, never a chart.
   light, each card turning to face whoever is looking.
 
 The wall's shader holds eight openings at a time; there are more than that now,
-so each frame its slots go to the ones nearest the camera in height.
+so each frame its slots go to the ones nearest the camera in height. It never
+cuts the wall below an opening's floor, every gate's lining and ring stop flat
+at the floor, and a steel threshold covers the seam between the deck and the
+room's floor in every doorway but the cafeteria's (which has its step). The
+structural band and its line of light stop either side of any gate tall
+enough to reach them.
 
 ## Level 4 — Recreation
 
@@ -451,6 +459,12 @@ Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
   closet either side. A tape plays through the gramophone's own chain, louder
   the nearer you stand, while the silo's score waits. The tapes are listed in
   `content/cassettes.ts`: put a file in `public/audio/tapes/` and add a line.
+  Beside the stage, the **sound box**: requested songs, played through YouTube's
+  own embedded player from the artists' official uploads (`content/songs.ts`,
+  `lib/soundbox.ts`) -- nothing is downloaded or copied. While one plays, the
+  player shows as a small window in the corner, as YouTube asks; its volume
+  follows how near you stand to the box, it pauses off the floor, the score is
+  held, and a tape and a song never play at once.
 - **Citizens.** The whole wall of the room is one screen of names, laid out
   round it as large as they will go and small enough for ten thousand; the
   door and the corridors are cut out of it. At the kiosk in the middle a
@@ -464,17 +478,19 @@ Nothing professional is hidden here. Planned in `content/level6.ts`, drawn by
   two days), and the owner can take a name down with a private token. If the
   register cannot be reached the wall says so; nothing is shown as added that
   was not. `lib/citizens.ts`, `ui/CitizenPanel.tsx`.
-- **Poems and writings.** A violet reading room: a lectern at the back that opens
-  the collection, framed pieces round the wall, pages drifting under the dome.
-  The pieces are in `content/writings.ts`, the owner's own words only; until
-  there are any, the room and the lectern say the collection is being
-  gathered.
+- **Poems and writings.** A magenta reading room: every poem is a page on the
+  wall -- its title, its opening lines, its date -- and <kbd>E</kbd> at a page
+  opens it to read, set line by line in stanzas; the lectern lists them all.
+  The fifteen poems are the owner's own, exactly as published on Bangla Kobita
+  (`content/writings.ts`), in Bangla, each linking back to where it appeared.
 - **Drone control.** The desk at the back, two big screens, the drone on a plinth
   with a hologram of the silo turning over it. A minute of battery, freely
   round the silo or the shaft race, twelve gates spiralling down the void.
   Where the drone may fly is worked out from the architecture
-  (`content/drone.ts`); while it flies, the floors it passes are fitted out and
-  lit. Race times go on a board kept on this device.
+  (`content/drone.ts`). Every floor's fit-out is built at take-off, one in each
+  quiet moment while the drone is still on its pad, and kept until it lands:
+  building floors as it passed them stuttered the flight for up to a second
+  each time. Race times go on a board kept on this device.
 - **The aim range.** A rail across the room, a grid and target boards on the
   back wall, a console by the rail. A round is thirty seconds: targets come up
   past the rail, more at a time as it goes on, and drop if not hit within two

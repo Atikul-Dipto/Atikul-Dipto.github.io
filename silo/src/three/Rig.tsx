@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { PROBE } from '../lib/probe'
 import { useFrame, useThree } from '@react-three/fiber'
 import gsap from 'gsap'
 import * as THREE from 'three'
@@ -101,7 +102,7 @@ export default function Rig() {
         ease: 'none',
       })
       tl.current = t
-      if (import.meta.env.DEV) {
+      if (PROBE) {
         ;(window as unknown as { __rig?: unknown }).__rig = { seek: (q: number) => t.progress(q).pause() }
       }
       return

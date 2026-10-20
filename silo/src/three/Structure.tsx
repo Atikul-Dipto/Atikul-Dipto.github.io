@@ -23,7 +23,7 @@ import {
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
 import { CREED, HALL_F, HALL_GATE } from '../content/level1'
-import { MAX_OPENINGS, OPENINGS } from '../content/openings'
+import { MAX_OPENINGS, OPENINGS, openingsOn } from '../content/openings'
 import { useSilo } from '../state/useSilo'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
@@ -57,6 +57,30 @@ function faceAxis(mesh: THREE.InstancedMesh, i: number, x: number, y: number, z:
  * shells plus two radial cut faces give it real thickness, so the missing
  * panel looks cut away rather than merely absent.
  */
+/** Arcs [from, to] with each [centre, half] cut out of them. */
+function cutArcs(arcs: Array<[number, number]>, cuts: ReadonlyArray<readonly [number, number]>) {
+  let out = arcs
+  for (const [c, h] of cuts) {
+    const next: Array<[number, number]> = []
+    for (const [from, to] of out) {
+      // The cut's centre, unwrapped into this arc's range.
+      let cc = c
+      while (cc < from - Math.PI) cc += Math.PI * 2
+      while (cc > to + Math.PI) cc -= Math.PI * 2
+      const a0 = cc - h
+      const a1 = cc + h
+      if (a1 <= from || a0 >= to) {
+        next.push([from, to])
+        continue
+      }
+      if (a0 > from + 0.01) next.push([from, a0])
+      if (a1 < to - 0.01) next.push([a1, to])
+    }
+    out = next
+  }
+  return out
+}
+
 function ConcreteWall() {
   const hole = useMemo(() => ({ value: 1 }), [])
   // The shader's opening slots; `useFrame` below fills them.
@@ -274,9 +298,70 @@ function StrataBackdrop() {
     return geo
   }, [])
 
+  // The rock itself: strata of brown, ochre and slate, grain, pebbles and
+  // cracks -- self-lit through the same picture, so it never reads as a flat
+  // plain slab when the lamps are elsewhere.
+  const rockTex = useMemo(() => {
+    const c = document.createElement('canvas')
+    c.width = 1024
+    c.height = 2048
+    const g = c.getContext('2d')!
+    let seed = 41
+    const rand = () => ((seed = (seed * 1664525 + 1013904223) % 4294967296) / 4294967296)
+    const tones = ['#4a3a2c', '#5a4632', '#3a302a', '#6a5238', '#2f2925', '#54483d', '#463b33']
+    // A base under the bands, so where two wavy edges do not quite meet it
+    // is rock that shows, not a black slit.
+    g.fillStyle = '#41352b'
+    g.fillRect(0, 0, 1024, 2048)
+    let y = 0
+    while (y < 2048) {
+      const h = 30 + rand() * 120
+      g.fillStyle = tones[Math.floor(rand() * tones.length)]
+      // A wavy band, not a ruled one.
+      g.beginPath()
+      g.moveTo(0, y)
+      for (let x = 0; x <= 1024; x += 32) g.lineTo(x, y + Math.sin(x * 0.01 + y) * 6)
+      for (let x = 1024; x >= 0; x -= 32) g.lineTo(x, y + h + Math.sin(x * 0.012 + y + 3) * 6)
+      g.closePath()
+      g.fill()
+      y += h
+    }
+    for (let i = 0; i < 26000; i++) {
+      g.fillStyle = `rgba(${rand() < 0.5 ? '255,240,220' : '0,0,0'},${(0.03 + rand() * 0.07).toFixed(3)})`
+      g.fillRect(rand() * 1024, rand() * 2048, 1 + rand() * 3, 1 + rand() * 3)
+    }
+    for (let i = 0; i < 260; i++) {
+      g.fillStyle = `rgba(${150 + rand() * 60},${130 + rand() * 50},${110 + rand() * 40},0.35)`
+      g.beginPath()
+      g.ellipse(rand() * 1024, rand() * 2048, 2 + rand() * 7, 2 + rand() * 5, rand() * 3, 0, Math.PI * 2)
+      g.fill()
+    }
+    g.strokeStyle = 'rgba(10,8,6,0.65)'
+    for (let i = 0; i < 40; i++) {
+      let x = rand() * 1024
+      let yy = rand() * 2048
+      g.lineWidth = 1 + rand() * 2
+      g.beginPath()
+      g.moveTo(x, yy)
+      for (let k = 0; k < 12; k++) {
+        x += (rand() - 0.5) * 50
+        yy += 10 + rand() * 30
+        g.lineTo(x, yy)
+      }
+      g.stroke()
+    }
+    const t = new THREE.CanvasTexture(c)
+    t.colorSpace = THREE.SRGBColorSpace
+    t.wrapS = t.wrapT = THREE.RepeatWrapping
+    t.repeat.set(1.5, WALL_HEIGHT / 30)
+    t.anisotropy = 4
+    return t
+  }, [])
+
   return (
     <mesh geometry={geometry} position={[0, WALL_CENTER, 0]}>
       <meshStandardMaterial
+        map={rockTex}
         vertexColors
         roughness={1}
         metalness={0}
@@ -284,8 +369,9 @@ function StrataBackdrop() {
         // The pooled lights cluster on the fit-out, so without a little self
         // illumination the cutaway reads as a hole in the world when you turn
         // towards it rather than as the rock the shaft was bored through.
-        emissive={PALETTE.rock}
-        emissiveIntensity={2.4}
+        emissive="#ffffff"
+        emissiveMap={rockTex}
+        emissiveIntensity={0.55}
       />
     </mesh>
   )
@@ -458,10 +544,17 @@ function Decks() {
               [CREED.to + 0.03, HALL_F.angle - gateHalf],
               [HALL_F.angle + gateHalf, CREED.from - 0.03 + Math.PI * 2],
             ]
-          : // Elsewhere it stops either side of the level's record display.
+          : // Elsewhere it stops either side of the level's record display,
+            // and either side of every gate tall enough to reach it -- a gate
+            // used to run straight through the band and its line of light.
             (() => {
               const { from, to } = recordWallSpan(floor.level)
-              return [[to + 0.03, from - 0.03 + Math.PI * 2]] as Array<[number, number]>
+              // The underside of the band, with its line of light, less a margin.
+              const bandFoot = levelY(floor.level) + 2.2 - 0.25
+              const cuts = openingsOn(floor.level)
+                .filter((o) => o.centreY + o.halfH + 0.2 > bandFoot)
+                .map((o) => [o.angle, (o.halfW + 0.35) / SHAFT_RADIUS] as const)
+              return cutArcs([[to + 0.03, from - 0.03 + Math.PI * 2]], cuts)
             })()
       for (const [from, to] of bandArcs) {
         const band = new THREE.Mesh(new THREE.TorusGeometry(SHAFT_RADIUS - 0.26, 0.1, 6, 80, to - from), steel)
@@ -527,6 +620,42 @@ function Lamps() {
   return <primitive object={nodes} />
 }
 
+/**
+ * A steel threshold across the foot of every gate in the wall. The deck stops
+ * a few centimetres short of the wall's face and a room's floor starts at it,
+ * so without one there was a dark slot underfoot in every doorway, with the
+ * deck's edge showing down it. The cafeteria has its own step, so not there.
+ */
+function GateSills() {
+  const mesh = useMemo(() => {
+    const list = OPENINGS.filter((o) => !(o.level === 1 && Math.abs(o.angle - HALL_F.angle) < 0.01))
+    const geo = new THREE.BoxGeometry(1, 1, 1)
+    const mat = new THREE.MeshStandardMaterial({ color: '#3b3f44', roughness: 0.38, metalness: 0.85 })
+    const m = new THREE.InstancedMesh(geo, mat, list.length)
+    const o3 = new THREE.Object3D()
+    list.forEach((o, i) => {
+      // The gate's half-width at its floor: where a rounded outline sunk
+      // under the floor crosses it.
+      const floorY = walkY(o.level)
+      const dy = Math.abs(floorY + 0.02 - o.centreY)
+      const straight = o.halfH - o.radius
+      const k = Math.max(0, dy - straight)
+      const half = dy <= straight ? o.halfW : Math.max(0.6, o.halfW - o.radius + Math.sqrt(Math.max(0, o.radius ** 2 - k ** 2)))
+      const r = SHAFT_RADIUS + 0.05
+      o3.position.set(Math.cos(o.angle) * r, floorY + 0.004, Math.sin(o.angle) * r)
+      o3.rotation.set(0, -o.angle, 0)
+      // Local X runs out through the wall, Z across the gate.
+      o3.scale.set(1.0, 0.02, half * 2 + 0.3)
+      o3.updateMatrix()
+      m.setMatrixAt(i, o3.matrix)
+    })
+    m.instanceMatrix.needsUpdate = true
+    m.receiveShadow = true
+    return m
+  }, [])
+  return <primitive object={mesh} />
+}
+
 export default function Structure() {
   return (
     <group>
@@ -534,6 +663,7 @@ export default function Structure() {
       <StrataBackdrop />
       <Ribs />
       <Decks />
+      <GateSills />
       <Stairway />
       <Lamps />
       <Water />

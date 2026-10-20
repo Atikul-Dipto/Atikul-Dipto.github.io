@@ -87,7 +87,7 @@ export const WALL_ROOMS: WallRoom[] = [
     lit: true,
     title: 'Tools',
     sign: 'TECH  ·  TOOLS I WORK WITH',
-    theme: { accent: '#4cc9ff', wall: '#161e2b', floor: '#0f141c' },
+    theme: { accent: '#4c6bff', wall: '#141a33', floor: '#0e1122' },
   }),
   room(SKILLS_LEVEL, SKILL_ANGLES[1], {
     id: 'skills-analytics',

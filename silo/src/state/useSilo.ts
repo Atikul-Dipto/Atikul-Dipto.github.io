@@ -38,12 +38,14 @@ export type Interact =
   | 'citizen' // the citizens' kiosk
   | 'poems' // the lectern in the poems room
   | 'aim' // the aim range's console
+  | 'soundbox' // the sound box in the music hall
+  | `poem:${string}` // one poem's page on the wall
   | 'reactor' // the reactor's console, on the core level
   | `contact:${string}` // a contact plate in the communications room
   | null
 
 /** The panels that open over the walk from things in the recreation chamber. */
-export type Panel = 'jukebox' | 'arcade' | 'drone' | 'map' | 'citizen' | 'poems' | null
+export type Panel = 'jukebox' | 'arcade' | 'drone' | 'map' | 'citizen' | 'poems' | 'soundbox' | null
 
 interface SiloState {
   phase: Phase

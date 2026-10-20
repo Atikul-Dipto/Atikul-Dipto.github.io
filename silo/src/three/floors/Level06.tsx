@@ -38,7 +38,7 @@ import {
   roomWallGaps,
   type Room,
 } from '../../content/level6'
-import { AimRoom, CitizensRoom, DroneRoom, PoemsRoom } from './RecRooms'
+import { AimRoom, CitizensRoom, DroneRoom, PoemsRoom, SoundBox } from './RecRooms'
 import { seeded } from '../../content/frame'
 import type { Box } from '../../content/level1'
 import { breaker, setVaultGrind, vaultClunk, vaultStop } from '../../lib/audio'
@@ -594,7 +594,7 @@ export function roomGroup(r: Room) {
  * corridor), the face round the tunnel, and a shallow dome of a ceiling with
  * rings of light in it.
  */
-export function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStandardMaterialParameters, s: number) => THREE.MeshStandardMaterial, look: { wall: THREE.Texture | null; wallColor: string; floor: THREE.Texture | null; floorColor: string; ring: string }) {
+export function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.MeshStandardMaterialParameters, s: number) => THREE.MeshStandardMaterial, look: { wall: THREE.Texture | null; wallColor: string; floor: THREE.Texture | null; floorColor: string; ring: string; ringColor?: string }) {
   const R = r.radius
   const H = r.height
   const floor = new THREE.Mesh(new THREE.CircleGeometry(R + 0.4, 96), mat({ ...(look.floor ? { map: look.floor } : {}), color: look.floorColor, roughness: 0.7, metalness: 0.15 }, WHOLE))
@@ -622,11 +622,38 @@ export function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.Mes
   })
   // Over each corridor's mouth the wall closes again: the corridor is only
   // CORRIDOR.height tall, and the opening used to run on up to the ceiling.
+  // And round the mouth, a flat portal: jambs and a head in the wall's own
+  // finish, with a lit trim round the opening -- the corridor's box used to
+  // stand out of the curved wall with gaps down its sides.
+  const portalMat = mat({ ...(look.wall ? { map: look.wall } : {}), color: look.wallColor, roughness: 0.85 }, WHOLE)
+  const trimMat = mat({ color: look.ring, emissive: look.ring, emissiveIntensity: 1.3 }, WHOLE)
+  const JAMB = 0.6
+  const HEAD = 0.55
   for (const [c, h] of roomWallGaps(r).slice(1)) {
     const top = H - CORRIDOR.height
     const lintel = new THREE.Mesh(new THREE.CylinderGeometry(R + 0.02, R + 0.02, top, 12, 1, true, Math.PI - c - h, h * 2), wallMat)
     lintel.position.set(0, CORRIDOR.height + top / 2, C)
     g.add(lintel)
+    const outer = CORRIDOR.half + JAMB
+    const dist = Math.sqrt(R * R - outer * outer) - 0.04
+    const portal = new THREE.Group()
+    portal.position.set(Math.sin(c) * dist, 0, C - Math.cos(c) * dist)
+    portal.rotation.y = -c
+    for (const side of [-1, 1]) {
+      const jamb = new THREE.Mesh(new THREE.BoxGeometry(JAMB, CORRIDOR.height + HEAD, 0.14), portalMat)
+      jamb.position.set(side * (CORRIDOR.half + JAMB / 2), (CORRIDOR.height + HEAD) / 2, 0)
+      portal.add(jamb)
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.05, CORRIDOR.height, 0.05), trimMat)
+      strip.position.set(side * (CORRIDOR.half + 0.03), CORRIDOR.height / 2, 0.08)
+      portal.add(strip)
+    }
+    const head = new THREE.Mesh(new THREE.BoxGeometry(outer * 2, HEAD, 0.14), portalMat)
+    head.position.set(0, CORRIDOR.height + HEAD / 2, 0)
+    portal.add(head)
+    const topStrip = new THREE.Mesh(new THREE.BoxGeometry(CORRIDOR.half * 2 + 0.11, 0.05, 0.05), trimMat)
+    topStrip.position.set(0, CORRIDOR.height + 0.03, 0.08)
+    portal.add(topStrip)
+    g.add(portal)
   }
   // The face round the tunnel.
   const face = new THREE.Shape()
@@ -648,7 +675,7 @@ export function roomShell(r: Room, g: THREE.Group, C: number, mat: (p: THREE.Mes
   const ceil = new THREE.Mesh(new THREE.SphereGeometry(DOME_R, 64, 16, 0, Math.PI * 2, 0, domeA), mat({ color: '#2d2925', roughness: 0.95, side: THREE.BackSide }, WHOLE))
   ceil.position.set(0, domeBase, C)
   g.add(ceil)
-  const ringMat = mat({ color: '#fff1d6', emissive: look.ring, emissiveIntensity: 1.7 }, centreSection(r))
+  const ringMat = mat({ color: look.ringColor ?? '#fff1d6', emissive: look.ring, emissiveIntensity: 1.7 }, centreSection(r))
   for (const rr of [R * 0.32, R * 0.64, R * 0.92]) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(rr, 0.05, 6, 96), ringMat)
     ring.rotation.x = Math.PI / 2
@@ -760,7 +787,8 @@ function ChamberRoom() {
       new THREE.CylinderGeometry(R - 0.02, R - 0.02, 1.7, 96, 1, true, gapE + 0.25, Math.PI * 2 - gapE * 2 - 0.5),
       mat({ map: chalk, roughness: 0.95, side: THREE.BackSide }, WHOLE),
     )
-    board.position.set(0, 3.55, C)
+    // Above the corridors' portals, not across them.
+    board.position.set(0, CORRIDOR.height + 0.6 + 0.85, C)
     g.add(board)
 
     // Counters round the wall, lit from inside, curios on them.
@@ -1332,6 +1360,7 @@ export default function Level06() {
       ))}
       <ChamberRoom />
       <MusicRoom />
+      <SoundBox />
       <CitizensRoom />
       <PoemsRoom />
       <DroneRoom />

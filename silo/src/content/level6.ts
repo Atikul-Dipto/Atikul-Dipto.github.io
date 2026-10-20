@@ -1,4 +1,5 @@
 import { DECK_INNER, SHAFT_RADIUS, contentAngle, walkY } from './floors'
+import { WRITINGS } from './writings'
 import { seeded, wallFrame, type WallFrame } from './frame'
 import type { Box } from './level1'
 
@@ -115,10 +116,10 @@ export const ROOMS6: Room[] = [
 export const ROOM_INFO: Record<RoomId, { label: string; colour: string }> = {
   chamber: { label: 'Game theory', colour: '#f2c94c' },
   music: { label: 'Music hall', colour: '#7fe0c4' },
-  citizens: { label: 'Citizens', colour: '#8fd3ff' },
-  poems: { label: 'Poems & writings', colour: '#c3a6ff' },
-  drone: { label: 'Drone control', colour: '#6cff9a' },
-  aim: { label: 'Aim range', colour: '#ff5a4f' },
+  citizens: { label: 'Citizens', colour: '#e8f1ff' },
+  poems: { label: 'Poems & writings', colour: '#d36bff' },
+  drone: { label: 'Drone control', colour: '#a8ff3c' },
+  aim: { label: 'Aim range', colour: '#ff4040' },
 }
 export const roomById = (id: RoomId) => ROOMS6.find((r) => r.id === id)!
 
@@ -248,6 +249,9 @@ export const STAGE = { rr: 5.6, radius: 1.6, h: 0.22 }
 export const CLOSETS = [-0.62, 0.62].map((phi) => ({ phi, rr: 8.25, w: 1.9, h: 2.3, depth: 0.7 }))
 export const SEATS = [-1.0, -0.5, 0, 0.5, 1.0].map((off) => ({ phi: Math.PI + off, rr: 3.4 }))
 export const SPEAKERS = [-0.3, 0.3].map((phi) => ({ phi, rr: 7.9 }))
+/** The sound box: a speaker tower with a screen, on the right of the stage,
+ *  that plays the requested songs. */
+export const SOUNDBOX = { phi: 1.25, rr: 7.5, w: 1.6, depth: 0.9, h: 2.5 }
 
 /** The citizens' room: its whole wall a screen of names, and the kiosk in
  *  the middle where a visitor adds theirs. */
@@ -257,6 +261,18 @@ export const KIOSK = { rr: 0, w: 1.5, depth: 1.0, h: 1.15 }
 /** Poems and writings: a lectern at the back, framed pieces round the wall. */
 export const POEMS = ROOMS6[3]
 export const LECTERN = { phi: 0, rr: 4.6, w: 1.1, depth: 0.7, h: 1.15 }
+/** One page on the wall for every poem, spaced evenly round it, clear of the
+ *  door and the corridors. */
+export const POEM_PAGE = { w: 1.05, h: 1.45, y: 1.75 }
+export function poemPages(): Array<{ id: string; phi: number }> {
+  const allowed: number[] = []
+  for (let i = 0; i < 720; i++) {
+    const phi = -Math.PI + 0.62 + (i / 719) * (Math.PI * 2 - 1.24)
+    if (!inWallGap(POEMS, phi, 0.16)) allowed.push(phi)
+  }
+  const n = WRITINGS.length
+  return WRITINGS.map((w, i) => ({ id: w.id, phi: allowed[Math.round(((i + 0.5) / n) * (allowed.length - 1))] }))
+}
 
 /** Drone control: the desk at the back, the drone on a plinth in the middle. */
 export const DRONE = ROOMS6[4]
@@ -482,6 +498,7 @@ export function roomSolids(): Box[] {
   out.push(roomBox(M, GRAMOPHONE.phi, GRAMOPHONE.rr, 0.9, 0.9, 1.05 + STAGE.h, 0))
   for (const c of CLOSETS) out.push(roomBox(M, c.phi, c.rr, c.w, c.depth, c.h))
   for (const sp of SPEAKERS) out.push(roomBox(M, sp.phi, sp.rr, 0.9, 0.7, 1.9))
+  out.push(roomBox(M, SOUNDBOX.phi, SOUNDBOX.rr, SOUNDBOX.w, SOUNDBOX.depth, SOUNDBOX.h))
   for (const seat of SEATS) out.push(roomBox(M, seat.phi, seat.rr, 1.5, 0.8, 0.8))
   // The citizens' kiosk; the poems' lectern.
   out.push(roomBox(CITIZENS, 0, KIOSK.rr, KIOSK.w, KIOSK.depth, KIOSK.h))
@@ -536,10 +553,14 @@ export function level6Interact(x: number, z: number, open: boolean[]): string | 
   }
   if (inRoom(MUSIC, x, z)) {
     if (near(x, z, MUSIC, GRAMOPHONE.phi, GRAMOPHONE.rr - 1.9, 1.6)) return 'jukebox'
+    if (near(x, z, MUSIC, SOUNDBOX.phi, SOUNDBOX.rr - 1.3, 1.5)) return 'soundbox'
     for (const c of CLOSETS) if (near(x, z, MUSIC, c.phi, c.rr - 1, 1.6)) return 'jukebox'
   }
   if (inRoom(CITIZENS, x, z) && near(x, z, CITIZENS, Math.PI, 1.1, 1.7)) return 'citizen'
-  if (inRoom(POEMS, x, z) && near(x, z, POEMS, LECTERN.phi, LECTERN.rr - 1.0, 1.4)) return 'poems'
+  if (inRoom(POEMS, x, z)) {
+    for (const p of poemPages()) if (near(x, z, POEMS, p.phi, POEMS.radius - 1.1, 0.75)) return `poem:${p.id}`
+    if (near(x, z, POEMS, LECTERN.phi, LECTERN.rr - 1.0, 1.4)) return 'poems'
+  }
   if (inRoom(DRONE, x, z) && near(x, z, DRONE, DRONE_DESK.phi, DRONE_DESK.rr - 1.2, 1.7)) return 'drone'
   if (inRoom(AIM, x, z) && near(x, z, AIM, AIM_CONSOLE.phi, AIM_CONSOLE.rr - 0.9, 1.4)) return 'aim'
   return null

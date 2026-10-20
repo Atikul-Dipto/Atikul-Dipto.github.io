@@ -14,6 +14,7 @@ import DronePanel, { DroneHud } from './ui/DronePanel'
 import CitizenPanel from './ui/CitizenPanel'
 import PoemsPanel from './ui/PoemsPanel'
 import AimHud from './ui/AimHud'
+import SoundboxPanel from './ui/SoundboxPanel'
 import './styles.css'
 
 // The engine is the bulk of the bundle; keep it out of the first paint so the
@@ -86,6 +87,7 @@ export default function App() {
       <CitizenPanel />
       <PoemsPanel />
       <AimHud />
+      <SoundboxPanel />
       <Soundscape />
       <div className={`fade${fading ? ' is-on' : ''}`} aria-hidden="true" />
     </div>

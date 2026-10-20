@@ -14,6 +14,11 @@ import {
   DRONE_PLINTH,
   KIOSK,
   LECTERN,
+  POEM_PAGE,
+  poemPages,
+  LEVEL as REC_LEVEL,
+  MUSIC,
+  SOUNDBOX,
   POEMS,
   ROOMS6,
   ROOM_INFO,
@@ -22,6 +27,8 @@ import {
   type Room,
 } from '../../content/level6'
 import { WRITINGS } from '../../content/writings'
+import { SONGS } from '../../content/songs'
+import { setSoundboxPlace, soundbox } from '../../lib/soundbox'
 import { aim, aimFire, fireAim, readAimBest, stepAim, TARGET_R } from '../../lib/aim'
 import { aimHit, aimMiss, aimShot } from '../../lib/audio'
 import { citizens, loadCitizens } from '../../lib/citizens'
@@ -38,6 +45,8 @@ import { canvasTexture, centreSection, droneScreen, litMaker, roomGroup, roomShe
 
 const SANS = '"Segoe UI", "Helvetica Neue", Arial, sans-serif'
 const MONO = 'ui-monospace, "Cascadia Mono", Consolas, monospace'
+/** Bangla text: the system's Bengali faces, then any that can draw it. */
+const BANGLA = '"Nirmala UI", "Noto Sans Bengali", "Hind Siliguri", "Vrinda", "Bangla Sangam MN", sans-serif'
 
 type Lights = Array<{ l: THREE.PointLight; max: number; section: number }>
 
@@ -46,12 +55,75 @@ type Lights = Array<{ l: THREE.PointLight; max: number; section: number }>
  * the wall and another at door height, the ceiling's rings in the colour, and
  * three lights round the room plus one in the middle.
  */
-function techRoom(r: Room, wall: string, floor: string) {
+type FloorPattern = 'rings' | 'stars' | 'hex' | 'grid'
+
+/** A floor of its own for each room, drawn in the room's colour. */
+function floorTexture(pattern: FloorPattern, base: string, accent: string) {
+  const t = canvasTexture(1024, 1024, (c) => {
+    c.fillStyle = base
+    c.fillRect(0, 0, 1024, 1024)
+    c.strokeStyle = accent
+    c.fillStyle = accent
+    c.globalAlpha = 0.5
+    c.lineWidth = 3
+    if (pattern === 'rings') {
+      for (let q = 1; q < 12; q++) {
+        c.globalAlpha = q % 3 === 0 ? 0.55 : 0.18
+        c.beginPath()
+        c.arc(512, 512, q * 44, 0, Math.PI * 2)
+        c.stroke()
+      }
+    } else if (pattern === 'stars') {
+      let s = 7
+      const rand = () => ((s = (s * 1664525 + 1013904223) % 4294967296) / 4294967296)
+      for (let i = 0; i < 900; i++) {
+        c.globalAlpha = 0.15 + rand() * 0.6
+        c.beginPath()
+        c.arc(rand() * 1024, rand() * 1024, 0.6 + rand() * 2.2, 0, Math.PI * 2)
+        c.fill()
+      }
+    } else if (pattern === 'hex') {
+      const size = 48
+      const h = size * Math.sqrt(3)
+      c.globalAlpha = 0.4
+      for (let row = -1; row < 1024 / h + 1; row++) {
+        for (let col = -1; col < 1024 / (size * 1.5) + 1; col++) {
+          const x = col * size * 1.5
+          const y = row * h + (col % 2 ? h / 2 : 0)
+          c.beginPath()
+          for (let k = 0; k <= 6; k++) {
+            const a = (k / 6) * Math.PI * 2
+            const px = x + Math.cos(a) * size * 0.95
+            const py = y + Math.sin(a) * size * 0.95
+            if (k) c.lineTo(px, py)
+            else c.moveTo(px, py)
+          }
+          c.stroke()
+        }
+      }
+    } else {
+      for (let x = 0; x <= 1024; x += 64) {
+        c.globalAlpha = x % 256 === 0 ? 0.55 : 0.2
+        c.beginPath()
+        c.moveTo(x, 0)
+        c.lineTo(x, 1024)
+        c.moveTo(0, x)
+        c.lineTo(1024, x)
+        c.stroke()
+      }
+    }
+    c.globalAlpha = 1
+  })
+  t.wrapS = t.wrapT = THREE.ClampToEdgeWrapping
+  return t
+}
+
+function techRoom(r: Room, wall: string, floor: string, pattern: FloorPattern) {
   const accent = ROOM_INFO[r.id].colour
   const lit: Lit[] = []
   const mat = litMaker(lit)
   const { g, C, place } = roomGroup(r)
-  roomShell(r, g, C, mat, { wall: null, wallColor: wall, floor: null, floorColor: floor, ring: accent })
+  roomShell(r, g, C, mat, { wall: null, wallColor: wall, floor: floorTexture(pattern, floor, accent), floorColor: '#ffffff', ring: accent, ringColor: accent })
   const centre = centreSection(r)
   const glow = mat({ color: accent, emissive: accent, emissiveIntensity: 1.6 }, centre)
   for (const y of [0.08, CORRIDOR.height + 0.12]) {
@@ -242,7 +314,7 @@ export function CitizensRoom() {
   const k = ROOMS6.indexOf(CITIZENS)
   const r = CITIZENS
   const parts = useMemo(() => {
-    const room = techRoom(r, '#0d151d', '#0b1117')
+    const room = techRoom(r, '#14234a', '#0c1630', 'rings')
     const { g, C, mat, centre } = room
     const metal = mat({ color: '#28323c', roughness: 0.35, metalness: 0.85 }, centre)
     // The kiosk: a pedestal, an angled screen, a seal turning over it.
@@ -308,7 +380,7 @@ export function PoemsRoom() {
   const k = ROOMS6.indexOf(POEMS)
   const r = POEMS
   const parts = useMemo(() => {
-    const room = techRoom(r, '#150f1f', '#100c17')
+    const room = techRoom(r, '#2a1036', '#180a20', 'stars')
     const { g, place, mat, accent, centre } = room
     const frame = mat({ color: '#2a2335', roughness: 0.4, metalness: 0.7 }, WHOLE)
     // The lectern, at the back.
@@ -340,43 +412,46 @@ export function PoemsRoom() {
     pg.rotation.order = 'YXZ'
     lec.add(pg)
     place(lec, LECTERN.phi, LECTERN.rr)
-    // Framed pieces round the wall: the titles, or a single notice until
-    // there is anything to hang.
-    const titles = WRITINGS.length ? WRITINGS.slice(0, 6).map((w) => [w.kind.toUpperCase(), w.title] as const) : [['THE COLLECTION', 'is being gathered'] as const]
-    const spots = WRITINGS.length ? [-1.0, 1.0, -1.9, 1.9, -0.5, 0.5] : [0]
-    const big = !WRITINGS.length
-    titles.forEach(([kind, title], i) => {
-      const tex = painted(768, 1024, (c) => {
-        c.fillStyle = '#0c0914'
-        c.fillRect(0, 0, 768, 1024)
+    // A page on the wall for every poem: its title, its opening lines, its
+    // date. Stand at one and press E to read the whole of it.
+    for (const pg of poemPages()) {
+      const w = WRITINGS.find((x) => x.id === pg.id)!
+      const tex = painted(768, 1060, (c) => {
+        const grad = c.createLinearGradient(0, 0, 0, 1060)
+        grad.addColorStop(0, '#1a0c22')
+        grad.addColorStop(1, '#0e0614')
+        c.fillStyle = grad
+        c.fillRect(0, 0, 768, 1060)
         c.strokeStyle = accent
-        c.lineWidth = 10
-        c.strokeRect(24, 24, 720, 976)
-        c.fillStyle = accent
-        c.font = `700 40px ${MONO}`
+        c.lineWidth = 6
+        c.strokeRect(18, 18, 732, 1024)
         c.textAlign = 'center'
-        c.fillText(kind, 384, 200)
-        c.fillStyle = '#f3eefb'
-        c.font = `italic 400 64px Georgia, serif`
-        const words = title.split(' ')
-        let line = ''
-        let y = 420
-        for (const w of words) {
-          const next = line ? `${line} ${w}` : w
-          if (c.measureText(next).width > 620 && line) {
-            c.fillText(line, 384, y)
-            y += 84
-            line = w
-          } else line = next
-        }
-        c.fillText(line, 384, y)
+        c.fillStyle = accent
+        c.font = `700 28px ${MONO}`
+        c.fillText(`${w.kind.toUpperCase()}${w.date ? `  ·  ${w.date.toUpperCase()}` : ''}`, 384, 96)
+        c.fillStyle = '#ffffff'
+        c.font = `700 58px ${BANGLA}`
+        c.fillText(w.title, 384, 200, 680)
+        c.fillStyle = 'rgba(211,107,255,0.6)'
+        c.fillRect(304, 236, 160, 3)
+        c.fillStyle = '#efe6f6'
+        c.font = `400 34px ${BANGLA}`
+        const lines = w.body.split('\n').filter((l) => l.trim()).slice(0, 13)
+        lines.forEach((l, i) => c.fillText(l, 384, 312 + i * 54, 690))
+        if (w.body.split('\n').filter((l) => l.trim()).length > lines.length) c.fillText('…', 384, 312 + lines.length * 54)
+        c.fillStyle = '#ffd27a'
+        c.font = `700 28px ${MONO}`
+        c.fillText('PRESS E TO READ', 384, 1010)
       })
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(big ? 2.4 : 1.5, big ? 3.2 : 2.0), mat({ map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.9, color: '#000000' }, sectionAt(r, spots[i])))
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(POEM_PAGE.w, POEM_PAGE.h), mat({ map: tex, emissive: '#ffffff', emissiveMap: tex, emissiveIntensity: 0.95, color: '#000000' }, sectionAt(r, pg.phi)))
       const holder = new THREE.Group()
-      m.position.set(0, big ? 2.9 : 2.1, 0.02)
+      m.position.set(0, POEM_PAGE.y, 0.03)
       holder.add(m)
-      place(holder, spots[i], r.radius - 0.15)
-    })
+      const back = new THREE.Mesh(new THREE.BoxGeometry(POEM_PAGE.w + 0.08, POEM_PAGE.h + 0.08, 0.04), frame)
+      back.position.set(0, POEM_PAGE.y, 0)
+      holder.add(back)
+      place(holder, pg.phi, r.radius - 0.12)
+    }
     // Pages drifting under the dome.
     const pages = new THREE.Group()
     pages.name = 'pages'
@@ -412,7 +487,7 @@ export function DroneRoom() {
   const k = ROOMS6.indexOf(DRONE)
   const r = DRONE
   const parts = useMemo(() => {
-    const room = techRoom(r, '#0d1a14', '#0a120e')
+    const room = techRoom(r, '#1b2610', '#0f1608', 'hex')
     const { place, mat, accent } = room
     const sec = sectionAt(r, DRONE_DESK.phi)
     const deskMat = mat({ color: '#22302a', roughness: 0.5, metalness: 0.6 }, sec)
@@ -489,7 +564,7 @@ export function AimRoom() {
   const k = ROOMS6.indexOf(AIM)
   const r = AIM
   const parts = useMemo(() => {
-    const room = techRoom(r, '#1d0f10', '#140b0b')
+    const room = techRoom(r, '#2b1414', '#170a0a', 'grid')
     const { C, place, mat, accent, centre } = room
     const g = room.g
     const steel = mat({ color: '#2e2627', roughness: 0.35, metalness: 0.85 }, centre)
@@ -701,3 +776,100 @@ export function AimRoom() {
   return <primitive object={parts.g} />
 }
 
+
+// ===========================================================================
+// The music hall's sound box
+// ===========================================================================
+
+/**
+ * A speaker tower on the right of the stage, with a screen on top: the songs
+ * it holds, and while one plays, its title and a moving equaliser. It also
+ * tells the sound box how near the visitor is, for the volume.
+ */
+export function SoundBox() {
+  const parts = useMemo(() => {
+    const { g, place } = roomGroup(MUSIC)
+    const cab = new THREE.MeshStandardMaterial({ color: '#141416', roughness: 0.55, metalness: 0.3 })
+    const cone = new THREE.MeshStandardMaterial({ color: '#2a2a2e', roughness: 0.8 })
+    const ring = new THREE.MeshStandardMaterial({ color: '#7fe0c4', emissive: '#7fe0c4', emissiveIntensity: 1.2 })
+    const tower = new THREE.Group()
+    const body = new THREE.Mesh(new THREE.BoxGeometry(SOUNDBOX.w, SOUNDBOX.h - 0.7, SOUNDBOX.depth), cab)
+    body.position.y = (SOUNDBOX.h - 0.7) / 2
+    tower.add(body)
+    for (const [y, rad] of [
+      [0.55, 0.42],
+      [1.35, 0.3],
+    ]) {
+      const w = new THREE.Mesh(new THREE.CylinderGeometry(rad, rad, 0.08, 40), cone)
+      w.rotation.x = Math.PI / 2
+      w.position.set(0, y, SOUNDBOX.depth / 2 + 0.01)
+      tower.add(w)
+      const r = new THREE.Mesh(new THREE.TorusGeometry(rad + 0.03, 0.02, 8, 48), ring)
+      r.position.set(0, y, SOUNDBOX.depth / 2 + 0.05)
+      tower.add(r)
+    }
+    const cv = document.createElement('canvas')
+    cv.width = 640
+    cv.height = 400
+    const tex = new THREE.CanvasTexture(cv)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const screen = new THREE.Mesh(new THREE.PlaneGeometry(SOUNDBOX.w - 0.1, 0.62), new THREE.MeshBasicMaterial({ map: tex, toneMapped: false }))
+    screen.position.set(0, SOUNDBOX.h - 0.36, SOUNDBOX.depth / 2 - 0.08)
+    screen.rotation.x = -0.12
+    tower.add(screen)
+    const frame = new THREE.Mesh(new THREE.BoxGeometry(SOUNDBOX.w, 0.72, 0.2), cab)
+    frame.position.set(0, SOUNDBOX.h - 0.36, SOUNDBOX.depth / 2 - 0.2)
+    tower.add(frame)
+    place(tower, SOUNDBOX.phi, SOUNDBOX.rr)
+    const [bx, bz] = roomPoint(MUSIC, SOUNDBOX.phi, SOUNDBOX.rr)
+    return { g, cv, tex, bx, bz }
+  }, [])
+
+  const t = useRef(0)
+  const frame = useRef(0)
+  useFrame((state, dt) => {
+    t.current += dt
+    frame.current++
+    if (frame.current % 4) return
+    const s = useSilo.getState()
+    const p = state.camera.position
+    const here = s.level === REC_LEVEL && s.mode === 'walk' && !s.droneFlying
+    // Full by the box, fading to nothing thirty metres off.
+    const d = Math.hypot(p.x - parts.bx, p.z - parts.bz)
+    const near = Math.max(0, Math.min(1, 1 - (d - 4) / 26))
+    setSoundboxPlace(near * near, here, s.muted)
+    // The screen.
+    const c = parts.cv.getContext('2d')!
+    c.fillStyle = '#05080a'
+    c.fillRect(0, 0, 640, 400)
+    c.strokeStyle = '#7fe0c4'
+    c.lineWidth = 6
+    c.strokeRect(6, 6, 628, 388)
+    c.fillStyle = '#7fe0c4'
+    c.font = `700 30px ${MONO}`
+    c.fillText('SOUND BOX', 30, 56)
+    if (soundbox.on && soundbox.current) {
+      c.fillStyle = '#ffffff'
+      c.font = `700 42px ${SANS}`
+      c.fillText(soundbox.current.title, 30, 120, 580)
+      c.fillStyle = '#bfe9dc'
+      c.font = `400 30px ${SANS}`
+      c.fillText(soundbox.current.artist, 30, 162, 580)
+      // An equaliser: decoration, moving while it plays.
+      for (let i = 0; i < 24; i++) {
+        const h = soundbox.playing ? 30 + 120 * Math.abs(Math.sin(t.current * (2 + (i % 5)) + i * 1.7)) : 12
+        c.fillStyle = i % 3 ? '#7fe0c4' : '#ffd27a'
+        c.fillRect(30 + i * 24, 370 - h, 16, h)
+      }
+    } else {
+      c.fillStyle = '#e9f6f1'
+      c.font = `400 30px ${SANS}`
+      c.fillText(`${SONGS.length} song${SONGS.length === 1 ? '' : 's'} on request`, 30, 130)
+      c.fillStyle = '#ffd27a'
+      c.font = `700 32px ${MONO}`
+      c.fillText('PRESS E', 30, 340)
+    }
+    parts.tex.needsUpdate = true
+  })
+  return <primitive object={parts.g} />
+}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { PROBE } from '../lib/probe'
 import { LEVEL_COUNT, floorByLevel } from '../content/floors'
 import { SOUND_KEY, useSilo } from '../state/useSilo'
 import {
@@ -148,7 +149,7 @@ export default function Soundscape() {
 
   // Dev handle, so an audit can read the graph rather than listen to it.
   useEffect(() => {
-    if (!import.meta.env.DEV) return
+    if (!PROBE) return
     ;(window as unknown as { __siloAudio?: unknown }).__siloAudio = audioDebug
   }, [])
 

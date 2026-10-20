@@ -44,10 +44,14 @@ export const move: MoveState = {
   locked: false,
 }
 
-/** Radians per pixel of mouse movement. */
-const LOOK_SENS = 0.0022
+/** Radians per pixel of mouse movement. It was 0.0022, which visitors found
+ *  far too quick. */
+const LOOK_SENS = 0.0014
 /** Radians per pixel of touch drag: thumbs move further than mice. */
-const TOUCH_LOOK = 0.0042
+const TOUCH_LOOK = 0.0034
+/** Some browsers report a huge jump now and then while the pointer is held;
+ *  more than this in one event is clipped, not taken as a whip round. */
+const MAX_STEP = 90
 /** Pixels of thumb travel for full stick. */
 const STICK_RANGE = 56
 
@@ -126,8 +130,9 @@ export function attachWalkInput(canvas: HTMLCanvasElement, onLockChange: Listene
 
   const onMouseMove = (e: MouseEvent) => {
     if (!move.locked) return
-    move.yaw -= e.movementX * LOOK_SENS
-    move.pitch -= e.movementY * LOOK_SENS
+    const clip = (v: number) => Math.max(-MAX_STEP, Math.min(MAX_STEP, v))
+    move.yaw -= clip(e.movementX) * LOOK_SENS
+    move.pitch -= clip(e.movementY) * LOOK_SENS
   }
 
   /**

@@ -3,6 +3,7 @@ import { isTouchDevice, move, stick } from '../lib/input'
 import { useSilo } from '../state/useSilo'
 import type { Interact } from '../state/useSilo'
 import { ARCADE_GAMES, ROOMS6, ROOM_INFO, type RoomId } from '../content/level6'
+import { WRITINGS } from '../content/writings'
 
 const ROOM_NAMES = Object.fromEntries(Object.entries(ROOM_INFO).map(([k, v]) => [k, v.label.toLowerCase()])) as Record<RoomId, string>
 import { CONTACTS } from '../content/level12'
@@ -38,6 +39,7 @@ const LABEL: Record<string, string> = {
   citizen: 'Become a citizen of the Silo',
   poems: 'Read the poems and writings',
   aim: 'Start a round on the aim range',
+  soundbox: 'Play a song on the sound box',
   reactor: 'Run a surge test on the core',
 }
 
@@ -45,6 +47,10 @@ function label(i: Exclude<Interact, null>) {
   if (i.startsWith('arcade:')) {
     const game = ARCADE_GAMES.find((g) => `arcade:${g.id}` === i)
     return `Play ${game ? game.title.toLowerCase().replace(/(^|\s)\S/g, (c) => c.toUpperCase()) : 'the game'}`
+  }
+  if (i.startsWith('poem:')) {
+    const w = WRITINGS.find((p) => `poem:${p.id}` === i)
+    return w ? `Read “${w.title}”` : 'Read the poem'
   }
   if (i.startsWith('chamber-close:')) return 'Roll the round door shut'
   if (i.startsWith('chamber:')) {

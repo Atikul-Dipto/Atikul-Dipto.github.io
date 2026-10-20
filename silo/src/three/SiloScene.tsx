@@ -1,4 +1,5 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { PROBE } from '../lib/probe'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { AdaptiveDpr, PerformanceMonitor, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
@@ -19,8 +20,9 @@ import { droneTouch } from '../lib/drone'
 import { reactor } from '../lib/reactor'
 import { aim, aimFire } from '../lib/aim'
 import { citizens } from '../lib/citizens'
+import { soundbox } from '../lib/soundbox'
 import * as plan12 from '../content/level12'
-import { useSilo, viewLevel } from '../state/useSilo'
+import { useSilo } from '../state/useSilo'
 import FloorGuard from './FloorGuard'
 import LightPool from './LightPool'
 import { warmEffects, warmUp } from './warm'
@@ -57,11 +59,29 @@ const WalkMode = lazy(loadWalk)
  * twelve levels of rooms, screens and canvas textures, mounting everything
  * would cost far more than it could ever show at once.
  */
+/** The floors with a fit-out of their own, nearest the drone's pad first. */
+const FLIGHT_ORDER = [SKILLS_LEVEL, CAREERS_LEVEL, 1, CORE_LEVEL].sort((a, b) => Math.abs(a - REC_LEVEL) - Math.abs(b - REC_LEVEL))
+
 function ActiveFloor() {
   const level = useSilo((s) => s.level)
-  // While the drone flies, the floors it passes are fitted out too -- and the
-  // body's own floor stays, since the body is still standing on it.
-  const view = useSilo(viewLevel)
+  // While the drone flies, every floor is fitted out -- but not as it passes
+  // them: building a floor's rooms and compiling them mid-flight stuttered
+  // the flight for up to a second each time. Instead they are built at
+  // take-off, one in each quiet moment while the drone sits on its pad,
+  // nearest first, and kept until it lands.
+  const flying = useSilo((s) => s.droneFlying)
+  const [fleet, setFleet] = useState(0)
+  useEffect(() => {
+    if (!flying) {
+      setFleet(0)
+      return
+    }
+    if (fleet >= FLIGHT_ORDER.length) return
+    const idle = window.requestIdleCallback ?? ((f: () => void) => window.setTimeout(f, 120))
+    const handle = idle(() => setFleet((n) => n + 1), { timeout: 400 }) as number
+    return () => window.cancelIdleCallback?.(handle)
+  }, [flying, fleet])
+  const forFlight = (n: number) => flying && FLIGHT_ORDER.indexOf(n) >= 0 && FLIGHT_ORDER.indexOf(n) < fleet
   // A lift journey's destination is fitted out as the journey starts, so it
   // is compiled and ready by the time the doors open.
   const bound = useSilo((s) => (s.phase === 'riding' ? s.target : s.level))
@@ -89,7 +109,7 @@ function ActiveFloor() {
       window.cancelIdleCallback?.(handle)
     }
   }, [approach, early])
-  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - view) <= 1 || Math.abs(n - bound) <= 1
+  const near = (n: number) => Math.abs(n - level) <= 1 || Math.abs(n - bound) <= 1 || forFlight(n)
   return (
     <>
       {near(1) && (inside || early >= 1) && (
@@ -342,7 +362,7 @@ export default function SiloScene() {
       onCreated={({ gl, camera, scene }) => {
         // Dev-only handle, so the scene can be probed from the console or a
         // headless browser instead of guessed at.
-        if (import.meta.env.DEV) {
+        if (PROBE) {
           ;(window as unknown as { __silo?: unknown }).__silo = {
             gl,
             camera,
@@ -369,6 +389,7 @@ export default function SiloScene() {
             plan12,
             aim: { state: aim, fire: aimFire },
             citizens,
+            soundbox,
           }
         }
         // Checking every shader for errors makes each one block until it has
