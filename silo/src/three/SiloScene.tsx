@@ -43,7 +43,6 @@ import Level06 from './floors/Level06'
 import Level12, { PowerConduits } from './floors/Level12'
 import DroneFlight from './DroneFlight'
 import RecordWalls from './floors/RecordWall'
-import FlowerPortraits from './FlowerPortraits'
 import { Dust } from './Atmosphere'
 
 /**
@@ -140,7 +139,6 @@ function ActiveFloor() {
       <DroneFlight />
       <PowerConduits />
       <RecordWalls />
-      <FlowerPortraits />
     </>
   )
 }

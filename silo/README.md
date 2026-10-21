@@ -60,8 +60,6 @@ src/
                 Structure.tsx  wall, ribs, decks, radial framing, lamps
                 Water.tsx      the flooded pit under the core
                 Lotus.tsx      the lotus, buds and leaves floating on it
-                FlowerPortraits.tsx, flowerPaint.ts  each floor's flower,
-                               painted on a canvas and framed on its wall
                 Stairway.tsx   flights, landings, bridges and their lantern posts
                 roomKit.ts     the pieces every room behind the wall is built from
                 floors/WallRooms.tsx  the careers and skills rooms
@@ -533,11 +531,8 @@ Planters hang on the void side of every rail, spilling green over the drop. The
 radial joists that used to span every deck are gone.
 
 Each level also has a flower of Bangladesh (`content/flowers.ts`), in a colour
-of its own: it blooms in the level's planters, and is painted in a frame on the
-level's wall, in a bay beside the record display under a lamp, with its name in
-Bangla and English. The paintings are drawn petal by petal on a canvas
-(`three/flowerPaint.ts`) -- no photographs -- and hung, like the record
-displays, on the visitor's level and the two either side.
+of its own, blooming in the level's planters. Nothing names them; the colour
+is the whole of it.
 
 | Level | Flower | Colour |
 |---|---|---|
