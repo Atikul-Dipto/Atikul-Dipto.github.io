@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import { period } from '../../content/records'
 import { skillGroups, sqlQueries } from '../../content/portfolio'
 import { toolIcons, type ToolIcon } from '../../content/toolIcons'
-import { PLINTH, ROOM, ROOM_GATE, wallRoomsOn, type WallRoom } from '../../content/wallRooms'
+import { PLINTH, ROOM, ROOM_GATE, roomSite, wallRoomsOn, type WallRoom } from '../../content/wallRooms'
 import { useSilo } from '../../state/useSilo'
 import { canvasTexture, framed, gatePassage, roomShell } from '../roomKit'
 
@@ -576,12 +576,56 @@ function sqlScreen(room: WallRoom, g: THREE.Group) {
   )
 }
 
+/** Where the website floats: over the way in, high enough that it never
+ *  stands between the door and the back wall's screen, low enough to be seen
+ *  through the gate from the deck. */
+const SITE = { d: 5.5, y: 3.9, w: 3.0, h: 0.7 }
+
+/** The company's web address, floating in the room: walk in and press E, or
+ *  click, to visit it. */
+function websiteSign(room: WallRoom, g: THREE.Group) {
+  const site = roomSite(room)
+  if (!site) return
+  const a = room.theme.accent
+  const pw = 1200
+  const ph = Math.round((pw * SITE.h) / SITE.w)
+  const tex = canvasTexture(pw, ph, (ctx) => {
+    ctx.clearRect(0, 0, pw, ph)
+    const r = ph / 2 - 8
+    ctx.fillStyle = 'rgba(6,10,15,0.94)'
+    ctx.strokeStyle = a
+    ctx.lineWidth = 6
+    ctx.beginPath()
+    ctx.roundRect(6, 6, pw - 12, ph - 12, r)
+    ctx.fill()
+    ctx.stroke()
+    ctx.textAlign = 'center'
+    ctx.fillStyle = a
+    ctx.font = `700 34px ${MONO}`
+    ctx.fillText('VISIT THE WEBSITE', pw / 2, ph * 0.36)
+    ctx.fillStyle = '#ffffff'
+    ctx.font = `700 92px ${SANS}`
+    ctx.fillText(`${site.host}  ↗`, pw / 2, ph * 0.8, pw - 120)
+  })
+  tex.wrapS = tex.wrapT = THREE.ClampToEdgeWrapping
+  const sign = new THREE.Mesh(
+    new THREE.PlaneGeometry(SITE.w, SITE.h),
+    new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false, side: THREE.DoubleSide, depthWrite: false }),
+  )
+  sign.name = 'site'
+  sign.position.set(0, SITE.y, -SITE.d)
+  g.add(sign)
+}
+
 function build(room: WallRoom) {
   const g = shell(room)
   const holo = hologram(room)
   holo.name = 'holo'
   g.add(holo)
-  if (room.kind === 'posting') postingContent(room, g)
+  if (room.kind === 'posting') {
+    postingContent(room, g)
+    websiteSign(room, g)
+  }
   else if (room.kind === 'tools') floatingLogos(room, g)
   else if (room.kind === 'analytics') {
     groupScreens(room, g, skillGroups.analytics, [
@@ -629,6 +673,15 @@ function Room({ room }: { room: WallRoom }) {
       holo.getObjectByName('orbitA')!.rotation.z += dt * 0.4
       holo.getObjectByName('orbitB')!.rotation.z -= dt * 0.3
       holo.position.y = HOLO_Y + Math.sin(t.current * 1.2) * 0.05
+    }
+    const site = group.getObjectByName('site')
+    if (site) {
+      // It bobs, and turns to face whoever is looking -- about the upright
+      // only, so it never tips over as they walk under it.
+      site.position.y = SITE.y + Math.sin(t.current * 1.1) * 0.07
+      site.getWorldPosition(roomPos)
+      // The room turns about the upright by its frame's yaw, and nothing else.
+      site.rotation.y = Math.atan2(camPos.x - roomPos.x, camPos.z - roomPos.z) - room.frame.yaw
     }
     const floaters = group.getObjectByName('floaters')
     if (floaters) {

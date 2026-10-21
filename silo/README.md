@@ -412,6 +412,10 @@ an abstract hologram over it -- decoration, never a chart.
   work still going on have their lights on; the others are dark but for their
   screens. Work that is not a staff post says how it is held on its sign
   (`engagement`): Relogic Labs reads *independent collaborator*.
+  The company's web address floats over the way in; anywhere inside the room
+  E, a click, or a tap on the prompt opens it in a new tab (`site:` interact,
+  `lib/contact.ts`). The click only counts while a website is on offer, so
+  it never fires anything else.
   What was accomplished and learned in each posting shows on the right-hand
   screen once it is on record (`achievements`, `learned` in `portfolio.ts`);
   until then it is left off, not invented.

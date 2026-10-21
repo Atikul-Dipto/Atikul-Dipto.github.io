@@ -148,6 +148,27 @@ export const wallRoomOpenings = () =>
     gap: (ROOM_PASS + 0.04) / DECK_OUTER,
   }))
 
+/** The website a careers room links to, and its address as shown: the
+ *  host, without the www. */
+export function roomSite(r: WallRoom) {
+  const href = r.posting?.orgUrl
+  if (!href) return null
+  return { href, host: new URL(href).hostname.replace(/^www\./, '') }
+}
+
+/** What E does inside a careers room: visit the company's website. The
+ *  address rides in the interact itself, so the prompt can show it without
+ *  the on-screen UI importing the floor plan. */
+export function wallRoomInteract(level: number, x: number, z: number) {
+  const r = wallRoomAt(level, x, z)
+  const site = r && roomSite(r)
+  return site ? (`site:${site.host}` as const) : null
+}
+
+/** The website behind a `site:` interact. */
+export const siteByHost = (host: string) =>
+  WALL_ROOMS.map(roomSite).find((s) => s?.host === host) ?? null
+
 /** Which room, if any, a point is inside. */
 export function wallRoomAt(level: number, x: number, z: number) {
   for (const r of wallRoomsOn(level)) {

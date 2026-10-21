@@ -24,11 +24,12 @@ import { LANDING_HALF } from '../../content/stairs'
 import { LEVEL as LEVEL6, level6Interact } from '../../content/level6'
 import { startAim } from '../../lib/aim'
 import { CONTACTS, LEVEL as LEVEL12, level12Interact } from '../../content/level12'
+import { CAREERS_LEVEL, siteByHost, wallRoomInteract } from '../../content/wallRooms'
 import { drone } from '../../lib/drone'
 import { reactor } from '../../lib/reactor'
-import { openContact } from '../../lib/contact'
+import { openContact, openSite } from '../../lib/contact'
 import { footstep, reactorSurge, sealedKnock } from '../../lib/audio'
-import { attachWalkInput, inputGate, move, releaseKeys } from '../../lib/input'
+import { attachWalkInput, clickInteract, inputGate, move, releaseKeys } from '../../lib/input'
 import { lift } from '../../lib/lift'
 import { vaultDoor } from '../../lib/vault'
 import { bodyAt } from '../../lib/chamber'
@@ -393,9 +394,12 @@ export default function Player() {
         here = level6Interact(px, pz, st.chambersOpen) as Interact
       } else if (st.level === LEVEL12 && onDeckOf) {
         here = level12Interact(px, pz) as Interact
+      } else if (st.level === CAREERS_LEVEL && onDeckOf) {
+        here = wallRoomInteract(st.level, px, pz)
       }
     }
     if (here !== st.interact) st.setInteract(here)
+    clickInteract.on = !!here?.startsWith('site:')
     if (move.interact) {
       move.interact = false
       if (here === 'lift-controls') {
@@ -421,6 +425,9 @@ export default function Player() {
       else if (here === 'reactor') {
         reactor.surgeAt = performance.now()
         reactorSurge()
+      } else if (here?.startsWith('site:')) {
+        const site = siteByHost(here.slice('site:'.length))
+        if (site) openSite(site.host, site.href)
       } else if (here?.startsWith('contact:')) {
         const plate = CONTACTS.find((c) => `contact:${c.id}` === here)
         if (plate) openContact(plate)

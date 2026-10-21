@@ -93,6 +93,11 @@ export function releaseKeys() {
   move.pitch = 0
 }
 
+/** Set while what E would do here is follow a link: then a click, with the
+ *  pointer held, does it too -- a web address asks to be clicked. Nowhere
+ *  else, so a click never does something the visitor did not aim at. */
+export const clickInteract = { on: false }
+
 /** Live stick position, for drawing the on-screen thumb ring. */
 export const stick = { active: false, ox: 0, oy: 0, x: 0, y: 0 }
 
@@ -145,7 +150,11 @@ export function attachWalkInput(canvas: HTMLCanvasElement, onLockChange: Listene
    * the prompt grab the pointer; controls and HTML panels keep their clicks.
    */
   const onClick = (e: MouseEvent) => {
-    if (move.locked || isTouchDevice()) return
+    if (move.locked) {
+      if (e.button === 0 && clickInteract.on) move.interact = true
+      return
+    }
+    if (isTouchDevice()) return
     const target = e.target as HTMLElement | null
     if (!target) return
     if (target.closest('button, a, input, textarea, select, label, [role="button"], .panel, .directory, .cv')) return

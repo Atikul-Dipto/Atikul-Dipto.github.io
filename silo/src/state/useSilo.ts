@@ -42,6 +42,7 @@ export type Interact =
   | `poem:${string}` // one poem's page on the wall
   | 'reactor' // the reactor's console, on the core level
   | `contact:${string}` // a contact plate in the communications room
+  | `site:${string}` // a company's website, by its host, floating in its careers room
   | null
 
 /** The panels that open over the walk from things in the recreation chamber. */

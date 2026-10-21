@@ -57,6 +57,7 @@ function label(i: Exclude<Interact, null>) {
     const room = ROOMS6[Number(i.slice('chamber:'.length))]
     return `Roll the round door open${room ? ` · ${ROOM_NAMES[room.id]}` : ''}`
   }
+  if (i.startsWith('site:')) return `Visit ${i.slice('site:'.length)} ↗`
   if (i.startsWith('contact:')) {
     const c = CONTACTS.find((p) => `contact:${p.id}` === i)
     return c ? `${c.label} · ${c.value}` : ''
