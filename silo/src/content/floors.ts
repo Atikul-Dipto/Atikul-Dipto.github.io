@@ -143,7 +143,7 @@ export interface FloorDef {
 /**
  * Eight floors. There were twelve: a residence for each job, a corridor
  * between them, and the tools and methods on two more floors of their own.
- * The jobs are now three rooms on one floor, and everything the visitor can
+ * The jobs are now a room each on one floor, and everything the visitor can
  * do with data is three rooms on the next.
  */
 export const FLOORS: FloorDef[] = [
@@ -160,7 +160,7 @@ export const FLOORS: FloorDef[] = [
     id: 'careers',
     name: 'Careers',
     kind: 'careers',
-    blurb: 'Three rooms, one for each posting. The current one has its lights on.',
+    blurb: 'A room for each posting. The ones still going on have their lights on.',
     itemCount: experience.length,
     ready: true,
   },

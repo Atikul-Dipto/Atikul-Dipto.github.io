@@ -33,6 +33,9 @@ export interface ExperienceRecord {
   id: Id
   org: string
   orgNote?: string
+  /** How the work is held, when it is not a staff post: shown on the room's
+   *  sign and with the dates. */
+  engagement?: string
   orgUrl?: string
   logo?: string
   logoDark?: string
@@ -141,6 +144,25 @@ export const identity: Identity = {
 }
 
 export const experience: ExperienceRecord[] = [
+  {
+    id: 'relogic',
+    org: 'Relogic Labs',
+    orgNote: 'Core team',
+    engagement: 'Independent collaborator',
+    orgUrl: 'https://www.relogiclabs.com/',
+    logo: 'logos/relogic.png',
+    logoDark: 'logos/relogic-white.png',
+    role: 'Product Developer & Designer',
+    start: '2026-05',
+    location: 'Dhaka, Bangladesh',
+    responsibilities: [
+      'Building three products with the Relogic core team: Neervan, PricePulse, and next a labor portal.',
+      'Design and build each product’s MVP: product design, UX and implementation.',
+      'Share product thinking with the team and collaborate directly with clients on what gets built.',
+    ],
+    tools: ['Claude Code', 'Next.js', 'React', 'FastAPI', 'Python', 'PostgreSQL', 'Supabase', 'Vercel'],
+    floor: 2,
+  },
   {
     id: 'cartup',
     org: 'Cartup',

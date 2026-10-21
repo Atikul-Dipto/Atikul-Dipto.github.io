@@ -134,6 +134,22 @@ export const skills = {
 
 export const experience = [
   {
+    role: 'Product Developer & Designer',
+    org: 'Relogic Labs',
+    orgNote: 'Independent collaborator · Core team',
+    orgUrl: 'https://www.relogiclabs.com/',
+    logo: '/logos/relogic.png',
+    logoDark: '/logos/relogic-white.png',
+    logoAlt: 'Relogic Labs logo',
+    location: 'Dhaka, Bangladesh',
+    period: 'May 2026 — Present',
+    points: [
+      'Building three products with the Relogic core team: Neervan, PricePulse, and next a labor portal.',
+      'Design and build each product’s MVP: product design, UX and implementation.',
+      'Share product thinking with the team and collaborate directly with clients on what gets built.',
+    ],
+  },
+  {
     role: 'Data Analyst',
     org: 'Cartup',
     orgNote: 'a concern of US Bangla Group',

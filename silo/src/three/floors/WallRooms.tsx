@@ -301,9 +301,10 @@ function postingContent(room: WallRoom, g: THREE.Group) {
           ctx.fillStyle = '#c7d3dd'
           ctx.font = `500 46px ${MONO}`
           ctx.fillText([period(e), e.location].join('   ·   '), 64, 540, w - 120)
-          if (e.orgNote) {
+          const note = [e.engagement, e.orgNote].filter(Boolean).join('  ·  ')
+          if (note) {
             ctx.font = `italic 400 40px ${SANS}`
-            ctx.fillText(e.orgNote, 64, 610, w - 120)
+            ctx.fillText(note, 64, 610, w - 120)
           }
           if (!e.end) {
             ctx.fillStyle = a

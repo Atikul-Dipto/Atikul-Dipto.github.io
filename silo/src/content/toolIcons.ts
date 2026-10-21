@@ -49,4 +49,5 @@ export const toolIcons: Record<string, ToolIcon> = {
   postgis: {"title":"PostGIS","hex":"2E7D32","mono":"GIS"},
   surveycto: {"title":"SurveyCTO","hex":"E8690B","mono":"sCTO"},
   kobo: {"title":"Kobo Toolbox","hex":"2095F3","mono":"KT"},
+  claudecode: {"title":"Claude Code","hex":"D97757","mono":"CC"},
 }

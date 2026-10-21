@@ -72,7 +72,7 @@ const posting = (e: ExperienceRecord): RecordSection[] => [
     items: [
       {
         // The role is the record's subtitle already.
-        meta: [e.orgNote, period(e), e.location].filter(Boolean).join('  ·  '),
+        meta: [e.engagement, e.orgNote, period(e), e.location].filter(Boolean).join('  ·  '),
         bullets: [...e.responsibilities, ...(e.achievements ?? [])],
         tags: e.tools,
         links: e.orgUrl ? [{ label: e.org, href: e.orgUrl }] : undefined,
@@ -103,7 +103,7 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
     case 'careers':
       return {
         title: 'Careers',
-        subtitle: 'Three rooms, one for each posting; the current one is lit',
+        subtitle: 'A room for each posting; the ones still going on are lit',
         sections: experience.map((e) => ({ heading: `${e.org}  ·  ${e.role}`, items: posting(e)[0].items })),
       }
     case 'skills':

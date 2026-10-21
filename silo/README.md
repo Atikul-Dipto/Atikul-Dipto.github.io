@@ -398,7 +398,7 @@ short text, which is credited where it appears.
 
 The silo had twelve floors: a residence for each job, a corridor between them,
 and the tools and the methods on floors of their own. They are now two floors
-of three rooms each. Planned in `content/wallRooms.ts`, drawn by
+of rooms: one per posting on careers, three on skills. Planned in `content/wallRooms.ts`, drawn by
 `three/floors/WallRooms.tsx` from the same pieces as level 1's office
 (`three/roomKit.ts`).
 
@@ -408,8 +408,10 @@ the floor, light strips along the walls, and a low plinth in the middle with
 an abstract hologram over it -- decoration, never a chart.
 
 - **Careers (level 2).** One room per posting: who, the role, the dates on the
-  back wall; the duties on the left; the tools on the right. Only the current
-  posting's room has its lights on; the others are dark but for their screens.
+  back wall; the duties on the left; the tools on the right. Only the rooms of
+  work still going on have their lights on; the others are dark but for their
+  screens. Work that is not a staff post says how it is held on its sign
+  (`engagement`): Relogic Labs reads *independent collaborator*.
   What was accomplished and learned in each posting shows on the right-hand
   screen once it is on record (`achievements`, `learned` in `portfolio.ts`);
   until then it is left off, not invented.
@@ -555,7 +557,7 @@ the panel carries everything, including links and the full SQL.
 | Level | What is there |
 | --- | --- |
 | 01 | Identity: the name in iron, the summary beside the portrait, the three figures, links; the personnel record in the vault |
-| 02 | Careers: Cartup, Inspira, ARCED, a room each: role, dates, duties, tools |
+| 02 | Careers: Relogic Labs, Cartup, Inspira, ARCED, a room each: role, dates, duties, tools |
 | 03 | Skills: every tool in its six groups, the analytical skills and the SQL showcase, the soft skills |
 | 04 | Recreation — no personal interests are on record |
 | 05 | The six projects and the two Power BI case studies |

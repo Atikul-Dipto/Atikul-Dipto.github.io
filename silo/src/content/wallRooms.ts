@@ -6,15 +6,15 @@ import { experience, type ExperienceRecord } from './portfolio'
 /**
  * THE CAREERS AND SKILLS FLOORS. The plan.
  *
- * Each floor is an open promenade with three rooms behind the silo wall, each
+ * Each floor is an open promenade with its rooms behind the silo wall, each
  * entered through a tall round-topped gate -- the same construction as the
  * sheriff's office on level 1: the room is a box cut into the rock, laid out
  * in its gate's wall frame (`s` across the gate, `d` out through it, d = 0 on
  * the wall's inner face).
  *
  * Careers: one room per posting, newest first going round from the bridge.
- * Only the current posting's room has its lights on; the others are dark but
- * for their screens. Skills: the tools, the analysis, and working with people.
+ * Only the rooms of work still going on have their lights on; the others are
+ * dark but for their screens. Skills: the tools, the analysis, and working with people.
  *
  * Described here once and read twice, by the drawing and by the physics.
  */
@@ -55,6 +55,7 @@ export interface WallRoom {
 }
 
 const POSTING_THEMES: Record<string, RoomTheme> = {
+  relogic: { accent: '#3ee0a0', wall: '#15281f', floor: '#0d1a14' },
   cartup: { accent: '#3fd8ff', wall: '#1b2430', floor: '#11171f' },
   inspira: { accent: '#a58bff', wall: '#211d2e', floor: '#15121e' },
   arced: { accent: '#ffb04a', wall: '#2a2219', floor: '#1a1510' },
@@ -66,7 +67,7 @@ const room = (level: number, angle: number, r: Omit<WallRoom, 'level' | 'frame'>
   frame: wallFrame(angle, walkY(level)),
 })
 
-const CAREER_ANGLES = [4.35, 5.45, 6.55]
+const CAREER_ANGLES = [4.15, 5.05, 5.95, 6.85]
 const SKILL_ANGLES = [4.8, 5.85, 6.9]
 
 export const WALL_ROOMS: WallRoom[] = [
@@ -76,7 +77,7 @@ export const WALL_ROOMS: WallRoom[] = [
       kind: 'posting',
       lit: !e.end,
       title: e.org,
-      sign: e.end ? e.org.toUpperCase() : `${e.org.toUpperCase()}  ·  NOW`,
+      sign: [e.org, e.engagement ?? (e.end ? '' : 'now')].filter(Boolean).join('  ·  ').toUpperCase(),
       theme: POSTING_THEMES[e.id] ?? POSTING_THEMES.cartup,
       posting: e,
     }),
