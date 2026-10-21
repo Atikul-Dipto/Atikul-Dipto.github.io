@@ -23,10 +23,12 @@ from scraper.storage_pg import init_db
 # output, which makes a running scheduled job look like a black box.
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
+from agent.llm import warm_up as warm_up_agent_model
+
 from .config import settings
 from .db import engine
 from .narration import warm_up as warm_up_narration
-from .routers import banners, compare, health, products, scrape, sites
+from .routers import agent, banners, compare, health, products, scrape, sites
 from .scheduler import schedule_periodic_job, start_scheduler
 
 
@@ -39,6 +41,8 @@ async def lifespan(app: FastAPI):
     # someone opens a product detail panel, instead of the first request
     # paying for a cold model load (which can take a while on CPU).
     threading.Thread(target=warm_up_narration, daemon=True).start()
+    # Same for the agent's Ollama model: 30-90s cold, ~3s warm.
+    threading.Thread(target=warm_up_agent_model, daemon=True).start()
     yield
 
 
@@ -58,3 +62,4 @@ app.include_router(banners.router, prefix="/api")
 app.include_router(sites.router, prefix="/api")
 app.include_router(scrape.router, prefix="/api")
 app.include_router(compare.router, prefix="/api")
+app.include_router(agent.router, prefix="/api")

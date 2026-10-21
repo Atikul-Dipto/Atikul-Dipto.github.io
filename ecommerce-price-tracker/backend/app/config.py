@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     scrape_interval_minutes: int = 60
     scrape_on_startup: bool = True
+    # Campaign vouchers change a few times a day at most; 3h keeps the agent
+    # current without hammering Daraz's campaign pages with a browser.
+    voucher_interval_minutes: int = 180
     headless: bool = True
 
     @property

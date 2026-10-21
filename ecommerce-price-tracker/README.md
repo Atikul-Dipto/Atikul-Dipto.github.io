@@ -7,6 +7,36 @@ There are two ways this project runs, and both work at all times:
 - **Static** — `run_pipeline.py` scrapes into a local SQLite file and exports JSON snapshots straight into `public/`, which the deployed static site (this repo's GitHub Pages) reads directly. No backend involved. This is what's live today.
 - **Live** — a Postgres database + FastAPI backend (`backend/`) accumulate every scrape into real history, and the frontend calls its API instead of the static files whenever `VITE_API_BASE_URL` is set and reachable. Falls back to the static files automatically otherwise (see "Frontend" below) — the live backend is additive, not a replacement.
 
+## Shopping agent (Daraz, MVP)
+
+`agent/` answers a shopper's request: either a product name ("Samsung Galaxy A36") or a need ("phone under 25k with good camera", in English or Bangla). It returns the best Daraz listing, the price we last saw for it, and the best public voucher that applies, checked against the voucher's published terms. A typical answer takes **3.5–5s**.
+
+```powershell
+.venv\Scripts\python.exe -m agent "Samsung Galaxy A36"
+.venv\Scripts\python.exe -m agent "ভালো ব্যাটারি সহ ১৫০০০ টাকার মধ্যে ফোন" --json
+.venv\Scripts\python.exe -m agent --harvest-vouchers     # refresh the voucher cache (~3 min)
+.venv\Scripts\python.exe -m unittest discover tests      # offline tests
+```
+
+Over the API: `POST /api/agent/ask {"query": "..."}` and `GET /api/agent/vouchers`. The backend also runs the voucher harvest every `VOUCHER_INTERVAL_MINUTES` (default 180).
+
+Requires [Ollama](https://ollama.com) running locally with `qwen2.5:7b` (override with `AGENT_MODEL`). It's free and runs on this machine, with no paid API. If Ollama is down, a rule-based parser takes over. Postgres is optional: without it the agent still answers from the live search, just with no history and no vouchers.
+
+| Step | How | Time |
+|---|---|---|
+| Understand the request | local LLM → intent; budget numbers must appear in the query or they're discarded | ~3s warm (30–90s cold, so it's warmed at startup) |
+| Search | the JSON Daraz's own search page loads (`/catalog/?ajax=true`), no browser | ~0.7s |
+| Scope (only when results are mostly accessories) | category of the best hit from its product page, then a category-scoped search, merged in | ~1.3s |
+| Rank | deterministic: drops accessories, other models (`a36` ≠ `a56`, `iphone 15` ≠ `iphone 17`), wrong sizes, out-of-stock items, and anything under 30% of the official store's price (copies/placeholders) | — |
+| Remember | reads this item's price history, then records today's price, so every lookup grows the history | ~50ms |
+| Vouchers | read from the harvested cache; eligibility is pure arithmetic | — |
+
+**What vouchers can and can't be known (probed 2026-10-21, logged out):**
+- Product pages show no vouchers to logged-out visitors. Daraz only requests them with a session. The signed internal voucher API is deliberately not called directly; that's anti-abuse-protected territory, the same line as Ryans' Cloudflare check.
+- Public platform vouchers are on the campaign pages linked from the homepage (e.g. bKash Choice: ৳50 off, minimum ৳399). `agent/vouchers.py` renders those and finds cards by shape (date range + ৳ + minimum spend), not by CSS class.
+- Store vouchers, new-user vouchers and Coins are only visible to a logged-in account. The agent says so, and passes on the listing's badges as hints ("log in to see store vouchers").
+- Unfamiliar voucher labels are shown verbatim, not interpreted, and a voucher found on a campaign page is flagged as possibly limited to that campaign's items.
+
 ## Scraping pipeline
 
 `run_pipeline.py` scrapes every site configured in [`sites.yaml`](sites.yaml), stores every observation in a SQLite history database, and exports the latest snapshot to JSON — straight into `public/products.json`, which is what the frontend actually loads at runtime.

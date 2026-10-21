@@ -9,10 +9,21 @@ backend imports ProductORM/PriceHistoryORM/BannerORM from here for reads.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, Numeric, String, UniqueConstraint, create_engine, select
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    UniqueConstraint,
+    create_engine,
+    select,
+)
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import DeclarativeBase, Mapped, Session, mapped_column, relationship, sessionmaker
 
@@ -66,6 +77,32 @@ class BannerORM(Base):
     link_url: Mapped[str] = mapped_column(String, nullable=False)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class VoucherORM(Base):
+    """Public vouchers harvested from campaign pages by agent/vouchers.py.
+    Latest-snapshot like banners: a voucher is "current" while last_seen is
+    recent and valid_to hasn't passed; there's no history worth keeping.
+    """
+
+    __tablename__ = "vouchers"
+    __table_args__ = (UniqueConstraint("site", "fingerprint", name="uq_vouchers_site_fingerprint"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    site: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    labels: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    amount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    percent: Mapped[Decimal | None] = mapped_column(Numeric(5, 2))
+    max_discount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    min_spend: Mapped[Decimal | None] = mapped_column(Numeric(12, 2))
+    valid_from: Mapped[date | None] = mapped_column(Date)
+    valid_to: Mapped[date | None] = mapped_column(Date, index=True)
+    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    raw_text: Mapped[str] = mapped_column(String, nullable=False)
+    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
 
 
 def get_engine(database_url: str) -> Engine:

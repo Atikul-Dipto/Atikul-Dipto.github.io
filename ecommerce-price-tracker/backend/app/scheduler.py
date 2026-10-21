@@ -10,6 +10,8 @@ import logging
 
 from apscheduler.schedulers.background import BackgroundScheduler
 
+from agent.store import save_vouchers
+from agent.vouchers import harvest as harvest_vouchers
 from scraper.banners import scrape_banners
 from scraper.pipeline import scrape_url_with_retries
 from scraper.sites import SiteConfig, load_sites
@@ -70,6 +72,21 @@ def run_banner_job(only: list[str] | None = None, headless: bool | None = None) 
                 log.exception("%s: banner scrape failed, continuing with remaining sites", key)
 
 
+def run_voucher_job(headless: bool | None = None) -> None:
+    """Refresh public Daraz vouchers for the shopping agent (agent/vouchers.py).
+    Selenium, ~15s per campaign page — which is why it runs here on a
+    schedule instead of while a shopper waits.
+    """
+    headless_flag = settings.headless if headless is None else headless
+    try:
+        vouchers = harvest_vouchers(headless_flag)
+        with SessionLocal() as session:
+            save_vouchers(session, vouchers)
+        log.info("vouchers: stored %d", len(vouchers))
+    except Exception:
+        log.exception("voucher harvest failed")
+
+
 def start_scheduler() -> None:
     """Start the (empty) scheduler so manual /api/scrape/* triggers work.
     The automatic interval job is added separately by schedule_periodic_job()
@@ -87,5 +104,13 @@ def schedule_periodic_job() -> None:
         id="periodic-scrape",
         replace_existing=True,
     )
+    scheduler.add_job(
+        run_voucher_job,
+        "interval",
+        minutes=settings.voucher_interval_minutes,
+        id="periodic-vouchers",
+        replace_existing=True,
+    )
     if settings.scrape_on_startup:
         scheduler.add_job(run_scrape_job, id="startup-scrape", replace_existing=True)
+        scheduler.add_job(run_voucher_job, id="startup-vouchers", replace_existing=True)
