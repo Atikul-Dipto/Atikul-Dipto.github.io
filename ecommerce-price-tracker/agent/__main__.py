@@ -16,7 +16,7 @@ import sys
 
 from scraper.storage_pg import get_engine, get_sessionmaker, init_db
 
-from . import core, store
+from . import core, d1, store
 from .vouchers import harvest
 
 DEFAULT_DB = "postgresql+psycopg2://pricetracker:pricetracker@localhost:5433/pricetracker"
@@ -58,9 +58,15 @@ def main() -> int:
     parser.add_argument("--json", action="store_true", help="print the full JSON answer")
     parser.add_argument("--harvest-vouchers", action="store_true", help="refresh public vouchers from Daraz campaign pages")
     parser.add_argument("--show-browser", action="store_true", help="run the harvest browser visibly")
+    parser.add_argument("--push-d1", action="store_true", help="with --harvest-vouchers: also upload them to the Cloudflare agent's D1")
+    parser.add_argument("--seed-d1", action="store_true", help="copy the scrapers' Daraz price history into the Cloudflare agent's D1")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+
+    if args.seed_d1:
+        print(f"{d1.seed_history(os.environ.get('DATABASE_URL', DEFAULT_DB))} Daraz price points seeded into D1")
+        return 0
 
     factory = _session_factory()
 
@@ -73,6 +79,8 @@ def main() -> int:
             with factory() as session:
                 store.save_vouchers(session, vouchers)
         print(f"{len(vouchers)} vouchers harvested" + (" and saved" if factory else " (not saved — no database)"))
+        if args.push_d1:
+            print(f"{d1.push_vouchers(vouchers)} pushed to D1")
         return 0
 
     if not args.query:

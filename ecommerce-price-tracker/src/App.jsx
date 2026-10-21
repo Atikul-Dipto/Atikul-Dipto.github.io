@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
+import './agent/agent.css'
+import AskAgent from './agent/AskAgent.jsx'
+import VoucherBoard from './agent/VoucherBoard.jsx'
+import { getStats, getVouchers } from './agent/api.js'
 
 const STORE_META = {
   daraz: { label: 'Daraz', color: '#ffb347' },
@@ -355,7 +359,6 @@ export default function App() {
   const [sort, setSort] = useState('Biggest discount')
   const [page, setPage] = useState(1)
   const [watching, setWatching] = useState(loadWatchlist)
-  const [lastChecked, setLastChecked] = useState(null)
   const [usingApi, setUsingApi] = useState(false)
   const [apiCompareGroups, setApiCompareGroups] = useState([])
   const [selectedProduct, setSelectedProduct] = useState(null)
@@ -363,6 +366,19 @@ export default function App() {
   const [historyStatus, setHistoryStatus] = useState('idle')
   const [trend, setTrend] = useState(null)
   const [trendStatus, setTrendStatus] = useState('idle')
+  const [vouchers, setVouchers] = useState({ status: 'loading', data: null })
+  const [agentStats, setAgentStats] = useState({ status: 'loading', data: null })
+
+  // The agent's voucher list and its running record (questions answered,
+  // average time) — both from the Cloudflare function the agent runs on.
+  useEffect(() => {
+    getVouchers()
+      .then((data) => setVouchers({ status: 'ready', data }))
+      .catch(() => setVouchers({ status: 'error', data: null }))
+    getStats()
+      .then((data) => setAgentStats({ status: 'ready', data }))
+      .catch(() => setAgentStats({ status: 'error', data: null }))
+  }, [])
 
   // Products + compare-groups: prefer the live backend when configured: it
   // has more data (the full Postgres history, not one committed snapshot)
@@ -381,7 +397,6 @@ export default function App() {
       if (cancelled) return true
       setProducts(normalize(data.results))
       setUsingApi(true)
-      setLastChecked(new Date())
       setStatus('ready')
 
       fetch(`${API_BASE}/api/compare-groups`)
@@ -418,7 +433,6 @@ export default function App() {
           if (cancelled) return
           setProducts(normalize(raw))
           setUsingApi(false)
-          setLastChecked(new Date())
           setStatus('ready')
         })
 
@@ -616,50 +630,50 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="/">
+        <a className="brand" href={import.meta.env.BASE_URL}>
           price<span>pulse</span>
         </a>
         <nav>
-          <a className="active" href="#overview">
-            Overview
+          <a className="active" href="#ask">
+            Ask
           </a>
-          <a href="#compare">
-            Compare <b>{crossStoreGroups.length}</b>
+          <a href="#vouchers">
+            Vouchers <b>{vouchers.data?.count ?? '·'}</b>
           </a>
-          <a href="#banners">Deals & banners</a>
+          <a href="#tracked">Tracked prices</a>
           <a href="#watchlist">
             Watchlist <b>{watching.length}</b>
           </a>
-          <a href="#sources">Sources</a>
         </nav>
-        <div className="sync">
+        <div className={`sync${agentStats.status === 'error' ? ' offline' : ''}`}>
           <i />
-          {status === 'ready'
-            ? `${usingApi ? 'Live' : 'Static snapshot'} · data as of ${timeAgo(lastSync)} · checked ${lastChecked ? lastChecked.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}`
-            : status === 'error'
-              ? 'Data unavailable'
-              : 'Loading data…'}
+          {agentStats.status === 'ready' ? 'Agent online' : agentStats.status === 'error' ? 'Agent unreachable' : 'Connecting…'}
         </div>
       </header>
 
-      <section className="intro" id="overview">
+      <AskAgent stats={agentStats.data} />
+
+      <VoucherBoard data={vouchers.data} status={vouchers.status} />
+
+      <section className="tracked-head" id="tracked">
         <div>
           <p className="eyebrow">Bangladesh marketplace monitor</p>
-          <h1>
-            Find the moment
-            <br />
-            <em>before</em> the price moves.
-          </h1>
-          <p className="intro-copy">
-            Real listings scraped from Bangladeshi online stores, refreshed on demand. Search, filter, and click
-            straight through to buy — no fabricated ratings or stock counts, just what each store's page actually
-            shows.
+          <h2>Prices we track across {stores.length || 'the'} stores</h2>
+          <p>
+            Separate from the agent: listings our scrapers collect from Bangladeshi stores. Browse, compare the same item
+            across stores, and keep a watchlist.
           </p>
         </div>
         <div className="intro-note">
           <span>Tracked right now</span>
           <strong>{products.length}</strong>
-          <small>products across {stores.length || 0} sources</small>
+          <small>
+            {status === 'ready'
+              ? `${usingApi ? 'live' : 'snapshot'} · data as of ${timeAgo(lastSync)}`
+              : status === 'error'
+                ? 'data unavailable'
+                : 'loading…'}
+          </small>
         </div>
       </section>
 
@@ -990,7 +1004,7 @@ export default function App() {
       )}
 
       <footer id="sources">
-        <span>Data scraped from public product pages — run the pipeline again for a fresh snapshot</span>
+        <span>Agent answers come live from Daraz; tracked prices come from our scrapers. Nothing here is a paid placement.</span>
         <span>
           Built for price-aware shopping ·{' '}
           <a href="https://github.com/Atikul-Dipto" target="_blank" rel="noreferrer">

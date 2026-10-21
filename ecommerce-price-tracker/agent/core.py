@@ -129,10 +129,12 @@ def summarize(
     if intent.mode == "product" and len(results) > 1:
         prices = [x["listing"].price for x in results]
         parts.append(f"{len(results)} matching listings, from {_money(min(prices))} to {_money(max(prices))}.")
-    if suspicious:
+    # Only for a named product: in "need" mode the dropped listings are just far
+    # cheaper items of the same kind (feature phones under a smartphone budget).
+    if suspicious and intent.mode == "product":
         parts.append(
             f"Skipped {suspicious} listing{'s' if suspicious > 1 else ''} priced far below the rest "
-            "(often copies or placeholder prices)."
+            "(parts, accessories, copies or placeholder prices)."
         )
     if intent.must_have:
         matched = listing.matched_features

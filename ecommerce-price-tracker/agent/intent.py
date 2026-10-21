@@ -81,6 +81,16 @@ def _clean_search_query(query: str) -> str:
     return re.sub(r"\s+", " ", cleaned).strip()
 
 
+def restore_model_numbers(query: str, search_query: str) -> str:
+    """" 14" if the shopper typed "note 14" and the search text lost the 14."""
+    have = set(re.findall(r"[a-z0-9]+", search_query.lower()))
+    missing = [
+        t for t in re.findall(r"[a-z0-9]+", _clean_search_query(query).lower())
+        if re.search(r"\d", t) and t not in have and not QUANTITY_RE.fullmatch(t)
+    ]
+    return " " + " ".join(missing) if missing else ""
+
+
 def parse_rules(query: str) -> Intent:
     """No-LLM fallback: budget from regex, everything else is the raw text."""
     text = normalize(query)
@@ -136,6 +146,9 @@ def parse_intent(query: str) -> Intent:
         size = QUANTITY_RE.search(normalize(query))
         if size and not QUANTITY_RE.search(search_query):
             search_query = f"{search_query} {size.group(1)}{size.group(2).lower()}"
+        # ...and model numbers: "Xiaomi Redmi Note 14" came back as "Xiaomi
+        # Redmi Note", which found a Note 17.
+        search_query += restore_model_numbers(query, search_query)
         must_have = [f for f in must_have if not QUANTITY_RE.fullmatch(f.strip())]
 
     return Intent(

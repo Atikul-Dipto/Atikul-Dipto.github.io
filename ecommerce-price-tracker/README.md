@@ -20,6 +20,29 @@ There are two ways this project runs, and both work at all times:
 
 Over the API: `POST /api/agent/ask {"query": "..."}` and `GET /api/agent/vouchers`. The backend also runs the voucher harvest every `VOUCHER_INTERVAL_MINUTES` (default 180).
 
+### Live on the website (Cloudflare)
+
+The Price Pulse page is built around the agent. The agent itself runs as a **Cloudflare Pages Function**: `functions/api/pp/{ask,vouchers,stats}.ts` at the repo root, with the code in [`worker/`](worker/), a TypeScript port of `agent/`. Both copies of the site call it at `https://atikul-islam-portfolio.pages.dev/api/pp/`. It's all on the free plan:
+
+- **Workers AI** (`@cf/meta/llama-3.3-70b-instruct-fp8-fast`) reads the request in ~1.5s, at ~14 of the 10,000 free daily neurons per question. Past the daily allowance the call fails, and the rule-based parser answers instead.
+- **D1** (`price-pulse`, schema in `worker/migrations/`) is the agent's memory: listings, price history, vouchers, and a log of questions asked (nothing about the visitor). It was seeded with the scrapers' Daraz history.
+- Cloudflare's Dhaka edge reaches Daraz in ~0.2–0.6s.
+
+Things only this PC can do, pushed up to D1:
+
+```powershell
+.venv\Scripts\python.exe -m agent --harvest-vouchers --push-d1   # refresh vouchers (Selenium)
+.venv\Scripts\python.exe -m agent --seed-d1                      # copy scraper price history
+node --test worker/agent.test.ts                                 # tests for the TypeScript port
+```
+
+Keep `agent/` and `worker/` in lockstep; both test files cover the same cases. `GET /api/pp/stats` gives public totals; the recent-questions list needs `Authorization: Bearer <ADMIN_TOKEN>`.
+
+**Verified on 2026-10-21 with 20 queries against production:** all answered in 1.6–3.9s. 13 were right first time, and 2 bugs were then fixed (a dropped model number; misleading wording). Known weak spots:
+- In need mode with a low budget, cheap knock-offs with many reviews can outrank genuine items ("earbuds under 2000 with anc" → ৳464 "AirPods").
+- Vague requests ("gift for my mom") aren't understood.
+- When every listing is out of stock, it says so but doesn't list them.
+
 Requires [Ollama](https://ollama.com) running locally with `qwen2.5:7b` (override with `AGENT_MODEL`). It's free and runs on this machine, with no paid API. If Ollama is down, a rule-based parser takes over. Postgres is optional: without it the agent still answers from the live search, just with no history and no vouchers.
 
 | Step | How | Time |

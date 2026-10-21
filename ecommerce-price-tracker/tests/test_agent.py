@@ -12,7 +12,7 @@ from datetime import date
 from decimal import Decimal
 
 from agent.eligibility import best_voucher, check, check_all
-from agent.intent import _clean_search_query, _grounded_price, parse_rules, query_numbers
+from agent.intent import _clean_search_query, _grounded_price, parse_rules, query_numbers, restore_model_numbers
 from agent.models import Intent, Listing
 from agent.ranking import quantities, rank
 from agent.vouchers import parse_card
@@ -105,6 +105,11 @@ class IntentRulesTest(unittest.TestCase):
         nums = query_numbers("phone under 25k with good camera")
         self.assertEqual(_grounded_price(25000, nums), Decimal(25000))
         self.assertIsNone(_grounded_price(30000, nums))  # invented by the model
+
+    def test_dropped_model_numbers_restored(self):
+        self.assertEqual(restore_model_numbers("Xiaomi Redmi Note 14", "Xiaomi Redmi Note"), " 14")
+        self.assertEqual(restore_model_numbers("realme note 60x under 20k", "realme note"), " 60x")
+        self.assertEqual(restore_model_numbers("miniket rice 5kg", "miniket rice 5kg"), "")
 
     def test_price_words_stripped_but_sizes_kept(self):
         self.assertEqual(_clean_search_query("miniket rice 5kg under 1,000 tk"), "miniket rice 5kg")

@@ -1,5 +1,6 @@
 # Cloudflare Pages: the whole site (built into dist/ by scripts/build-site.mjs)
-# and its one function, the silo's citizens register (functions/api/citizens.ts).
+# and its functions: the silo's citizens register (functions/api/citizens.ts)
+# and Price Pulse's shopping agent (functions/api/pp/).
 name = "atikul-islam-portfolio"
 pages_build_output_dir = "./dist"
 compatibility_date = "2026-10-01"
@@ -9,3 +10,15 @@ binding = "DB"
 database_name = "silo-citizens"
 database_id = "89f5d097-dfd8-41ae-81ed-aa91ef679ad0"
 migrations_dir = "migrations"
+
+# Price Pulse's agent: price history, vouchers and a log of questions asked.
+[[d1_databases]]
+binding = "PP_DB"
+database_name = "price-pulse"
+database_id = "d9bbf033-8bd7-4f43-b262-47205d06b485"
+migrations_dir = "ecommerce-price-tracker/worker/migrations"
+
+# Workers AI (free plan: 10,000 neurons/day, requests fail rather than bill
+# past that) -- reads shopper requests for Price Pulse's agent (functions/api/pp/).
+[ai]
+binding = "AI"
