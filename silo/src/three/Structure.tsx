@@ -23,6 +23,7 @@ import {
 } from '../content/floors'
 import { RAIL_GAP_HALF } from '../content/stairs'
 import { CREED, HALL_F, HALL_GATE } from '../content/level1'
+import { CH_DOOR, LEVEL as REC_LEVEL } from '../content/level6'
 import { MAX_OPENINGS, OPENINGS, openingsOn } from '../content/openings'
 import { useSilo } from '../state/useSilo'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
@@ -641,11 +642,16 @@ function GateSills() {
       const straight = o.halfH - o.radius
       const k = Math.max(0, dy - straight)
       const half = dy <= straight ? o.halfW : Math.max(0.6, o.halfW - o.radius + Math.sqrt(Math.max(0, o.radius ** 2 - k ** 2)))
-      const r = SHAFT_RADIUS + 0.05
+      // From just under half a metre out on the deck to as far into the wall --
+      // except at recreation's doors, where it stops short of the groove the
+      // door rolls in: the two tops sat at one height and fought, flickering.
+      const inner = -0.45
+      const outer = o.level === REC_LEVEL ? CH_DOOR.d - CH_DOOR.half - 0.05 - 0.03 : 0.55
+      const r = SHAFT_RADIUS + (inner + outer) / 2
       o3.position.set(Math.cos(o.angle) * r, floorY + 0.004, Math.sin(o.angle) * r)
       o3.rotation.set(0, -o.angle, 0)
       // Local X runs out through the wall, Z across the gate.
-      o3.scale.set(1.0, 0.02, half * 2 + 0.3)
+      o3.scale.set(outer - inner, 0.02, half * 2 + 0.3)
       o3.updateMatrix()
       m.setMatrixAt(i, o3.matrix)
     })
