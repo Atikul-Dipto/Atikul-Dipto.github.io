@@ -157,16 +157,20 @@ interface Block {
   item?: RecordItem
 }
 
+/** A section's heading, wrapped to its column: one long enough to reach the
+ *  next column used to run straight into that column's own heading. */
 function heading(ctx: Ctx, text: string, x: number, y: number, w: number, s: number, draw: boolean) {
+  ctx.font = `700 ${22 * s}px ${MONO}`
+  spacing(ctx, 5 * s)
+  const lines = wrap(ctx, text.toUpperCase(), w)
+  const lh = 30 * s
   if (draw) {
-    ctx.font = `700 ${22 * s}px ${MONO}`
-    spacing(ctx, 5 * s)
     ctx.fillStyle = AMBER
-    ctx.fillText(text.toUpperCase(), x, y + 24 * s)
+    lines.forEach((l, k) => ctx.fillText(l, x, y + 24 * s + k * lh))
     ctx.fillStyle = FAINT
-    ctx.fillRect(x, y + 38 * s, w, 2)
+    ctx.fillRect(x, y + 38 * s + (lines.length - 1) * lh, w, 2)
   }
-  return 62 * s
+  return 62 * s + (lines.length - 1) * lh
 }
 
 /** Flow the blocks into `cols` columns at scale `s`. False if they overflow. */
@@ -236,6 +240,8 @@ function paintRecord(rec: LevelRecord) {
   spacing(ctx, 10)
   ctx.fillStyle = DIM
   ctx.fillText('LEVEL', TW - MX - numW - 34, 236)
+  // Everything on the left stops short of the level's number and its label.
+  const leftW = TW - MX - numW - 34 - ctx.measureText('LEVEL').width - 40 - MX
   ctx.fillStyle = FAINT
   ctx.fillRect(TW - MX - numW - 18, 70, 2, 170)
 
@@ -246,17 +252,17 @@ function paintRecord(rec: LevelRecord) {
     ctx.font = `700 26px ${MONO}`
     spacing(ctx, 7)
     ctx.fillStyle = DIM
-    ctx.fillText(name.toUpperCase(), MX, 100)
+    ctx.fillText(name.toUpperCase(), MX, 100, leftW)
   }
   ctx.font = `700 72px ${SANS}`
   spacing(ctx, 8)
   ctx.fillStyle = INK
-  ctx.fillText(rec.title.toUpperCase(), MX, 186)
+  ctx.fillText(rec.title.toUpperCase(), MX, 186, leftW)
   if (rec.subtitle) {
     ctx.font = `600 26px ${MONO}`
     spacing(ctx, 3)
     ctx.fillStyle = DIM
-    ctx.fillText(rec.subtitle.toUpperCase(), MX, 236)
+    ctx.fillText(rec.subtitle.toUpperCase(), MX, 236, leftW)
   }
   ctx.fillStyle = FAINT
   ctx.fillRect(MX, 266, TW - MX * 2, 2)
