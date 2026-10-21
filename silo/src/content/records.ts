@@ -1,4 +1,5 @@
 import { FLOORS, floorByLevel } from './floors'
+import { WRITINGS } from './writings'
 import {
   certifications,
   dashboards,
@@ -240,7 +241,7 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
               },
               {
                 title: 'Poems and writings',
-                text: 'A reading room with a lectern. The collection is still being gathered.',
+                text: `A reading room: ${WRITINGS.length} poems in Bangla, each a page on the wall. Walk up to one to open it and read.`,
               },
               {
                 title: 'Drone control',
@@ -257,7 +258,7 @@ function build(level: number): Omit<LevelRecord, 'level' | 'kicker'> {
     case 'core':
       return {
         title: 'Communications',
-        subtitle: 'Deep Core',
+        subtitle: 'The reactor, the communications room, and how to get in touch',
         sections: [
           {
             items: [

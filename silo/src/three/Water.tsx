@@ -39,11 +39,17 @@ export default function Water() {
       color: '#0d2f35',
       emissive: new THREE.Color('#1d5560'),
       emissiveIntensity: 0.35,
-      roughness: 0.14,
+      // Not glassy: on the rippled normals a sharp highlight broke into white
+      // blotches; a little rough, it is a sheen that moves.
+      roughness: 0.3,
       metalness: 0.1,
       transparent: true,
       opacity: 0.84,
       depthWrite: false,
+      // The environment it would otherwise mirror is a bright room: on
+      // rippled water it showed as white clouds, which a flooded pit at the
+      // bottom of a shaft has no sky to reflect.
+      envMapIntensity: 0.12,
     })
     water.onBeforeCompile = (shader) => {
       shader.uniforms.uTime = uTime
@@ -83,7 +89,7 @@ export default function Water() {
               float c = sin(p.x * 1.3 + uTime * 0.8) * sin(p.y * 1.1 - uTime * 0.6)
                       + sin((p.x + p.y) * 0.9 - uTime * 0.5);
               float glint = pow(max(0.0, c * 0.5), 6.0);
-              totalEmissiveRadiance += vec3(0.35, 0.62, 0.66) * glint * 0.5;
+              totalEmissiveRadiance += vec3(0.35, 0.62, 0.66) * glint * 0.25;
             }`,
           )
     }

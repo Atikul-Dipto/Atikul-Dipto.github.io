@@ -29,6 +29,7 @@ import { useSilo } from '../state/useSilo'
 import { RIB, RIBS_PER_FLOOR, LAMPS_PER_FLOOR, lampAngles, recordWallSpan, ribAngles } from '../content/layout'
 import Stairway from './Stairway'
 import Water from './Water'
+import Lotus from './Lotus'
 import { claddingSurface, concreteSurface, deckPlateMaterial, planarUV, steelSurface, tiled } from './materials'
 
 /** Deterministic PRNG so the concrete weathering is identical every load. */
@@ -673,6 +674,7 @@ export default function Structure() {
       <Stairway />
       <Lamps />
       <Water />
+      <Lotus />
     </group>
   )
 }

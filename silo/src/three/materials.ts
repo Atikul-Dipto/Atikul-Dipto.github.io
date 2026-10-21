@@ -276,7 +276,11 @@ function buildDeckPlate(): Surface {
     const a = (u * 4 + v * lean) % 1
     const b = (v * 4) % 1
     const d = Math.abs(a - 0.5) * 1.6 + Math.abs(b - 0.5) * 2.4
-    return d < 0.5 ? 1 - d / 0.5 : 0
+    // Flat-topped with a soft shoulder, as a pressed tread is: a straight
+    // ramp to a point drew every lozenge as a spiky pyramid up close.
+    if (d >= 0.5) return 0
+    const t = Math.min(1, (0.5 - d) / 0.16)
+    return t * t * (3 - 2 * t)
   }
 
   for (let y = 0; y < S; y++) {
@@ -367,9 +371,10 @@ export const steelSurface = () => (steel ??= buildSteel())
  * Metres per repeat of the deck plate. Every walking surface that meets a deck
  * -- the deck itself, the landings, the bridges -- maps the plate from its
  * world position at this scale, so the pattern runs straight across the joins
- * instead of changing size at each one.
+ * instead of changing size at each one. Half a 2.44 m sheet: at a whole
+ * sheet each lozenge was some 60 cm long.
  */
-export const PLATE_TILE = 2.44
+export const PLATE_TILE = 1.22
 
 /** UVs for a horizontal surface from its world X and Z. */
 export function planarUV(g: THREE.BufferGeometry, tile = PLATE_TILE) {

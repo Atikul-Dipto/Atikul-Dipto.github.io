@@ -8,6 +8,7 @@ import {
   LEVEL_COUNT,
   PALETTE,
   SHAFT_RING,
+  WATER_DROP,
   contentAngle,
   walkY,
 } from '../content/floors'
@@ -159,6 +160,31 @@ function ShaftRings() {
         posts.setMatrixAt(n++, dummy.matrix)
       }
     })
+    // Under the lowest landing the shaft used to end in mid-air, a ring
+    // hanging over the water. It stands on a pier now: concrete up out of the
+    // water to just below the car's hull, a steel cap, and the frame's posts
+    // carried down onto it.
+    const bottom = walkY(LEVEL_COUNT)
+    const waterY = bottom - WATER_DROP
+    const pierTop = bottom - 1.3
+    const pier = new THREE.Mesh(new THREE.CylinderGeometry(SHAFT_RING + 0.14, SHAFT_RING + 0.3, pierTop - waterY + 1.5, 48), band)
+    pier.position.y = (pierTop + waterY - 1.5) / 2
+    group.add(pier)
+    const cap = new THREE.Mesh(new THREE.CylinderGeometry(SHAFT_RING + 0.2, SHAFT_RING + 0.2, 0.12, 48), m.steel)
+    cap.position.y = pierTop + 0.06
+    group.add(cap)
+    const footing = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.06, 0.06, 1.2, 8), m.steel, 6)
+    const door = contentAngle(LEVEL_COUNT)
+    for (let k = 0; k < 6; k++) {
+      const a = door + Math.PI / 6 + (k * Math.PI) / 3
+      dummy.position.set(Math.cos(a) * (SHAFT_RING + 0.06), pierTop + 0.6, Math.sin(a) * (SHAFT_RING + 0.06))
+      dummy.rotation.set(0, 0, 0)
+      dummy.updateMatrix()
+      footing.setMatrixAt(k, dummy.matrix)
+    }
+    footing.instanceMatrix.needsUpdate = true
+    group.add(footing)
+
     posts.count = n
     posts.instanceMatrix.needsUpdate = true
     posts.castShadow = true

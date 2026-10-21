@@ -59,6 +59,9 @@ src/
                 materials.ts   procedural concrete, tread plate and brushed steel
                 Structure.tsx  wall, ribs, decks, radial framing, lamps
                 Water.tsx      the flooded pit under the core
+                Lotus.tsx      the lotus, buds and leaves floating on it
+                FlowerPortraits.tsx, flowerPaint.ts  each floor's flower,
+                               painted on a canvas and framed on its wall
                 Stairway.tsx   flights, landings, bridges and their lantern posts
                 roomKit.ts     the pieces every room behind the wall is built from
                 floors/WallRooms.tsx  the careers and skills rooms
@@ -383,7 +386,11 @@ never rebuilds the ground underfoot.
 Under the core, the shaft is flooded. Still, dark water fills it wall to wall,
 lit by lamps sunk round the foot of the core and a ring of wall lamps just above
 it, whose reflections are a mirrored copy under the surface seen through it --
-no second render of the scene.
+no second render of the scene. Padma -- lotus -- float on it in the open
+middle the decks look down on: open flowers, buds on their stems, and their
+round leaves (`three/Lotus.tsx`, four draw calls for the pond). The lift's
+shaft stands on a concrete pier rising out of the water; it used to end in a
+ring hanging over it.
 
 Built from the ideas in the reference images, not their assets: no geometry,
 texture, logo or sound effect here is copied. The one borrowed thing is the creed's
@@ -524,6 +531,24 @@ ways: a lit cove round the edge of its ceiling over the void, a ring of pendant
 lamps hung from that ceiling, and a painted band round its wall at hand height.
 Planters hang on the void side of every rail, spilling green over the drop. The
 radial joists that used to span every deck are gone.
+
+Each level also has a flower of Bangladesh (`content/flowers.ts`), in a colour
+of its own: it blooms in the level's planters, and is painted in a frame on the
+level's wall, in a bay beside the record display under a lamp, with its name in
+Bangla and English. The paintings are drawn petal by petal on a canvas
+(`three/flowerPaint.ts`) -- no photographs -- and hung, like the record
+displays, on the visitor's level and the two either side.
+
+| Level | Flower | Colour |
+|---|---|---|
+| 1 | শিমুল · silk cotton | scarlet |
+| 2 | কৃষ্ণচূড়া · flame tree | orange |
+| 3 | সূর্যমুখী · sunflower | yellow |
+| 4 | অপরাজিতা · butterfly pea | blue |
+| 5 | জারুল · pride of India | mauve |
+| 6 | শাপলা · water lily | white |
+| 7 | গোলাপ · rose | magenta |
+| 8 | পদ্ম · lotus | pink -- and on the water below |
 
 ## Where the portfolio is
 

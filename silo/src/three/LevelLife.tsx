@@ -5,6 +5,7 @@ import { CREED } from '../content/level1'
 import { recordWallSpan } from '../content/layout'
 import { openingsOn } from '../content/openings'
 import { RAIL_GAP_HALF } from '../content/stairs'
+import { flowerOn } from '../content/flowers'
 
 /**
  * Colour and life, level by level.
@@ -14,7 +15,8 @@ import { RAIL_GAP_HALF } from '../content/stairs'
  * round the edge of its ceiling over the void and a ring of pendant lamps
  * hung from that ceiling -- what you see of a level from the levels around
  * it -- and a painted band round its wall at hand height. And every rail has
- * planters hung on it, spilling green over the drop.
+ * planters hung on it, spilling green over the drop -- and in flower, each
+ * level with its own flower's colour (content/flowers).
  *
  * All of it decoration a body never touches: the planters hang on the void
  * side of the rail, the lamps well over head height.
@@ -141,6 +143,25 @@ export default function LevelLife() {
     const leafMat = new THREE.MeshStandardMaterial({ color: '#4f7a3c', roughness: 0.9 })
     const boxesMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1.1, 0.34, 0.36), boxMat, LEVEL_COUNT * PLANTERS)
     const leaves = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(0.13, 1), leafMat, LEVEL_COUNT * PLANTERS * 14)
+    // Blossoms: a five-lobed flower, flat, double-sided, with a dot of its
+    // heart's colour at the middle.
+    const BLOOMS = 6
+    const bloomShape = new THREE.Shape()
+    for (let i = 0; i <= 80; i++) {
+      const t = (i / 80) * Math.PI * 2
+      const r = 0.085 * (0.45 + 0.55 * Math.abs(Math.cos(2.5 * t)))
+      if (i === 0) bloomShape.moveTo(Math.cos(t) * r, Math.sin(t) * r)
+      else bloomShape.lineTo(Math.cos(t) * r, Math.sin(t) * r)
+    }
+    const bloomGeo = new THREE.ShapeGeometry(bloomShape)
+    bloomGeo.rotateX(-Math.PI / 2)
+    const blooms = new THREE.InstancedMesh(
+      bloomGeo,
+      new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.6, side: THREE.DoubleSide, emissive: '#ffffff', emissiveIntensity: 0.08 }),
+      LEVEL_COUNT * PLANTERS * BLOOMS,
+    )
+    const hearts = new THREE.InstancedMesh(new THREE.SphereGeometry(0.024, 8, 6), new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.7 }), LEVEL_COUNT * PLANTERS * BLOOMS)
+    let nf = 0
     let nb = 0
     let nl = 0
     let seed = 99
@@ -175,6 +196,30 @@ export default function LevelLife() {
           leaves.setColorAt(nl, new THREE.Color().setHSL(0.26 + rand() * 0.08, 0.45, 0.25 + rand() * 0.15))
           nl++
         }
+        const fl = flowerOn(L)
+        const petal = new THREE.Color(fl.colour)
+        const heart = new THREE.Color(fl.heart)
+        for (let k = 0; k < BLOOMS; k++) {
+          const along = (rand() - 0.5) * 0.95
+          const out = 0.04 + rand() * 0.26
+          // Most on top of the heap, a couple hanging down its front.
+          const down = k > 3 ? 0.2 + rand() * 0.5 : 0
+          const px = Math.cos(a) * (r - out) - Math.sin(a) * along
+          const pz = Math.sin(a) * (r - out) + Math.cos(a) * along
+          dummy.position.set(px, y + 1.27 - down + rand() * 0.04, pz)
+          // Turned up and a little toward the deck, or out over the drop.
+          dummy.rotation.set((rand() - 0.5) * 0.6 + (down ? 0.9 : 0), -a + Math.PI / 2 + (rand() - 0.5) * 0.8, (rand() - 0.5) * 0.6)
+          dummy.scale.setScalar(0.8 + rand() * 0.5)
+          dummy.updateMatrix()
+          blooms.setMatrixAt(nf, dummy.matrix)
+          blooms.setColorAt(nf, petal.clone().offsetHSL(0, 0, (rand() - 0.5) * 0.08))
+          dummy.translateY(0.01)
+          dummy.scale.setScalar(1)
+          dummy.updateMatrix()
+          hearts.setMatrixAt(nf, dummy.matrix)
+          hearts.setColorAt(nf, heart)
+          nf++
+        }
       }
     }
     boxesMesh.count = nb
@@ -182,7 +227,12 @@ export default function LevelLife() {
     boxesMesh.instanceMatrix.needsUpdate = true
     leaves.instanceMatrix.needsUpdate = true
     if (leaves.instanceColor) leaves.instanceColor.needsUpdate = true
-    group.add(boxesMesh, leaves)
+    blooms.count = hearts.count = nf
+    for (const m of [blooms, hearts]) {
+      m.instanceMatrix.needsUpdate = true
+      if (m.instanceColor) m.instanceColor.needsUpdate = true
+    }
+    group.add(boxesMesh, leaves, blooms, hearts)
     return group
   }, [])
   return <primitive object={parts} />
