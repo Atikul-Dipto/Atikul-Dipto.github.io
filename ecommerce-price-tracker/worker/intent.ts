@@ -13,7 +13,7 @@
  * - "product" vs "need" is decided by rule, not by the model.
  */
 
-import { QUANTITY_RE } from './ranking.ts'
+import { modelTokens, QUANTITY_RE, tokens } from './ranking.ts'
 import type { Env, Intent } from './types.ts'
 
 export const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
@@ -32,14 +32,17 @@ export const normalize = (text: string) => text.replace(/[০-৯]/g, (d) => Str
 
 // Budget words and price-sized numbers only (k-suffixed or 4+ digits) — small
 // numbers are usually part of the product ("iPhone 15", "5kg").
-const PRICE_WORDS_RE = /\b(under|below|less than|within|upto|up to|budget|between|tk|taka|bdt)\b|৳|টাকা|\b\d+(?:\.\d+)?\s*k\b|\b\d{1,3}(?:,\d{3})+\b|\b\d{4,}\b/gi
+// A number right after a budget word goes with it ("under 999"), as do
+// "50 thousand" and "২০ হাজার".
+const PRICE_WORDS_RE =
+  /\b(?:under|below|less than|within|upto|up to|budget|around|max)\s*৳?\s*\d[\d,]*(?:\.\d+)?\s*k?\b|\b(under|below|less than|within|upto|up to|budget|between|tk|taka|bdt)\b|৳|টাকা|\b\d+(?:\.\d+)?\s*(?:k|thousand|hajar)\b|\d+\s*হাজার|\b\d{1,3}(?:,\d{3})+\b|\b\d{4,}\b/gi
 const MAX_HINTS = /under|below|less than|within|upto|up to|max|budget|মধ্যে|নিচে/i
 const MIN_HINTS = /above|over|more than|at least|min|উপরে/i
 
 /** Every amount mentioned, with "25k" / "25 হাজার" expanded. */
 export function queryNumbers(text: string): Set<number> {
   const found = new Set<number>()
-  for (const [, value, suffix] of normalize(text).matchAll(/(\d+(?:[.,]\d+)*)\s*(k|হাজার)?/gi)) {
+  for (const [, value, suffix] of normalize(text).matchAll(/(\d+(?:[.,]\d+)*)\s*(k\b|thousand|hajar|হাজার)?/gi)) {
     let amount = Number(value.replace(/,/g, ''))
     if (!Number.isFinite(amount)) continue
     if (suffix) amount *= 1000
@@ -99,7 +102,13 @@ export function restoreModelNumbers(query: string, searchQuery: string): string 
 
 const isQuantity = (s: string) => new RegExp(`^${QUANTITY_RE.source}$`, 'i').test(s.trim())
 
-export async function parseIntent(query: string, env: Env): Promise<Intent> {
+/**
+ * `context` is the product name from the other box, when there is one: it
+ * tells the model what kind of item the needs are about ("under 25000" means
+ * headphones if the name is a pair of headphones). Budgets are still only
+ * accepted if they appear in `query` itself.
+ */
+export async function parseIntent(query: string, env: Env, context = ''): Promise<Intent> {
   query = query.trim()
   if (!env.AI) return parseRules(query)
   let data: Record<string, unknown> | null = null
@@ -107,7 +116,7 @@ export async function parseIntent(query: string, env: Env): Promise<Intent> {
     const result = await env.AI.run(MODEL, {
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: query },
+        { role: 'user', content: context ? `Product they are looking at: ${context}\nWhat they need: ${query}` : query },
       ],
       max_tokens: 200,
       temperature: 0,
@@ -129,7 +138,18 @@ export async function parseIntent(query: string, env: Env): Promise<Intent> {
   // By rule: a budget or a wished-for feature makes it a need; otherwise the
   // shopper named the thing ("miniket rice 5kg" must not become just "rice").
   mustHave = mustHave.filter((f) => !isQuantity(f))
-  const mode = maxPrice || minPrice || mustHave.length ? 'need' : 'product'
+  // Given the product name as context, the model sometimes lifts its words
+  // into the needs ("RGB" from "...RGB Mechanical Keyboard" when the shopper
+  // only wrote "under 1400"). A feature counts only if it isn't just echoing the name.
+  if (context) {
+    const own = query.toLowerCase()
+    mustHave = mustHave.filter((f) => !tokens(f).some((k) => context.toLowerCase().includes(k) && !own.includes(k)))
+  }
+  // A model code ("KL69", "A36") means they named it, whatever else they
+  // wrote: "Jedel KL69 61 Keys RGB Mechanical Keyboard" must not turn into a
+  // feature hunt for "Jedel keyboard".
+  const named = modelTokens(tokens(cleanSearchQuery(query))).length > 0
+  const mode = !named && (maxPrice || minPrice || mustHave.length) ? 'need' : 'product'
 
   if (mode === 'need' && productType) {
     // Search the kind of item; features are for ranking. "phone camera" finds
@@ -145,4 +165,75 @@ export async function parseIntent(query: string, env: Env): Promise<Intent> {
     searchQuery += restoreModelNumbers(query, searchQuery)
   }
   return { rawQuery: query, mode, searchQuery, productType, brand, minPrice, maxPrice, mustHave, source: 'llm' }
+}
+
+/**
+ * The two-box form: `name` is a product name, searched exactly as typed —
+ * the AI never rewrites it (long, specific titles are exactly what it
+ * misreads). `details` is what the shopper needs (features, budget, any
+ * language) and is the only text the AI reads. With a name, details decide
+ * the "best choice" shown beneath the named product; on their own they're a
+ * description search, as before.
+ */
+/**
+ * A short second search built from the shopper's own words, no AI: the first
+ * word (usually the brand) plus the model code — "Jedel KL69" from "Jedel
+ * KL69 61 Keys RGB Mechanical Keyboard". Daraz returns different result sets
+ * for the same long title (7 listings one time, 40 the next); a model-code
+ * search reliably lists every seller. null when there's no model code.
+ */
+export function coreQuery(name: string): string | null {
+  const words = cleanSearchQuery(name).split(' ').filter(Boolean)
+  if (!modelTokens(tokens(words.join(' '))).length) return null
+  const keep = new Set<number>([0])
+  words.forEach((w, i) => {
+    const prev = words[i - 1] ?? ''
+    if (modelTokens(tokens(w)).length) {
+      keep.add(i) // "KL69", "A36", "WH-1000XM5"
+      if (/^[a-z]{1,3}$/i.test(prev)) keep.add(i - 1) // "WH 1000XM5"
+    } else if (/^\d+$/.test(w) && modelTokens(tokens(`${prev} ${w}`)).includes(tokens(prev).join('') + w)) {
+      keep.add(i - 1) // "Note 14" — but not "KL69 61", where 61 is a key count
+      keep.add(i)
+    }
+  })
+  const core = words.filter((_, i) => keep.has(i)).join(' ')
+  return core.toLowerCase() === words.join(' ').toLowerCase() ? null : core
+}
+
+/**
+ * What kind of thing the named product is, from its own name: the words left
+ * once the brand (first word), model code and specs are taken out — "RGB
+ * Mechanical Keyboard" from "Jedel KL69 61 Keys RGB Mechanical Keyboard".
+ * Searched for alternatives when the shopper gave no "what do you need" text.
+ */
+export function describeQuery(name: string): string | null {
+  const words = cleanSearchQuery(name).split(' ').filter(Boolean)
+  const kept = words.slice(1).filter((w, i, rest) => {
+    const t = tokens(w)
+    if (!t.length || t.some((x) => /\d/.test(x))) return false // model codes, sizes, counts
+    if (['keys', 'key', 'gb', 'tb', 'mah', 'pcs', 'pc'].includes(t[0])) return false // the unit of a spec ("61 Keys")
+    const next = rest[i + 1] ?? ''
+    return !(/^[a-z]{1,3}$/i.test(w) && modelTokens(tokens(next)).length) // "WH" of "WH 1000XM5"
+  })
+  return kept.length ? kept.join(' ') : null
+}
+
+export async function buildIntent(name: string, details: string, env: Env): Promise<Intent> {
+  name = name.replace(/\s+/g, ' ').trim()
+  details = details.replace(/\s+/g, ' ').trim()
+  if (!name) return parseIntent(details, env)
+
+  const typed = parseRules(name) // a budget typed into the name box still counts
+  const wish = details ? await parseIntent(details, env, name) : null
+  return {
+    rawQuery: details ? `${name} — ${details}` : name,
+    mode: 'product',
+    searchQuery: cleanSearchQuery(name) || name,
+    productType: wish?.productType ?? null,
+    brand: wish?.brand ?? null,
+    minPrice: wish?.minPrice ?? typed.minPrice,
+    maxPrice: wish?.maxPrice ?? typed.maxPrice,
+    mustHave: wish?.mustHave ?? [],
+    source: wish ? wish.source : 'typed',
+  }
 }

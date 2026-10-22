@@ -14,7 +14,7 @@ export interface Intent {
   minPrice: number | null
   maxPrice: number | null
   mustHave: string[]
-  source: 'llm' | 'rules' // which parser produced this
+  source: 'llm' | 'rules' | 'typed' // who read it: the AI, the rule fallback, or nobody (a product name taken as typed)
 }
 
 export interface Listing {

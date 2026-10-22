@@ -34,20 +34,40 @@ export function quantities(text: string): Set<string> {
   return found
 }
 
+// Spec values, not model names: "8gb" and "5000mah" describe a phone, "61 keys" a keyboard.
+const SPEC_RE = /^\d+(?:gb|tb|mb|mah|hz|w|mp|inch|in|v|k|keys?|m|cm|mm|ft)$/
+const SPEC_WORDS = new Set(['gb', 'tb', 'mb', 'mah', 'hz', 'w', 'mp', 'inch', 'key', 'keys', 'pcs', 'pc', 'months', 'month', 'years', 'year'])
+const VARIANT_WORDS = new Set(['pro', 'plus', 'max', 'ultra', 'lite', 'mini', 'fe', 'neo', 'edge', 'prime'])
+const GLUE_STOPWORDS =new Set(['for', 'with', 'under', 'than', 'of', 'and', 'the', 'to', 'in', 'on', 'at'])
+
 /**
  * What pins down a specific model, as compact strings the title must contain:
- * letter+digit tokens ("a36", "1000xm5"), and a bare number glued to the word
- * before it ("iphone 15" -> "iphone15"). Sizes are left to the quantity gate.
+ * letter+digit tokens ("kl69", "a36", "1000xm5"), and a bare number glued to
+ * the plain word before it ("iphone 15" -> "iphone15"). Not sizes (the
+ * quantity gate's job) or specs ("8gb", "61 keys") — those describe, they
+ * don't name, and requiring them would drop sellers who word titles differently.
  */
-function modelTokens(queryTokens: string[]): string[] {
+export function modelTokens(queryTokens: string[]): string[] {
   const found: string[] = []
   queryTokens.forEach((t, i) => {
-    if (quantities(t).size) return
-    if (/\d/.test(t) && /[a-z]/.test(t)) found.push(t)
-    else if (/^\d+$/.test(t) && i > 0 && !/^\d+$/.test(queryTokens[i - 1])) found.push(queryTokens[i - 1] + t)
+    if (quantities(t).size || SPEC_RE.test(t)) return
+    if (/\d/.test(t) && /[a-z]/.test(t)) {
+      // A short letter prefix is part of the code: "WH-1000XM5" -> "wh1000xm5",
+      // so the WF-1000XM5 earbuds don't pass as the WH-1000XM5 headphones.
+      const prev = queryTokens[i - 1]
+      found.push(prev && /^[a-z]{1,3}$/.test(prev) && !GLUE_STOPWORDS.has(prev) ? prev + t : t)
+      return
+    }
+    const prev = queryTokens[i - 1]
+    if (/^\d+$/.test(t) && prev && /^[a-z]+$/.test(prev) && !GLUE_STOPWORDS.has(prev) && !SPEC_WORDS.has(queryTokens[i + 1] ?? '')) {
+      found.push(prev + t)
+    }
   })
   return found
 }
+
+/** A seller a shopper can reasonably buy from: Daraz Mall, or rated 4+ from at least 5 reviews. */
+export const trusted = (l: Listing) => l.officialStore || ((l.rating ?? 0) >= 4 && l.reviews >= 5)
 
 export function parseSold(sold: string): number {
   const m = /([\d.]+)\s*([kK])?/.exec(sold ?? '')
@@ -89,63 +109,112 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
 }
 
-/** Best listings first, plus how many were dropped as suspiciously cheap. */
-export function rank(listings: Listing[], intent: Intent, limit = 6): { ranked: Listing[]; suspicious: number } {
-  const queryTokens = tokens(intent.searchQuery)
-  const models = modelTokens(queryTokens)
-  let candidates = listings.filter((l) => l.inStock && !isAccessory(l, queryTokens))
+function trustScore(l: Listing): number {
+  return bayesianRating(l.rating, l.reviews) / 5 + Math.min(Math.log10(parseSold(l.sold) + 1) / 4, 1) * 0.5 + (l.officialStore ? 0.3 : 0)
+}
 
-  if (intent.mode === 'product') {
-    if (models.length) candidates = candidates.filter((l) => models.every((m) => compact(l.name).includes(m)))
-    const wanted = quantities(intent.searchQuery)
-    if (wanted.size) {
-      // A different stated size is a different product; no stated size is kept.
-      candidates = candidates.filter((l) => {
-        const q = quantities(l.name)
-        return q.size === 0 || [...q].some((x) => wanted.has(x))
-      })
-    }
-    if (candidates.length) {
-      // Match as many query words as the best match does: keeps Jasmine rice
-      // out of "miniket rice 5kg" and WF-1000XM5 earbuds out of "wh-1000xm5".
-      const best = Math.max(...candidates.map((l) => overlap(l, queryTokens)))
-      candidates = candidates.filter((l) => overlap(l, queryTokens) >= best - 1e-9)
-    }
-  }
+/** Drop listings far below a reference price; returns the survivors and how many went. */
+function priceFloor(candidates: Listing[], reference: number | null): [Listing[], number] {
+  if (reference === null) return [candidates, 0]
+  const floor = reference * PRICE_FLOOR_RATIO
+  return [candidates.filter((l) => l.price >= floor), candidates.filter((l) => l.price < floor).length]
+}
 
-  // Anchor on the official store's price for a named product (copies can
-  // outnumber the real thing and drag a median down); median otherwise.
-  const official = intent.mode === 'product' ? candidates.filter((l) => l.officialStore).map((l) => l.price) : []
-  const reference = official.length ? Math.max(...official) : candidates.length >= 4 ? median(candidates.map((l) => l.price)) : null
-  let suspicious = 0
-  if (reference !== null) {
-    const floor = reference * PRICE_FLOOR_RATIO
-    suspicious = candidates.filter((l) => l.price < floor).length
-    candidates = candidates.filter((l) => l.price >= floor)
-  }
-  if (intent.maxPrice !== null) candidates = candidates.filter((l) => l.price <= intent.maxPrice!)
-  if (intent.minPrice !== null) candidates = candidates.filter((l) => l.price >= intent.minPrice!)
-
+/**
+ * Score by fit to what the shopper asked for: wished-for features, seller
+ * trust, and closeness to the budget (a ৳25k budget means the best phone
+ * near ৳25k, not the cheapest thing under it).
+ */
+function scoreForNeed(candidates: Listing[], intent: Intent): Listing[] {
   for (const l of candidates) {
-    const ov = overlap(l, queryTokens)
     l.matchedFeatures = matchFeatures(l, intent.mustHave)
-    const trust =
-      bayesianRating(l.rating, l.reviews) / 5 + Math.min(Math.log10(parseSold(l.sold) + 1) / 4, 1) * 0.5 + (l.officialStore ? 0.3 : 0)
     const features = intent.mustHave.length ? l.matchedFeatures.length / intent.mustHave.length : 0
-    if (intent.mode === 'product') {
-      l.relevance = Math.round((ov * 2 + trust) * 1000) / 1000
-    } else {
-      // A ৳25k budget means the best phone near ৳25k, not the cheapest under it.
-      const budgetFit = intent.maxPrice ? l.price / intent.maxPrice : 0
-      l.relevance = Math.round((features * 1.5 + trust + budgetFit * 0.8) * 1000) / 1000
-    }
+    const budgetFit = intent.maxPrice ? l.price / intent.maxPrice : 0
+    l.relevance = Math.round((features * 1.5 + trustScore(l) + budgetFit * 0.8) * 1000) / 1000
+  }
+  return candidates.sort((a, b) => b.relevance - a.relevance || a.price - b.price)
+}
+
+const withinBudget = (l: Listing, intent: Intent) =>
+  (intent.maxPrice === null || l.price <= intent.maxPrice) && (intent.minPrice === null || l.price >= intent.minPrice)
+
+export interface Ranked {
+  ranked: Listing[] // need mode: best fit first. product mode: the named product, exact match first, then other sellers by price
+  alternatives: Listing[] // product mode only: similar items that aren't the named product
+  suspicious: number // dropped as priced far below the rest
+}
+
+/**
+ * Rank a search. In product mode `extra` holds listings from a separate
+ * search for the kind of item (from the "what do you need" box), used only
+ * as alternatives.
+ */
+export function rank(listings: Listing[], intent: Intent, limit = 6, extra: Listing[] = []): Ranked {
+  const queryTokens = tokens(intent.searchQuery)
+  const candidates = listings.filter((l) => l.inStock && !isAccessory(l, queryTokens))
+
+  if (intent.mode === 'need') {
+    let pool = candidates.filter((l) => withinBudget(l, intent))
+    const [kept, suspicious] = priceFloor(pool, pool.length >= 4 ? median(pool.map((l) => l.price)) : null)
+    pool = scoreForNeed(kept, intent)
+    return { ranked: pool.slice(0, limit), alternatives: [], suspicious }
   }
 
-  if (intent.mode === 'product') {
-    // Same product from several sellers: best match first, then cheapest.
-    candidates.sort((a, b) => Math.round(b.relevance * 10) - Math.round(a.relevance * 10) || a.price - b.price)
-  } else {
-    candidates.sort((a, b) => b.relevance - a.relevance || a.price - b.price)
+  // ---- product mode: the shopper named it ----
+  const models = modelTokens(queryTokens)
+  const wanted = quantities(intent.searchQuery)
+  let same = candidates
+  // A named model must be in the title: "kl69" never matches a KL68, "a36" never an A56.
+  if (models.length) same = same.filter((l) => models.every((m) => compact(l.name).includes(m)))
+  // Variant words name a different model: "Redmi Note 14" is not the Note 14
+  // Pro Plus, "iPhone 15" is not the 15 Pro Max. They must match both ways.
+  const variants = (ts: string[]) => ts.filter((t) => VARIANT_WORDS.has(t)).sort().join(' ')
+  const wantedVariants = variants(queryTokens)
+  same = same.filter((l) => variants(tokens(l.name)) === wantedVariants)
+  // A different stated size is a different product; no stated size is kept.
+  if (wanted.size) same = same.filter((l) => !quantities(l.name).size || [...quantities(l.name)].some((x) => wanted.has(x)))
+  if (!models.length && same.length) {
+    // No model code to go on, so the words are the identity: match as many
+    // as the best match does (keeps Jasmine rice out of "miniket rice 5kg").
+    const best = Math.max(...same.map((l) => overlap(l, queryTokens)))
+    same = same.filter((l) => overlap(l, queryTokens) >= best - 1e-9)
   }
-  return { ranked: candidates.slice(0, limit), suspicious }
+
+  // Anchor the floor on the official store's price when there is one: copies
+  // can outnumber the real thing and drag a median down with them.
+  const official = same.filter((l) => l.officialStore).map((l) => l.price)
+  const [kept, suspicious] = priceFloor(same, official.length ? Math.max(...official) : same.length >= 4 ? median(same.map((l) => l.price)) : null)
+  for (const l of kept) {
+    l.matchedFeatures = matchFeatures(l, intent.mustHave)
+    l.relevance = Math.round((overlap(l, queryTokens) * 2 + trustScore(l)) * 1000) / 1000
+  }
+  // Exact match first: the listing whose title matches the name most
+  // closely, from the most trusted seller. Every other seller after it, cheapest first.
+  const byExactness = [...kept].sort((a, b) => overlap(b, queryTokens) - overlap(a, queryTokens) || trustScore(b) - trustScore(a) || a.price - b.price)
+  const exact = byExactness[0]
+  const ranked = exact ? [exact, ...kept.filter((l) => l !== exact).sort((a, b) => a.price - b.price)].slice(0, limit) : []
+
+  // Alternatives: the same kind of thing, not this model. Within the budget
+  // if one was given, otherwise priced near the named product.
+  const sameIds = new Set(same.map((l) => l.itemId))
+  const others = new Map<string, Listing>()
+  // From the name's own search, only listings that share real words with it —
+  // a model-code search can drag in anything (Eid decorations for "Jedel KL69").
+  // Listings from the dedicated search for the kind of item are taken as found.
+  const typeWord = intent.productType ? tokens(intent.productType).at(-1) : undefined
+  const related = (l: Listing) => overlap(l, queryTokens) >= 0.25 || (typeWord !== undefined && tokens(l.name).includes(typeWord))
+  for (const l of [...candidates.filter(related), ...extra.filter((x) => x.inStock && !isAccessory(x, queryTokens))]) {
+    if (!sameIds.has(l.itemId)) others.set(l.itemId, l)
+  }
+  let alternatives = [...others.values()]
+  if (intent.maxPrice !== null || intent.minPrice !== null) {
+    // Within budget, and not so cheap it can't stand in for the named product
+    // (৳372 earphones aren't an alternative to ৳28,900 headphones "under 25000").
+    const floor = 0.5 * Math.min(intent.maxPrice ?? Infinity, exact?.price ?? intent.maxPrice ?? 0)
+    alternatives = alternatives.filter((l) => withinBudget(l, intent) && l.price >= floor)
+  }
+  else if (exact) alternatives = alternatives.filter((l) => l.price >= exact.price * 0.6 && l.price <= exact.price * 1.6)
+  alternatives = scoreForNeed(alternatives, intent).slice(0, 4)
+
+  return { ranked, alternatives, suspicious }
 }

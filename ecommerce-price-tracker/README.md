@@ -36,7 +36,17 @@ Things only this PC can do, pushed up to D1:
 node --test worker/agent.test.ts                                 # tests for the TypeScript port
 ```
 
-Keep `agent/` and `worker/` in lockstep; both test files cover the same cases. `GET /api/pp/stats` gives public totals; the recent-questions list needs `Authorization: Bearer <ADMIN_TOKEN>`.
+**Two boxes, on purpose (2026-10-22):** a *product name*, searched exactly as typed and never rewritten by the AI, and an optional *what do you need* (features and budget, any language), which is the only text the AI reads. A named product always comes first. Its other sellers follow, plus a **best choice** beneath it:
+- the same product meaningfully cheaper (≥2%) from a seller worth trusting (Daraz Mall, or ★4+ from 5+ reviews), or
+- when the named one misses the stated needs, the best alternative that fits, or
+- an explicit "the one you asked for is already the best deal".
+
+Prompted by "Jedel KL69 61 Keys RGB Mechanical Keyboard", which the one-box version read as a feature hunt for "Jedel keyboard". Supporting rules:
+- A model code ("KL69", "A36", "WH-1000XM5") always means a named product.
+- Variant words (Pro/Plus/Max/Ultra/Lite/Mini/FE…) name a different model.
+- A short brand + model-code search ("Jedel KL69") runs alongside the full title, because Daraz returns 7 results for the long title one time and 40 the next.
+
+**`worker/` is now the canonical agent.** `agent/` (Python) still owns the voucher harvester, the D1 sync and the local CLI, but its ranking predates the two-box, exact-first rules. `GET /api/pp/stats` gives public totals; the recent-questions list needs `Authorization: Bearer <ADMIN_TOKEN>`.
 
 **Verified on 2026-10-21 with 20 queries against production:** all answered in 1.6–3.9s. 13 were right first time, and 2 bugs were then fixed (a dropped model number; misleading wording). Known weak spots:
 - In need mode with a low budget, cheap knock-offs with many reviews can outrank genuine items ("earbuds under 2000 with anc" → ৳464 "AirPods").

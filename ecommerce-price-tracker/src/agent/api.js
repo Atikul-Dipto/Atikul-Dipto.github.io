@@ -10,11 +10,12 @@ async function getJson(response) {
   return data
 }
 
-export const askAgent = (query, signal) =>
+// name: a product, searched exactly as typed. details: what they need (the only text the AI reads).
+export const askAgent = ({ name, details }, signal) =>
   fetch(`${AGENT_API}/ask`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ name, details }),
     signal,
   }).then(getJson)
 

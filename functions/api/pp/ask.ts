@@ -3,36 +3,51 @@
  * site, called from both copies of /price-pulse/. The agent itself lives with
  * the rest of Price Pulse in ecommerce-price-tracker/worker/.
  *
- *   GET  ?q=<what the shopper typed>
- *   POST { "query": "..." }
+ *   POST { "name": "Jedel KL69 61 Keys RGB Mechanical Keyboard", "details": "under 2000, blue switch" }
+ *        name: a product, searched exactly as typed; details: what they need (read by the AI).
+ *        Either may be empty, not both.
+ *   GET  ?name=...&details=...    the same
+ *   GET  ?q=... / POST { "query" } one-box form: the agent works out whether it's a name or a description
  */
 
-import { run } from '../../../ecommerce-price-tracker/worker/agent.ts'
+import { type AskInput, run } from '../../../ecommerce-price-tracker/worker/agent.ts'
 import { json, preflight } from '../../../ecommerce-price-tracker/worker/http.ts'
 import { logAsk } from '../../../ecommerce-price-tracker/worker/store.ts'
 import type { Env } from '../../../ecommerce-price-tracker/worker/types.ts'
 
 type Ctx = { request: Request; env: Env; waitUntil(p: Promise<unknown>): void }
 
-async function answer({ request, env, waitUntil }: Ctx, raw: unknown): Promise<Response> {
-  const query = typeof raw === 'string' ? raw.replace(/\s+/g, ' ').trim() : ''
-  if (query.length < 2 || query.length > 200) return json(request, { error: 'Ask for a product in 2 to 200 characters.' }, 400)
+const clean = (v: unknown) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim() : '')
 
+function readInput(raw: { name?: unknown; details?: unknown; query?: unknown }): AskInput | string {
+  const name = clean(raw.name)
+  const details = clean(raw.details)
+  const query = clean(raw.query)
+  if (name.length > 200 || details.length > 300 || query.length > 200) return 'That is longer than the agent reads — keep it under 200 characters.'
+  if (name || details) return name.length + details.length >= 2 ? { name, details } : 'Ask for a product in at least 2 characters.'
+  return query.length >= 2 ? { query } : 'Type a product name, or what you need.'
+}
+
+async function answer({ request, env, waitUntil }: Ctx, raw: { name?: unknown; details?: unknown; query?: unknown }): Promise<Response> {
+  const input = readInput(raw)
+  if (typeof input === 'string') return json(request, { error: input }, 400)
+  const logged = input.query ?? [input.name, input.details].filter(Boolean).join(' — ')
   const askedAt = new Date().toISOString()
   try {
-    const result = await run(query, env)
-    const best = result.bestIndex !== null ? result.results[result.bestIndex] : null
+    const result = await run(input, env)
+    const choice = result.bestChoice
+    const picked = choice ? (choice.kind === 'alternative' ? result.alternatives[choice.index] : result.results[choice.index]) : null
     if (env.PP_DB) {
       waitUntil(
         logAsk(env.PP_DB, {
           askedAt,
-          query,
+          query: logged,
           mode: result.intent.mode,
           intentSource: result.intent.source,
           results: result.results.length,
-          bestPrice: best?.listing.price ?? null,
-          bestFinal: best?.finalPrice ?? null,
-          voucherApplied: Boolean(best?.bestVoucher),
+          bestPrice: picked?.listing.price ?? null,
+          bestFinal: picked?.finalPrice ?? null,
+          voucherApplied: Boolean(picked?.bestVoucher),
           totalMs: result.timingsMs.total,
           timings: result.timingsMs,
           error: null,
@@ -44,18 +59,21 @@ async function answer({ request, env, waitUntil }: Ctx, raw: unknown): Promise<R
     const message = e instanceof Error ? e.message : String(e)
     if (env.PP_DB) {
       waitUntil(
-        logAsk(env.PP_DB, { askedAt, query, mode: '', intentSource: '', results: 0, bestPrice: null, bestFinal: null, voucherApplied: false, totalMs: Date.now() - Date.parse(askedAt), timings: {}, error: message.slice(0, 300) }).catch(() => {}),
+        logAsk(env.PP_DB, { askedAt, query: logged, mode: '', intentSource: '', results: 0, bestPrice: null, bestFinal: null, voucherApplied: false, totalMs: Date.now() - Date.parse(askedAt), timings: {}, error: message.slice(0, 300) }).catch(() => {}),
       )
     }
     return json(request, { error: `Couldn't reach Daraz just now (${message}). Try again in a moment.` }, 502)
   }
 }
 
-export const onRequestGet = (ctx: Ctx) => answer(ctx, new URL(ctx.request.url).searchParams.get('q'))
+export const onRequestGet = (ctx: Ctx) => {
+  const p = new URL(ctx.request.url).searchParams
+  return answer(ctx, { name: p.get('name'), details: p.get('details'), query: p.get('q') })
+}
 
 export const onRequestPost = async (ctx: Ctx) => {
-  const body = (await ctx.request.json().catch(() => null)) as { query?: unknown } | null
-  return answer(ctx, body?.query)
+  const body = (await ctx.request.json().catch(() => null)) as { name?: unknown; details?: unknown; query?: unknown } | null
+  return answer(ctx, body ?? {})
 }
 
 export const onRequestOptions = preflight
