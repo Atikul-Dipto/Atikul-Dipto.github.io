@@ -60,9 +60,17 @@ def main() -> int:
     parser.add_argument("--show-browser", action="store_true", help="run the harvest browser visibly")
     parser.add_argument("--push-d1", action="store_true", help="with --harvest-vouchers: also upload them to the Cloudflare agent's D1")
     parser.add_argument("--seed-d1", action="store_true", help="copy the scrapers' Daraz price history into the Cloudflare agent's D1")
+    parser.add_argument("--index-cartup", action="store_true", help="rebuild the Cartup product index from its sitemap and upload it to D1 (weekly)")
+    parser.add_argument("--dry-run", action="store_true", help="with --index-cartup: build and report, don't upload")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
+
+    if args.index_cartup:
+        from . import cartup_index
+
+        print(json.dumps(cartup_index.run(push=not args.dry_run), indent=1))
+        return 0
 
     if args.seed_d1:
         print(f"{d1.seed_history(os.environ.get('DATABASE_URL', DEFAULT_DB))} Daraz price points seeded into D1")

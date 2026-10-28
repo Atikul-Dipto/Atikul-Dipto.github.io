@@ -38,3 +38,6 @@ data/debug/
 *.njsproj
 *.sln
 *.sw?
+
+# Cartup product sitemaps + built search index (agent/cartup_index.py)
+data/cartup/

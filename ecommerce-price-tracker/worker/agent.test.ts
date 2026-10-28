@@ -4,10 +4,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { chooseBest, type Result, summarize } from './agent.ts'
+import { cheaperElsewhere, chooseBest, type Result, sameOnCartup, summarize } from './agent.ts'
+import { decodeIds, fnv1a, parseProductPage, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
-import { modelTokens, quantities, rank, storageOf, tokens } from './ranking.ts'
+import { modelTokens, quantities, rank, storageOf, tokens, variantsOf } from './ranking.ts'
 import type { Intent, Listing, Voucher } from './types.ts'
 
 const CAMPAIGN = 'https://pages.daraz.com.bd/wow/gcp/route/daraz/bd/upr/router?wh_pid=%2Flazada%2Fchannel%2Fbd%2Fweekly-campaigns%2FbKashChoice'
@@ -198,8 +199,8 @@ test('a kind of item in the product box is a best-fit search, not a named produc
 })
 
 test('a lone amount in the needs box is a budget', () => {
-  assert.equal(parseRules('30k').maxPrice, 30000)
-  assert.equal(parseRules('১৫০০০').maxPrice, 15000)
+  assert.equal(parseRules('30k', true).maxPrice, 30000)
+  assert.equal(parseRules('১৫০০০', true).maxPrice, 15000)
   assert.equal(parseRules('iphone 15').maxPrice, null)
 })
 
@@ -279,7 +280,88 @@ test('a mouse pad is not a mouse', () => {
 })
 
 test('rules fallback: "30k" is a budget, "2k monitor" is not', () => {
-  assert.equal(parseRules('30k').maxPrice, 30000)
-  assert.equal(parseRules('2k monitor').maxPrice, null)
-  assert.equal(parseRules('earbuds 2k').maxPrice, 2000)
+  assert.equal(parseRules('30k', true).maxPrice, 30000)
+  assert.equal(parseRules('2k monitor', true).maxPrice, null)
+  assert.equal(parseRules('earbuds 2k', true).maxPrice, 2000)
+})
+
+// ---- Cartup ----
+// The index is built in Python (agent/cartup_index.py) and read here: the hash
+// and the id encoding must agree exactly, or every lookup silently misses.
+test('Cartup index: hashing and id encoding match the Python builder', () => {
+  assert.deepEqual([fnv1a('kl69'), fnv1a('monitor'), fnv1a('jedel')], [3658253039, 1983775257, 4138264269])
+  assert.deepEqual(decodeIds('c,3,p,lfko'), [12, 15, 40, 1000000])
+  assert.deepEqual(requiredWords(tokens('sony wh-1000xm5')), ['wh', '1000xm5'])
+  assert.deepEqual(requiredWords(tokens('Jedel KL69 61 Keys RGB Mechanical Keyboard')), ['kl69'])
+})
+
+test('Cartup product page: live price, stock, seller and rating from its schema.org data', () => {
+  const html = `<html><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[]}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Chair Wheel 5Pc","image":["https://imrs.cartup.com/x.webp"],"brand":{"@type":"Brand","name":"Furniture Finds"},"offers":{"@type":"Offer","price":614,"priceCurrency":"BDT","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"Furniture Finds"}},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":1375,"bestRating":5}}</script></html>`
+  const l = parseProductPage(html, 'chair_wheel_5pc_166570935804140_oi44h8')!
+  assert.deepEqual(
+    [l.site, l.itemId, l.price, l.inStock, l.seller, l.rating, l.reviews, l.url],
+    ['cartup', 'cartup:166570935804140', 614, true, 'Furniture Finds', 4.9, 1375, 'https://www.cartup.com/product/chair_wheel_5pc_166570935804140_oi44h8'],
+  )
+})
+
+const onCartup = (name: string, price: number, extra: Partial<Listing> = {}) => listing(name, price, { site: 'cartup', ...extra })
+
+test('the same product on Cartup: same model, not a lookalike', () => {
+  const found = [onCartup('Jedel KL69 RGB Mechanical Keyboard 61 Keys', 1450, { rating: 4.7, reviews: 20 }), onCartup('Jedel KL68 61 Keys Mechanical Keyboard', 1990)]
+  assert.deepEqual(sameOnCartup(found, KL69).map((l) => l.price), [1450])
+  // a Daraz pick's long title still finds Cartup's shorter name for the same item
+  const dahua = [onCartup('Dahua LM27-B221B 27 Inch IPS Monitor', 16500, { rating: 4.5, reviews: 8 }), onCartup('Dahua LM24-B201S 24 Inch Monitor', 13000)]
+  assert.deepEqual(sameOnCartup(dahua, 'Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor').map((l) => l.price), [16500])
+})
+
+test('best choice can be the same product on Cartup, by the same rules as another Daraz seller', () => {
+  const daraz = rank([listing(KL69, 1530, { rating: 4.8, reviews: 39 })], product(KL69)).ranked.map(asResult)
+  const cheaperTrusted = [onCartup('Jedel KL69 61 Keys RGB Mechanical Keyboard', 1400, { rating: 4.7, reviews: 20 })].map(asResult)
+  const cheaperUnrated = [onCartup('Jedel KL69 61 Keys RGB Mechanical Keyboard', 1300, { rating: null, reviews: 0 })].map(asResult)
+  assert.equal(chooseBest(daraz, [], product(KL69), cheaperTrusted)?.kind, 'other_store')
+  assert.equal(chooseBest(daraz, [], product(KL69), cheaperUnrated)?.kind, 'exact')
+  assert.equal(chooseBest([], [], product(KL69), cheaperTrusted)?.kind, 'other_store') // not in stock on Daraz
+})
+
+test('Daraz vouchers never apply to Cartup listings', () => {
+  const flat: Voucher = { site: 'daraz', title: 'Daraz Voucher', labels: [], amount: 50, percent: null, maxDiscount: null, minSpend: 399, validFrom: null, validTo: null, sourceUrl: CAMPAIGN }
+  assert.equal(checkAll([flat], onCartup('Special Miniket Rice 5Kg', 490), TODAY).length, 0)
+  assert.equal(checkAll([flat], listing('Special Miniket Rice 5Kg', 490), TODAY).length, 1)
+})
+
+test('Cartup matching: parts aren\'t the phone, a different rice isn\'t "miniket rice 5kg"', () => {
+  assert.deepEqual(sameOnCartup([onCartup('Samsung Galaxy A36 Full Body Housing Middle Frame Chassis', 1236)], 'Samsung Galaxy A36'), [])
+  const rice = [onCartup('Pran Miniket Rice 5kg', 445), onCartup('Teer Shampakatari Nazirshail Rice - 5kg', 458)]
+  assert.deepEqual(sameOnCartup(rice, 'miniket rice 5kg').map((l) => l.price), [445])
+  // a different bottle size is a different product
+  assert.deepEqual(sameOnCartup([onCartup('Parachute Naturale Shampoo Damage Repair 160ml', 93)], 'Parachute Naturale Damage Repair Shampoo with Red Hibiscus 170ml'), [])
+  // "track on glass" is a mouse feature, not a screen protector
+  const mx = [onCartup('Logitech MX Master 3S - Wireless Performance Mouse with Ultra-fast Scrolling, Track on Glass', 14500)]
+  assert.equal(sameOnCartup(mx, 'MX MASTER 3S High-performance Wireless Mouse').length, 1)
+})
+
+test('variant words count right after the model code, not deep in a description', () => {
+  assert.equal(variantsOf('Xiaomi Redmi Note 14 Pro Plus 5g', 'note14'), 'plus pro')
+  assert.equal(variantsOf('Logitech MX Master 3S Wireless Mouse with Ultra-fast Scrolling', '3s'), '')
+  assert.equal(variantsOf('Samsung Galaxy S24 Ultra 12/256GB', 's24'), 'ultra')
+})
+
+test('"Logitech MX Master 3S" is not the MX Anywhere 3S, on either store', () => {
+  const daraz = [listing('Logitech MX Master 3S with Free Adobe Subscription Wireless Mouse', 11999, { officialStore: true }), listing('Logitech MX Anywhere 3S Compact Wireless Mouse', 8275, { officialStore: true })]
+  assert.deepEqual(rank(daraz, product('Logitech MX Master 3S')).ranked.map((l) => l.price), [11999])
+  assert.deepEqual(sameOnCartup([onCartup('Buy Logitech MX Anywhere 3S & Get Backpack', 8580)], 'Logitech MX Master 3S'), [])
+})
+
+test('a kind-of-item pick that is cheaper on Cartup becomes the best choice', () => {
+  const pick = asResult(listing('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 17000))
+  const cartup = [asResult(onCartup('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 15591, { rating: 4.6, reviews: 1091 }))]
+  assert.equal(cheaperElsewhere(pick, cartup)?.kind, 'other_store')
+  assert.match(cheaperElsewhere(pick, cartup)!.reason, /৳1,409 less/)
+})
+
+test('a product name with a number in its code gets no budget', async () => {
+  assert.equal((await buildIntent('sony wh-1000xm5', '', {})).maxPrice, null)
+  assert.equal((await buildIntent('Walton 1.5 ton AC', '', {})).maxPrice, null)
+  assert.equal((await buildIntent('monitor', '30k', {})).maxPrice, 30000)
 })

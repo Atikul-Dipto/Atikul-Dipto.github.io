@@ -20,6 +20,26 @@ There are two ways this project runs, and both work at all times:
 
 Over the API: `POST /api/agent/ask {"query": "..."}` and `GET /api/agent/vouchers`. The backend also runs the voucher harvest every `VOUCHER_INTERVAL_MINUTES` (default 180).
 
+### Cartup comparison
+
+Every answer also checks **the same product on [Cartup](https://cartup.com)** and shows Daraz and Cartup side by side. If Cartup has it meaningfully cheaper (by 2% or more, from a seller rated ★4+ by 5+ buyers), Cartup can be the best choice. Daraz vouchers are never applied to Cartup prices.
+
+How, and why this way (checked 2026-10-28):
+- **Cartup's search API needs a per-request signature** its page script computes from a hidden key. The `sxsrf` header decodes to `{"random","sign","expires"}`. Its `robots.txt` also disallows `/search` and every URL with `?`. Neither is used.
+- **What Cartup publishes for automated visitors is used instead:**
+  - its product sitemap: ~865k products over 18 files, refreshed daily;
+  - its product pages, which `robots.txt` allows. Each carries schema.org `Product` JSON-LD with the live price, stock, seller and rating.
+- **[`agent/cartup_index.py`](agent/cartup_index.py)** builds a name index from the sitemap URLs (the product name is in the address) and uploads it to D1: 15.5k rows, ~148MB, within the free plan's 500MB per database.
+- **[`worker/cartup.ts`](worker/cartup.ts)** looks a product up in that index, then fetches at most 4 of its pages per question for live prices. That takes ~0.1–0.5s from Cloudflare's Dhaka edge. For a named product it runs alongside the Daraz search, so it adds no waiting.
+- **Matching across stores** uses the same rules as on Daraz: the main model code must match ("LM27-B221B=V1" on Daraz is "lm27-b221bv1" on Cartup), plus the same variant words, storage and size. With a model code, 60% of the words must be shared; without one, 80% ("Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg").
+
+Refresh the index weekly. It downloads ~195MB of sitemaps into `data/cartup/` (gitignored):
+
+```powershell
+.venv\Scripts\python.exe -m agent --index-cartup            # build + upload (~5 min)
+.venv\Scripts\python.exe -m agent --index-cartup --dry-run  # build + report only
+```
+
 ### Live on the website (Cloudflare)
 
 The Price Pulse page is built around the agent. The agent itself runs as a **Cloudflare Pages Function**: `functions/api/pp/{ask,vouchers,stats}.ts` at the repo root, with the code in [`worker/`](worker/), a TypeScript port of `agent/`. Both copies of the site call it at `https://atikul-islam-portfolio.pages.dev/api/pp/`. It's all on the free plan:

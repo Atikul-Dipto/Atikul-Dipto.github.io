@@ -19,7 +19,7 @@ export interface Intent {
 }
 
 export interface Listing {
-  site: 'daraz'
+  site: 'daraz' | 'cartup'
   itemId: string
   name: string
   url: string

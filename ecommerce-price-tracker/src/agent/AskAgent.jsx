@@ -251,7 +251,9 @@ function ChoicePanel({ choice, pick, exact }) {
   const saving = exact ? exact.finalPrice - pick.finalPrice : 0
   return (
     <div className="choice">
-      <span className="choice-tag">{choice.kind === 'same' ? 'Best choice · same product' : 'Best choice for what you need'}</span>
+      <span className="choice-tag">
+        {choice.kind === 'same' ? 'Best choice · same product' : choice.kind === 'other_store' ? 'Best choice · same product on Cartup' : 'Best choice for what you need'}
+      </span>
       <div className="choice-row">
         <a href={listing.url} target="_blank" rel="noreferrer" className="choice-main">
           <strong>{listing.name}</strong>
@@ -302,11 +304,60 @@ function ListingRows({ title, results }) {
   )
 }
 
+const STORE_LABEL = { daraz: 'Daraz', cartup: 'Cartup' }
+
+/**
+ * The same product on both stores, side by side. Cartup is looked up for the
+ * product named (or, for a kind of item, for the Daraz pick) through a name
+ * index built from Cartup's sitemap, then priced live from its product pages.
+ */
+function CompareStores({ daraz, cartup }) {
+  if (!cartup || cartup.status === 'skipped') return null
+  const rows = [daraz, ...(cartup.results ?? [])]
+  const cheapest = Math.min(...rows.map((r) => r.finalPrice))
+  const note = {
+    not_found: "Cartup doesn't list this product right now.",
+    no_index: "Cartup comparison isn't set up yet.",
+    error: "Couldn't reach Cartup just now.",
+  }[cartup.status]
+  return (
+    <div className="compare-stores">
+      <h4>Compare stores</h4>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.listing.itemId} className={r.finalPrice === cheapest && rows.length > 1 ? 'cheapest' : ''}>
+            <span className={`store-tag ${r.listing.site}`}>{STORE_LABEL[r.listing.site]}</span>
+            <a href={r.listing.url} target="_blank" rel="noreferrer" className="compare-name">
+              {r.listing.name}
+              <small>
+                {r.listing.seller}
+                {r.listing.rating ? ` · ★ ${r.listing.rating.toFixed(1)} (${r.listing.reviews})` : ' · no ratings yet'}
+                {r.listing.location === 'Overseas' && ' · ships from overseas'}
+              </small>
+            </a>
+            <span className="compare-price">
+              <strong>{money(r.finalPrice)}</strong>
+              {r.bestVoucher && <small>with voucher</small>}
+              {r.finalPrice === cheapest && rows.length > 1 ? (
+                <b>cheapest</b>
+              ) : (
+                rows.length > 1 && <small className="up">+{money(r.finalPrice - cheapest)}</small>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+      {note && <p className="compare-note">{note}</p>}
+    </div>
+  )
+}
+
 function Answer({ answer }) {
   const named = answer.intent.mode === 'product'
   const choice = answer.bestChoice
   const main = answer.results[0] ?? null
-  const pick = choice ? (choice.kind === 'alternative' ? answer.alternatives[choice.index] : answer.results[choice.index]) : null
+  const listFor = { alternative: answer.alternatives, other_store: answer.cartup?.results ?? [] }
+  const pick = choice ? (listFor[choice.kind] ?? answer.results)[choice.index] : null
 
   const notes = []
   if (main && answer.intent.mustHave.length) {
@@ -331,7 +382,7 @@ function Answer({ answer }) {
       {main ? (
         <>
           <MainCard result={main} eyebrow={named ? 'The product you asked for' : 'Best pick for what you described'} />
-          {named && choice && pick && <ChoicePanel choice={choice} pick={pick} exact={main} />}
+          {(named || choice?.kind === 'other_store') && choice && pick && <ChoicePanel choice={choice} pick={pick} exact={main} />}
           {notes.length > 0 && (
             <ul className="agent-notes">
               {notes.map((n) => (
@@ -339,6 +390,7 @@ function Answer({ answer }) {
               ))}
             </ul>
           )}
+          <CompareStores daraz={main} cartup={answer.cartup} />
           <VoucherChecks checks={main.vouchers} />
         </>
       ) : (
@@ -446,7 +498,7 @@ export default function AskAgent({ stats }) {
   return (
     <section className="ask" id="ask">
       <div className="ask-head">
-        <p className="eyebrow">Shopping agent · Daraz</p>
+        <p className="eyebrow">Shopping agent · Daraz + Cartup</p>
         <h1>
           Name it, or describe it.
           <br />
@@ -455,7 +507,8 @@ export default function AskAgent({ stats }) {
         <p className="ask-copy">
           Type a product's name and you get exactly that product first, with the best choice beneath it — or just the kind
           of thing ("monitor") and you get the best fit for your budget. Add what you need, in English or বাংলা. It
-          searches Daraz live, remembers the price it saw last time, and checks which public vouchers really fit.
+          searches Daraz live, compares the same product on Cartup, remembers the price it saw last time, and checks
+          which public vouchers really fit.
         </p>
       </div>
 

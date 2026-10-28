@@ -12,9 +12,11 @@
 import type { Intent, Listing } from './types.ts'
 
 const ACCESSORY_WORDS = new Set([
-  'case', 'cover', 'protector', 'glass', 'tempered', 'charger', 'cable', 'strap', 'holder',
+  // not 'glass': "track on glass" is a mouse feature; 'tempered' and 'protector' still catch screen glass
+  'case', 'cover', 'protector', 'tempered', 'charger', 'cable', 'strap', 'holder',
   'adapter', 'skin', 'pouch', 'sticker', 'mount', 'stand', 'lens', 'film', 'bumper',
   'pad', 'mousepad', 'mat', // "Mouse" + "silk" put a silk-surface mouse pad first
+  'housing', 'chassis', 'shell', 'replacement', 'spare', // parts: Cartup's "Samsung Galaxy A36" hits were housings and buttons
 ])
 const PRICE_FLOOR_RATIO = 0.3
 const OVERSEAS_PENALTY = 0.35
@@ -27,7 +29,7 @@ export const QUANTITY_RE = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gram|grams|l|ltr|litre|li
 const UNIT_ALIASES: Record<string, string> = { gm: 'g', gram: 'g', grams: 'g', ltr: 'l', litre: 'l', liter: 'l', pc: 'pcs' }
 
 export const tokens = (text: string): string[] => text.toLowerCase().match(/[a-z0-9]+/g) ?? []
-const compact = (text: string) => tokens(text).join('')
+export const compact = (text: string) => tokens(text).join('')
 
 /** {"5kg"} from "Miniket Rice 5 KG" — normalized so spacing/case/alias don't matter. */
 export function quantities(text: string): Set<string> {
@@ -43,6 +45,22 @@ export function quantities(text: string): Set<string> {
 const SPEC_RE = /^\d+(?:gb|tb|mb|mah|hz|w|mp|inch|in|v|k|keys?|m|cm|mm|ft)$/
 const SPEC_WORDS = new Set(['gb', 'tb', 'mb', 'mah', 'hz', 'w', 'mp', 'inch', 'key', 'keys', 'pcs', 'pc', 'months', 'month', 'years', 'year'])
 const VARIANT_WORDS = new Set(['pro', 'plus', 'max', 'ultra', 'lite', 'mini', 'fe', 'neo', 'edge', 'prime'])
+/**
+ * "plus pro" from "Redmi Note 14 Pro Plus": the words that make it a different
+ * model — only right after the model code (within 3 words), so "Ultra-fast
+ * scrolling" deep in a mouse's title isn't an "Ultra" model. With no code,
+ * only the first 6 words count.
+ */
+export function variantsOf(text: string, main?: string): string {
+  const ts = tokens(text)
+  return ts
+    .filter((t, i) => VARIANT_WORDS.has(t) && (main ? ts.slice(Math.max(0, i - 3), i).join('').includes(main) : i < 6))
+    .sort()
+    .join(' ')
+}
+
+/** The most specific model code in a title (the longest), if it has one. */
+export const mainModel = (text: string): string | undefined => modelTokens(tokens(text)).sort((a, b) => b.length - a.length)[0]
 const GLUE_STOPWORDS =new Set(['for', 'with', 'under', 'than', 'of', 'and', 'the', 'to', 'in', 'on', 'at'])
 
 /**
@@ -69,6 +87,21 @@ export function modelTokens(queryTokens: string[]): string[] {
     }
   })
   return found
+}
+
+/**
+ * A short typed name with a model code: every word but the first (usually the
+ * brand, often left out of titles) has to be in the title. A short code
+ * can't identify a product alone — "3S" is in both the MX Master 3S and the
+ * MX Anywhere 3S. Long names (pasted listing titles) aren't held to this:
+ * sellers word those differently.
+ */
+export function namesAllOf(title: string, name: string): boolean {
+  const want = tokens(name).filter((t) => !['for', 'with', 'and', 'the', 'of'].includes(t))
+  if (want.length > 5) return true
+  const have = new Set(tokens(title))
+  const c = compact(title)
+  return want.slice(1).every((w) => have.has(w) || (w.length > 2 && c.includes(w)))
 }
 
 /** A seller a shopper can reasonably buy from: Daraz Mall, or rated 4+ from at least 5 reviews. */
@@ -127,7 +160,7 @@ export function storageOf(name: string): number | null {
   return sizes.length ? Math.max(...sizes) : null
 }
 
-function isAccessory(listing: Listing, queryTokens: string[]): boolean {
+export function isAccessory(listing: Listing, queryTokens: string[]): boolean {
   if (queryTokens.some((t) => ACCESSORY_WORDS.has(t))) return false
   return tokens(listing.name).some((t) => ACCESSORY_WORDS.has(t))
 }
@@ -212,12 +245,12 @@ export function rank(listings: Listing[], intent: Intent, limit = 6, extra: List
   const wanted = quantities(intent.searchQuery)
   let same = candidates
   // A named model must be in the title: "kl69" never matches a KL68, "a36" never an A56.
-  if (models.length) same = same.filter((l) => models.every((m) => compact(l.name).includes(m)))
+  if (models.length) same = same.filter((l) => models.every((m) => compact(l.name).includes(m)) && namesAllOf(l.name, intent.searchQuery))
   // Variant words name a different model: "Redmi Note 14" is not the Note 14
   // Pro Plus, "iPhone 15" is not the 15 Pro Max. They must match both ways.
-  const variants = (ts: string[]) => ts.filter((t) => VARIANT_WORDS.has(t)).sort().join(' ')
-  const wantedVariants = variants(queryTokens)
-  same = same.filter((l) => variants(tokens(l.name)) === wantedVariants)
+  const main = mainModel(intent.searchQuery)
+  const wantedVariants = variantsOf(intent.searchQuery, main)
+  same = same.filter((l) => variantsOf(l.name, main) === wantedVariants)
   // A different stated size is a different product; no stated size is kept.
   if (wanted.size) same = same.filter((l) => !quantities(l.name).size || [...quantities(l.name)].some((x) => wanted.has(x)))
   if (!models.length && same.length) {

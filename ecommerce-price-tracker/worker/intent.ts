@@ -43,7 +43,9 @@ const MIN_HINTS = /above|over|more than|at least|min|উপরে/i
 /** Every amount mentioned, with "25k" / "25 হাজার" expanded. */
 export function queryNumbers(text: string): Set<number> {
   const found = new Set<number>()
-  for (const [, value, suffix] of normalize(text).matchAll(/(\d+(?:[.,]\d+)*)\s*(k\b|thousand|hajar|হাজার)?/gi)) {
+  // Standalone numbers only: the 1000 in "WH-1000XM5", the 8 in "8gb" or the
+  // 36 in "A36" are part of a name ("sony wh-1000xm5" got a ৳1,000 budget).
+  for (const [, value, suffix] of normalize(text).matchAll(/(?<![a-z\d.])(\d+(?:[.,]\d+)*)(?:\s*(k|thousand|hajar|হাজার))?(?![a-z\d])/gi)) {
     let amount = Number(value.replace(/,/g, ''))
     if (!Number.isFinite(amount)) continue
     if (suffix) amount *= 1000
@@ -59,8 +61,12 @@ export const groundedPrice = (value: unknown, numbers: Set<number>): number | nu
 
 export const cleanSearchQuery = (q: string) => normalize(q).replace(PRICE_WORDS_RE, ' ').replace(/\s+/g, ' ').trim()
 
-/** No-LLM fallback: budget from regex, everything else is the raw text. */
-export function parseRules(query: string): Intent {
+/**
+ * No-LLM fallback: budget from regex, everything else is the raw text.
+ * `needsBox`: a lone amount ("30k") is a budget only in the "what do you
+ * need" box — in a product name it's part of the name.
+ */
+export function parseRules(query: string, needsBox = false): Intent {
   const text = normalize(query)
   const numbers = [...queryNumbers(text)].filter((n) => n >= 100).sort((a, b) => a - b)
   let minPrice: number | null = null
@@ -70,7 +76,7 @@ export function parseRules(query: string): Intent {
   else if (numbers.length && MIN_HINTS.test(text)) minPrice = numbers[0]
   // A lone price-sized amount with no "under"/"above" ("30k" in the needs box) is a budget.
   // Not 2K/4K/8K next to a screen word, though: "2k monitor" is a resolution.
-  else if (numbers.length === 1 && numbers[0] >= 1000 && !RESOLUTION_RE.test(text)) maxPrice = numbers[0]
+  else if (needsBox && numbers.length === 1 && numbers[0] >= 1000 && !RESOLUTION_RE.test(text)) maxPrice = numbers[0]
   return {
     rawQuery: query,
     mode: minPrice !== null || maxPrice !== null ? 'need' : 'product',
@@ -114,7 +120,7 @@ const isQuantity = (s: string) => new RegExp(`^${QUANTITY_RE.source}$`, 'i').tes
  */
 export async function parseIntent(query: string, env: Env, context = ''): Promise<Intent> {
   query = query.trim()
-  if (!env.AI) return parseRules(query)
+  if (!env.AI) return parseRules(query, true)
   let data: Record<string, unknown> | null = null
   try {
     const result = await env.AI.run(MODEL, {
@@ -130,7 +136,7 @@ export async function parseIntent(query: string, env: Env, context = ''): Promis
   } catch {
     data = null // daily free allocation used up, or AI unavailable
   }
-  if (!data) return parseRules(query)
+  if (!data) return parseRules(query, true)
 
   const numbers = queryNumbers(query)
   const brand = (data.brand as string) || null

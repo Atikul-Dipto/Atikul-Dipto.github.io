@@ -175,3 +175,24 @@
 .topbar nav a { display: flex; align-items: center; gap: 5px; }
 .topbar nav b { margin-left: 0; }
 .overseas { padding: 2px 6px; color: #15191d; background: #c9b8ff; border-radius: 3px; font: 700 9px "DM Mono", monospace; text-transform: uppercase; }
+
+/* Daraz vs Cartup for the same product. */
+.compare-stores { margin-top: 14px; padding: 14px 18px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.compare-stores h4 { margin: 0 0 8px; color: var(--muted); font: 10px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .1em; font-weight: 400; }
+.compare-stores ul { list-style: none; margin: 0; padding: 0; }
+.compare-stores li { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.compare-stores li:first-child { border-top: 0; }
+.compare-stores li.cheapest .compare-price strong { color: var(--green); }
+.store-tag { justify-self: start; padding: 2px 7px; color: #15191d; border-radius: 3px; font: 700 10px 'DM Mono', monospace; }
+.store-tag.daraz { background: #ffb347; }
+.store-tag.cartup { background: #f2dc71; }
+.compare-name { min-width: 0; display: grid; gap: 2px; font-size: 13px; }
+.compare-name:hover { color: var(--orange); }
+.compare-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 10px 'DM Mono', monospace; }
+.compare-price { display: grid; justify-items: end; gap: 2px; }
+.compare-price strong { font-size: 16px; }
+.compare-price small { color: var(--muted); font: 10px 'DM Mono', monospace; }
+.compare-price small.up { color: #ff9d9d; }
+.compare-price b { color: var(--green); font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.compare-note { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+@media (max-width: 760px) { .compare-stores li { grid-template-columns: 1fr auto; } .store-tag { grid-column: 1 / -1; } }

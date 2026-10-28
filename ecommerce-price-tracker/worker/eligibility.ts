@@ -83,7 +83,8 @@ export function check(v: Voucher, listing: Listing, today: string): VoucherCheck
 
 export function checkAll(vouchers: Voucher[], listing: Listing, today: string): VoucherCheck[] {
   const order = { applies: 0, conditional: 1, not_applicable: 2 }
-  return vouchers.map((v) => check(v, listing, today)).sort((a, b) => order[a.status] - order[b.status] || b.saving - a.saving)
+  // A store's vouchers only ever apply to that store's listings (Daraz vouchers never to Cartup).
+  return vouchers.filter((v) => v.site === listing.site).map((v) => check(v, listing, today)).sort((a, b) => order[a.status] - order[b.status] || b.saving - a.saving)
 }
 
 /** Biggest saving among usable vouchers; an unconditional one wins a tie. */
