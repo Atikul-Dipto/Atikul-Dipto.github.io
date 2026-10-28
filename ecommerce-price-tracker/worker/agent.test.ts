@@ -252,3 +252,34 @@ test('a different storage size is not "the same product, cheaper"', () => {
   const { ranked } = rank(items, product('Xiaomi Redmi Note 14'))
   assert.equal(chooseBest(ranked.map(asResult), [], product('Xiaomi Redmi Note 14'))?.kind, 'exact')
 })
+
+test('monitor + 30k: monitors in stock here beat an overseas seller\'s portable screens', () => {
+  const intent: Intent = { ...product('monitor'), mode: 'need', maxPrice: 30000 }
+  const { ranked } = rank(
+    [
+      listing('ZSUS 15.6-Inch Portable Monitor Touchscreen', 19187, { rating: 5, reviews: 30, location: 'Overseas', seller: 'Buy More Save More Store' }),
+      listing('Dahua LM27-B221B 27 Inch Full HD 100Hz IPS Monitor', 17000, { rating: 4.6, reviews: 12, location: 'Dhaka' }),
+    ],
+    intent,
+  )
+  assert.equal(ranked[0].price, 17000)
+})
+
+test('"2k" in the needs is a resolution, matched however the title writes it', async () => {
+  const i = await buildIntent('monitor', '2k monitor', {})
+  assert.deepEqual([i.maxPrice, i.refinedQuery], [null, '2k monitor'])
+  const want: Intent = { ...product('monitor'), mode: 'need', mustHave: ['2k resolution'] }
+  const { ranked } = rank([listing('Live Tech 17-Inch Square HD LED Monitor', 5550, { highlights: ['High resolution display'] }), listing('ThundeRobot 24.5 inch IPS 1440p 180Hz Monitor', 23900)], want)
+  assert.deepEqual(ranked.map((l) => [l.price, l.matchedFeatures]), [[23900, ['2k resolution']], [5550, []]])
+})
+
+test('a mouse pad is not a mouse', () => {
+  const { ranked } = rank([listing('FANTECH MP353 Gaming Mouse Pad Silk Surface', 870), listing('Attack Shark X11 Wireless Gaming Mouse', 3473)], { ...product('Mouse'), mode: 'need', maxPrice: 5000, mustHave: ['silk'] })
+  assert.deepEqual(ranked.map((l) => l.price), [3473])
+})
+
+test('rules fallback: "30k" is a budget, "2k monitor" is not', () => {
+  assert.equal(parseRules('30k').maxPrice, 30000)
+  assert.equal(parseRules('2k monitor').maxPrice, null)
+  assert.equal(parseRules('earbuds 2k').maxPrice, 2000)
+})

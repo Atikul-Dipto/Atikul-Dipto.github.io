@@ -174,3 +174,4 @@
 /* Nav counts sit beside their label, not under it. */
 .topbar nav a { display: flex; align-items: center; gap: 5px; }
 .topbar nav b { margin-left: 0; }
+.overseas { padding: 2px 6px; color: #15191d; background: #c9b8ff; border-radius: 3px; font: 700 9px "DM Mono", monospace; text-transform: uppercase; }

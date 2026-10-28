@@ -36,7 +36,8 @@ export const normalize = (text: string) => text.replace(/[০-৯]/g, (d) => Str
 // "50 thousand" and "২০ হাজার".
 const PRICE_WORDS_RE =
   /\b(?:under|below|less than|within|upto|up to|budget|around|max)\s*৳?\s*\d[\d,]*(?:\.\d+)?\s*k?\b|\b(under|below|less than|within|upto|up to|budget|between|tk|taka|bdt)\b|৳|টাকা|\b\d+(?:\.\d+)?\s*(?:k|thousand|hajar)\b|\d+\s*হাজার|\b\d{1,3}(?:,\d{3})+\b|\b\d{4,}\b/gi
-const MAX_HINTS = /under|below|less than|within|upto|up to|max|budget|মধ্যে|নিচে/i
+const RESOLUTION_RE = /\b[248]k\s+(?:monitor|tv|display|screen|resolution|video|camera)\b|\b(?:monitor|tv|display|screen|resolution|video|camera)\s+[248]k\b/i
+const MAX_HINTS =/under|below|less than|within|upto|up to|max|budget|মধ্যে|নিচে/i
 const MIN_HINTS = /above|over|more than|at least|min|উপরে/i
 
 /** Every amount mentioned, with "25k" / "25 হাজার" expanded. */
@@ -68,7 +69,8 @@ export function parseRules(query: string): Intent {
   else if (numbers.length && MAX_HINTS.test(text)) maxPrice = numbers[numbers.length - 1]
   else if (numbers.length && MIN_HINTS.test(text)) minPrice = numbers[0]
   // A lone price-sized amount with no "under"/"above" ("30k" in the needs box) is a budget.
-  else if (numbers.length === 1 && numbers[0] >= 1000) maxPrice = numbers[0]
+  // Not 2K/4K/8K next to a screen word, though: "2k monitor" is a resolution.
+  else if (numbers.length === 1 && numbers[0] >= 1000 && !RESOLUTION_RE.test(text)) maxPrice = numbers[0]
   return {
     rawQuery: query,
     mode: minPrice !== null || maxPrice !== null ? 'need' : 'product',
@@ -230,7 +232,7 @@ export function describeQuery(name: string): string | null {
  */
 // Words in the needs box that don't describe the item, and units that only
 // mean something next to a number.
-const DETAIL_STOPWORDS = new Set(['and', 'with', 'for', 'the', 'want', 'need', 'needs', 'looking', 'should', 'must', 'have', 'has', 'any', 'some', 'please', 'very', 'more', 'less', 'than', 'around', 'about', 'only', 'also', 'not', 'but', 'that', 'this', 'from', 'like', 'buy', 'my'])
+const DETAIL_STOPWORDS = new Set(['and', 'with', 'for', 'the', 'want', 'need', 'needs', 'looking', 'should', 'must', 'have', 'has', 'any', 'some', 'please', 'very', 'more', 'less', 'than', 'around', 'about', 'only', 'also', 'not', 'but', 'that', 'this', 'from', 'like', 'buy', 'my', 'under', 'within', 'below', 'budget', 'upto', 'tk', 'taka', 'bdt'])
 const UNIT_ONLY = new Set(['inch', 'in', 'hz', 'gb', 'tb', 'mah'])
 
 export function namesAProduct(name: string): boolean {
@@ -257,13 +259,15 @@ export async function buildIntent(name: string, details: string, env: Env): Prom
   if (!named && wish) {
     const own = details.toLowerCase()
     const have = new Set(tokens(name))
-    const typed = tokens(cleanSearchQuery(details))
+    // Price-like words are only stripped when a budget was actually found:
+    // "2k monitor" is a resolution, and stripping it as ৳2,000 lost it.
+    const typed = tokens(wish.maxPrice !== null || wish.minPrice !== null ? cleanSearchQuery(details) : normalize(details))
     // Their own describing words first — the model doesn't always pass them on
     // ("formal" went missing) — with a number only next to its unit ("27 inch");
     // then the model's words, if they're in the text too.
     const fromText = typed.filter((w, i) => (/^\d+$/.test(w) ? UNIT_ONLY.has(typed[i + 1] ?? '') : !DETAIL_STOPWORDS.has(w)))
     const fromModel = [...tokens(wish.productType ?? ''), ...mustHave.flatMap((f) => tokens(f))].filter((w) => new RegExp(`\\b${w}\\b`).test(own))
-    const words = [...new Set([...fromText, ...fromModel])].filter((w) => (w.length > 2 || /^\d+$/.test(w)) && !have.has(w) && !FEATURE_FILLER.has(w))
+    const words = [...new Set([...fromText, ...fromModel])].filter((w) => (w.length > 2 || /\d/.test(w)) && !have.has(w) && !FEATURE_FILLER.has(w))
     if (words.length) {
       const picked = words.slice(0, 3)
       refinedQuery = `${picked.join(' ')} ${searchQuery}`

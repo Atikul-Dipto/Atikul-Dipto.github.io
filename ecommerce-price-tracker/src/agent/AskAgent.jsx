@@ -166,6 +166,7 @@ function Seller({ listing }) {
     <p className="seller">
       {listing.seller}
       {listing.officialStore && <b className="mall">Daraz Mall</b>}
+      {listing.location === 'Overseas' && <b className="overseas">Ships from overseas</b>}
       {listing.rating ? (
         <span>
           ★ {listing.rating.toFixed(1)} ({listing.reviews})
@@ -283,6 +284,7 @@ function ListingRows({ title, results }) {
               <span className="other-seller">
                 {r.listing.seller}
                 {r.listing.officialStore && ' · Daraz Mall'}
+                {r.listing.location === 'Overseas' && ' · ships from overseas'}
                 {r.listing.rating ? ` · ★ ${r.listing.rating.toFixed(1)} (${r.listing.reviews})` : ' · no ratings yet'}
               </span>
             </a>

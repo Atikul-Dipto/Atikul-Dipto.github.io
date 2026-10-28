@@ -14,10 +14,15 @@ import type { Intent, Listing } from './types.ts'
 const ACCESSORY_WORDS = new Set([
   'case', 'cover', 'protector', 'glass', 'tempered', 'charger', 'cable', 'strap', 'holder',
   'adapter', 'skin', 'pouch', 'sticker', 'mount', 'stand', 'lens', 'film', 'bumper',
+  'pad', 'mousepad', 'mat', // "Mouse" + "silk" put a silk-surface mouse pad first
 ])
 const PRICE_FLOOR_RATIO = 0.3
+const OVERSEAS_PENALTY = 0.35
+export const isOverseas = (l: Listing) => l.location.toLowerCase() === 'overseas'
 // "good camera" is checked as "camera".
-export const FEATURE_FILLER = new Set(['good', 'great', 'best', 'nice', 'long', 'big', 'high', 'strong', 'fast', 'excellent', 'better', 'quality'])
+// Words that qualify or name a spec rather than state it: "good camera" is checked as
+// "camera", "2k resolution" as "2k", "144hz refresh rate" as "144hz".
+export const FEATURE_FILLER = new Set(['good', 'great', 'best', 'nice', 'long', 'big', 'high', 'strong', 'fast', 'excellent', 'better', 'quality', 'resolution', 'refresh', 'rate'])
 export const QUANTITY_RE = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gram|grams|l|ltr|litre|liter|ml|pcs|pc|pack)\b/gi
 const UNIT_ALIASES: Record<string, string> = { gm: 'g', gram: 'g', grams: 'g', ltr: 'l', litre: 'l', liter: 'l', pc: 'pcs' }
 
@@ -82,7 +87,17 @@ export const bayesianRating = (rating: number | null, reviews: number, prior = 4
 
 // Numbers are kept: "27 inch" has to mean 27 (it used to drop the "27" as too
 // short, and every monitor with "inch" in its title matched).
-const featureKeywords = (feature: string) => tokens(feature).filter((t) => !FEATURE_FILLER.has(t) && (t.length > 2 || /^\d+$/.test(t)))
+const featureKeywords = (feature: string) => tokens(feature).filter((t) => !FEATURE_FILLER.has(t) && (t.length > 2 || /\d/.test(t)))
+// The same spec written different ways in listing titles.
+const SPEC_SYNONYMS: Record<string, string[]> = {
+  '2k': ['2k', '1440p', 'qhd', 'wqhd', '2560'],
+  '1440p': ['1440p', '2k', 'qhd', 'wqhd', '2560'],
+  qhd: ['qhd', 'wqhd', '1440p', '2k', '2560'],
+  '4k': ['4k', '2160p', 'uhd', '3840'],
+  uhd: ['uhd', '4k', '2160p', '3840'],
+  fhd: ['fhd', '1080p', '1920'],
+  '1080p': ['1080p', 'fhd', '1920'],
+}
 // A unit right after a number is satisfied by the number in any notation: 27", 27-inch, 27 Inch.
 const UNIT_WORDS = new Set(['inch', 'in', 'hz', 'gb', 'tb', 'mah', 'mp', 'w', 'watt', 'kg', 'ml', 'ltr', 'litre'])
 
@@ -95,7 +110,7 @@ function matchFeatures(listing: Listing, mustHave: string[]): string[] {
       kw.every((k, i) => {
         if (/^\d+$/.test(k)) return new RegExp(`(^|[^\\d.])${k}(?![\\d.])`).test(haystack)
         if (UNIT_WORDS.has(k) && i > 0 && /^\d+$/.test(kw[i - 1])) return true
-        return haystack.includes(k)
+        return (SPEC_SYNONYMS[k] ?? [k]).some((v) => haystack.includes(v))
       })
     )
   })
@@ -155,9 +170,13 @@ function scoreForNeed(candidates: Listing[], intent: Intent): Listing[] {
     // The pull toward the budget only counts as far as there's evidence the
     // listing is any good: "mouse, 30k" put unrated ৳28k mice from a
     // cross-border seller above ৳249 ones rated 4.7 by 138 buyers.
-    const evidence = l.officialStore ? 1 : Math.min(l.reviews / 10, 1)
-    // Unrated listings start below the usual prior, for the same reason.
-    const trust = l.reviews > 0 || l.officialStore ? trustScore(l) : trustScore(l) - 0.1
+    // Overseas listings (Daraz's cross-border "Choice" stock) count for half:
+    // 49 of 80 "monitor" listings under ৳30k were one overseas seller's portable
+    // screens, and they took every top spot from monitors in stock here.
+    const evidence = (l.officialStore ? 1 : Math.min(l.reviews / 10, 1)) * (isOverseas(l) ? 0.5 : 1)
+    // Unrated listings start below the usual prior, for the same reason; and
+    // shipping from abroad (slower, harder to return) costs a little more.
+    const trust = (l.reviews > 0 || l.officialStore ? trustScore(l) : trustScore(l) - 0.1) - (isOverseas(l) ? OVERSEAS_PENALTY : 0)
     l.relevance = Math.round((features * 1.5 + trust + budgetFit * 0.8 * evidence) * 1000) / 1000
   }
   return candidates.sort((a, b) => b.relevance - a.relevance || a.price - b.price)
