@@ -36,13 +36,16 @@ export function quantities(text: string): Set<string> {
   const found = new Set<string>()
   for (const [, amount, unit] of text.matchAll(QUANTITY_RE)) {
     const u = unit.toLowerCase()
+    if (u === 'g' && isNetworkGen(`${amount}g`)) continue
     found.add(`${parseFloat(amount)}${UNIT_ALIASES[u] ?? u}`)
   }
   return found
 }
 
 // Spec values, not model names: "8gb" and "5000mah" describe a phone, "61 keys" a keyboard.
-const SPEC_RE = /^\d+(?:gb|tb|mb|mah|hz|w|mp|inch|in|v|k|keys?|m|cm|mm|ft)$/
+/** "5G" on a phone is the network, not 5 grams ("best 5G phone" lost its 5G as a weight). */
+export const isNetworkGen = (t: string) => /^[3-6]g$/i.test(t.trim())
+const SPEC_RE = /^\d+(?:gb|tb|mb|mah|hz|w|mp|inch|in|v|k|keys?|m|cm|mm|ft|g)$/
 const SPEC_WORDS = new Set(['gb', 'tb', 'mb', 'mah', 'hz', 'w', 'mp', 'inch', 'key', 'keys', 'pcs', 'pc', 'months', 'month', 'years', 'year'])
 const VARIANT_WORDS = new Set(['pro', 'plus', 'max', 'ultra', 'lite', 'mini', 'fe', 'neo', 'edge', 'prime'])
 /**
@@ -104,8 +107,12 @@ export function namesAllOf(title: string, name: string): boolean {
   return want.slice(1).every((w) => have.has(w) || (w.length > 2 && c.includes(w)))
 }
 
-/** A seller a shopper can reasonably buy from: Daraz Mall, or rated 4+ from at least 5 reviews. */
-export const trusted = (l: Listing) => l.officialStore || ((l.rating ?? 0) >= 4 && l.reviews >= 5)
+/**
+ * A seller a shopper can reasonably buy from: Daraz Mall, a product rated 4+
+ * by at least 5 buyers, or (Cartup) a seller rated 90%+ positive — Cartup
+ * products rarely have reviews yet, but its sellers' ratings are shown.
+ */
+export const trusted = (l: Listing) => l.officialStore || ((l.rating ?? 0) >= 4 && l.reviews >= 5) || (l.sellerPositive ?? 0) >= TRUSTED_SELLER
 
 export function parseSold(sold: string): number {
   const m = /([\d.]+)\s*([kK])?/.exec(sold ?? '')
@@ -179,8 +186,13 @@ const median = (xs: number[]) => {
   return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
 }
 
+// A Cartup seller rated this positive counts like a Daraz Mall store in ranking:
+// Cartup products rarely have reviews yet, so the seller rating is the evidence there is.
+const TRUSTED_SELLER = 90
+
 function trustScore(l: Listing): number {
-  return bayesianRating(l.rating, l.reviews) / 5 + Math.min(Math.log10(parseSold(l.sold) + 1) / 4, 1) * 0.5 + (l.officialStore ? 0.3 : 0)
+  const vouched = l.officialStore || (l.sellerPositive ?? 0) >= TRUSTED_SELLER
+  return bayesianRating(l.rating, l.reviews) / 5 + Math.min(Math.log10(parseSold(l.sold) + 1) / 4, 1) * 0.5 + (vouched ? 0.3 : 0)
 }
 
 /** Drop listings far below a reference price; returns the survivors and how many went. */
@@ -206,10 +218,11 @@ function scoreForNeed(candidates: Listing[], intent: Intent): Listing[] {
     // Overseas listings (Daraz's cross-border "Choice" stock) count for half:
     // 49 of 80 "monitor" listings under ৳30k were one overseas seller's portable
     // screens, and they took every top spot from monitors in stock here.
-    const evidence = (l.officialStore ? 1 : Math.min(l.reviews / 10, 1)) * (isOverseas(l) ? 0.5 : 1)
+    const vouched = l.officialStore || (l.sellerPositive ?? 0) >= TRUSTED_SELLER
+    const evidence = (vouched ? 1 : Math.min(l.reviews / 10, 1)) * (isOverseas(l) ? 0.5 : 1)
     // Unrated listings start below the usual prior, for the same reason; and
     // shipping from abroad (slower, harder to return) costs a little more.
-    const trust = (l.reviews > 0 || l.officialStore ? trustScore(l) : trustScore(l) - 0.1) - (isOverseas(l) ? OVERSEAS_PENALTY : 0)
+    const trust = (l.reviews > 0 || vouched ? trustScore(l) : trustScore(l) - 0.1) - (isOverseas(l) ? OVERSEAS_PENALTY : 0)
     l.relevance = Math.round((features * 1.5 + trust + budgetFit * 0.8 * evidence) * 1000) / 1000
   }
   return candidates.sort((a, b) => b.relevance - a.relevance || a.price - b.price)

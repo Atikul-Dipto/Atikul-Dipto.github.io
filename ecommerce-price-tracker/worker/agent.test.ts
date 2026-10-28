@@ -4,8 +4,8 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { cheaperElsewhere, chooseBest, type Result, sameOnCartup, summarize } from './agent.ts'
-import { decodeIds, fnv1a, parseProductPage, requiredWords } from './cartup.ts'
+import { cheaperElsewhere, chooseBest, type Result, sameProduct, standing, summarize } from './agent.ts'
+import { decodeIds, fnv1a, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
 import { modelTokens, quantities, rank, storageOf, tokens, variantsOf } from './ranking.ts'
@@ -295,24 +295,51 @@ test('Cartup index: hashing and id encoding match the Python builder', () => {
   assert.deepEqual(requiredWords(tokens('Jedel KL69 61 Keys RGB Mechanical Keyboard')), ['kl69'])
 })
 
-test('Cartup product page: live price, stock, seller and rating from its schema.org data', () => {
+test('Cartup product page: price and stock from schema.org, reviews and seller rating from what the page shows', () => {
+  // The schema.org block claims 4.9 from 1,375 ratings; the page shows 1 review. The page wins.
   const html = `<html><script type="application/ld+json">{"@context":"https://schema.org","@type":"BreadcrumbList","itemListElement":[]}</script>
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Chair Wheel 5Pc","image":["https://imrs.cartup.com/x.webp"],"brand":{"@type":"Brand","name":"Furniture Finds"},"offers":{"@type":"Offer","price":614,"priceCurrency":"BDT","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"Furniture Finds"}},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":1375,"bestRating":5}}</script></html>`
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Chair Wheel 5Pc","image":["https://imrs.cartup.com/x.webp"],"brand":{"@type":"Brand","name":"Furniture Finds"},"offers":{"@type":"Offer","price":614,"priceCurrency":"BDT","availability":"https://schema.org/InStock","seller":{"@type":"Organization","name":"Furniture Finds"}},"aggregateRating":{"@type":"AggregateRating","ratingValue":"4.9","ratingCount":1375,"bestRating":5}}</script>
+  <body><h1>Chair Wheel 5Pc</h1><span>5.0</span> <span>(<!-- -->1<!-- --> reviews)</span> <b>35 %</b> <del>৳950</del> <strong>৳614</strong>
+  <p>Furniture Finds <span>88</span> % positive seller rating</p></body></html>`
   const l = parseProductPage(html, 'chair_wheel_5pc_166570935804140_oi44h8')!
   assert.deepEqual(
-    [l.site, l.itemId, l.price, l.inStock, l.seller, l.rating, l.reviews, l.url],
-    ['cartup', 'cartup:166570935804140', 614, true, 'Furniture Finds', 4.9, 1375, 'https://www.cartup.com/product/chair_wheel_5pc_166570935804140_oi44h8'],
+    [l.site, l.itemId, l.price, l.inStock, l.seller, l.rating, l.reviews, l.originalPrice, l.discountPercent, l.sellerPositive],
+    ['cartup', 'cartup:166570935804140', 614, true, 'Furniture Finds', 5, 1, 950, 35, 88],
   )
+  const noReviews = parseProductPage(html.replace('(<!-- -->1<!-- --> reviews)', '(<!-- -->0<!-- --> reviews)').replace('<span>5.0</span>', '<span>0.0</span>'), 'x_123456789012_ab')!
+  assert.deepEqual([noReviews.rating, noReviews.reviews], [null, 0])
+})
+
+test('Cartup category page: its 20 listings, without the unreal ratings', () => {
+  const html = `<script type="application/ld+json">{"@type":"ItemList","itemListElement":[{"@type":"ListItem","position":1,"item":{"@type":"Product","name":"Rin Liquid Detergent 800ml","url":"https://cartup.com/product/rin_liquid_detergent_800ml_123456789012_ab12","offers":{"price":177,"availability":"https://schema.org/InStock"},"aggregateRating":{"ratingValue":"4.8","ratingCount":1300}}},{"@type":"ListItem","position":2,"item":{"@type":"Product","name":"Mr. White Detergent Powder 500g","url":"https://cartup.com/product/mr_white_500g_223456789012_cd34","offers":{"price":60,"availability":"https://schema.org/OutOfStock"}}}]}</script>`
+  const ls = parseCategoryPage(html)
+  assert.deepEqual(ls.map((l) => [l.name, l.price, l.inStock, l.rating, l.reviews]), [['Rin Liquid Detergent 800ml', 177, true, null, 0], ['Mr. White Detergent Powder 500g', 60, false, null, 0]])
+})
+
+test('Cartup categories for a kind of item', () => {
+  const all = ['baby_detergent', 'detergent', 'mice', 'mousepads', 'monitors_449', 'monitors_499', 'blood_pressure_monitors', 'used_monitors', 'formal_shirts', 'casual_shirts']
+  assert.deepEqual(pickCategories(['detergent'], all), ['detergent'])
+  assert.deepEqual(pickCategories(['monitor'], all), ['monitors_449', 'monitors_499'])
+  assert.deepEqual(pickCategories(['mouse'], all), ['mice'])
+  assert.deepEqual(pickCategories(['formal Shirt', 'Shirt'], all), ['formal_shirts'])
+  assert.deepEqual(pickCategories(['smartphone'], all), [])
+})
+
+test('a Cartup seller rated 90%+ positive counts as trusted, said in those words', () => {
+  const l = listing('Pran Miniket Rice 5kg', 445, { site: 'cartup', rating: null, reviews: 0, sellerPositive: 96 })
+  assert.equal(standing(l), 'seller rated 96% positive')
+  const r = cheaperElsewhere(asResult(listing('Special Miniket Rice 5Kg', 490)), [asResult(l)])
+  assert.match(r!.reason, /on Cartup, ৳45 less than on Daraz \(seller rated 96% positive\)/)
 })
 
 const onCartup = (name: string, price: number, extra: Partial<Listing> = {}) => listing(name, price, { site: 'cartup', ...extra })
 
 test('the same product on Cartup: same model, not a lookalike', () => {
   const found = [onCartup('Jedel KL69 RGB Mechanical Keyboard 61 Keys', 1450, { rating: 4.7, reviews: 20 }), onCartup('Jedel KL68 61 Keys Mechanical Keyboard', 1990)]
-  assert.deepEqual(sameOnCartup(found, KL69).map((l) => l.price), [1450])
+  assert.deepEqual(sameProduct(found, KL69).map((l) => l.price), [1450])
   // a Daraz pick's long title still finds Cartup's shorter name for the same item
   const dahua = [onCartup('Dahua LM27-B221B 27 Inch IPS Monitor', 16500, { rating: 4.5, reviews: 8 }), onCartup('Dahua LM24-B201S 24 Inch Monitor', 13000)]
-  assert.deepEqual(sameOnCartup(dahua, 'Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor').map((l) => l.price), [16500])
+  assert.deepEqual(sameProduct(dahua, 'Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor').map((l) => l.price), [16500])
 })
 
 test('best choice can be the same product on Cartup, by the same rules as another Daraz seller', () => {
@@ -331,14 +358,14 @@ test('Daraz vouchers never apply to Cartup listings', () => {
 })
 
 test('Cartup matching: parts aren\'t the phone, a different rice isn\'t "miniket rice 5kg"', () => {
-  assert.deepEqual(sameOnCartup([onCartup('Samsung Galaxy A36 Full Body Housing Middle Frame Chassis', 1236)], 'Samsung Galaxy A36'), [])
+  assert.deepEqual(sameProduct([onCartup('Samsung Galaxy A36 Full Body Housing Middle Frame Chassis', 1236)], 'Samsung Galaxy A36'), [])
   const rice = [onCartup('Pran Miniket Rice 5kg', 445), onCartup('Teer Shampakatari Nazirshail Rice - 5kg', 458)]
-  assert.deepEqual(sameOnCartup(rice, 'miniket rice 5kg').map((l) => l.price), [445])
+  assert.deepEqual(sameProduct(rice, 'miniket rice 5kg').map((l) => l.price), [445])
   // a different bottle size is a different product
-  assert.deepEqual(sameOnCartup([onCartup('Parachute Naturale Shampoo Damage Repair 160ml', 93)], 'Parachute Naturale Damage Repair Shampoo with Red Hibiscus 170ml'), [])
+  assert.deepEqual(sameProduct([onCartup('Parachute Naturale Shampoo Damage Repair 160ml', 93)], 'Parachute Naturale Damage Repair Shampoo with Red Hibiscus 170ml'), [])
   // "track on glass" is a mouse feature, not a screen protector
   const mx = [onCartup('Logitech MX Master 3S - Wireless Performance Mouse with Ultra-fast Scrolling, Track on Glass', 14500)]
-  assert.equal(sameOnCartup(mx, 'MX MASTER 3S High-performance Wireless Mouse').length, 1)
+  assert.equal(sameProduct(mx, 'MX MASTER 3S High-performance Wireless Mouse').length, 1)
 })
 
 test('variant words count right after the model code, not deep in a description', () => {
@@ -350,7 +377,7 @@ test('variant words count right after the model code, not deep in a description'
 test('"Logitech MX Master 3S" is not the MX Anywhere 3S, on either store', () => {
   const daraz = [listing('Logitech MX Master 3S with Free Adobe Subscription Wireless Mouse', 11999, { officialStore: true }), listing('Logitech MX Anywhere 3S Compact Wireless Mouse', 8275, { officialStore: true })]
   assert.deepEqual(rank(daraz, product('Logitech MX Master 3S')).ranked.map((l) => l.price), [11999])
-  assert.deepEqual(sameOnCartup([onCartup('Buy Logitech MX Anywhere 3S & Get Backpack', 8580)], 'Logitech MX Master 3S'), [])
+  assert.deepEqual(sameProduct([onCartup('Buy Logitech MX Anywhere 3S & Get Backpack', 8580)], 'Logitech MX Master 3S'), [])
 })
 
 test('a kind-of-item pick that is cheaper on Cartup becomes the best choice', () => {
@@ -364,4 +391,26 @@ test('a product name with a number in its code gets no budget', async () => {
   assert.equal((await buildIntent('sony wh-1000xm5', '', {})).maxPrice, null)
   assert.equal((await buildIntent('Walton 1.5 ton AC', '', {})).maxPrice, null)
   assert.equal((await buildIntent('monitor', '30k', {})).maxPrice, 30000)
+})
+
+test('best offer: cheapest from a trusted seller across both stores, compared with the best on the other', () => {
+  // Today's closest-titled KL69 listing was an unrated ৳2,500 one; the comparison must not be against it.
+  const daraz = [listing('Jedel Kl 69 keys 61 Rgb Mechanical keyboard', 2500, { rating: null, reviews: 0 }), listing('Jedel KL69 OEM Mechanical 61 Keys Keyboard', 1428, { officialStore: true }), listing('Jedel KL69 OEM 61 Keys Keyboard', 1300, { rating: null, reviews: 0 })].map(asResult)
+  const cartupOffers = [asResult(onCartup('Jedel KL69 OEM White Black RGB Mechanical Gaming Keyboard', 1565, { rating: null, reviews: 0, sellerPositive: 93 }))]
+  const c = chooseBest(daraz, [], product(KL69), cartupOffers)!
+  assert.deepEqual([c.kind, c.index], ['same', 1])
+  assert.match(c.reason, /Daraz \(Daraz Mall\), ৳137 less than the best on Cartup\. 1 cheaper listing from sellers without ratings is in All offers\./)
+})
+
+test('"best 5G phone under ৳30,000": 5G is the network; no accessory or look-alike category for phones', async () => {
+  assert.deepEqual([...quantities('Samsung Galaxy A36 5G 8/128GB')], [])
+  assert.deepEqual([...quantities('Sugar 500g')], ['500g'])
+  const ai = { AI: { run: async () => ({ response: { search_query: 'smartphone', brand: null, min_price: null, max_price: 30000, must_have: ['5G'], product_type: 'smartphone' } }) } }
+  const i = await buildIntent('', 'best 5G phone under 30000', ai)
+  assert.deepEqual([i.mode, i.maxPrice, i.mustHave], ['need', 30000, ['5G']])
+  // Cartup's "mobiles" is crib toys and it barely sells phones: no category beats a wrong one.
+  const all = ['smartphone_lenses', 'feature_phones', 'mobiles_158', 'phone_cases', 'mobile_accessories']
+  assert.deepEqual(pickCategories(['smartphone'], all), [])
+  assert.deepEqual(pickCategories(['feature phone'], all), ['feature_phones'])
+  assert.deepEqual(pickCategories(['phone case'], all), ['phone_cases'])
 })

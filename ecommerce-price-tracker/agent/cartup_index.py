@@ -45,6 +45,7 @@ from .d1 import PROJECT, execute
 
 DATA = PROJECT / "data" / "cartup"
 SITEMAP_INDEX = "https://www.cartup.com/sitemap-product-all.xml.gz"
+CATEGORY_INDEX = "https://www.cartup.com/sitemap-category-all.xml.gz"
 UA = "Mozilla/5.0 (compatible; PricePulseIndexer/1.0; +https://atikul-dipto.github.io/price-pulse/)"
 
 DOC_BLOCK = 64
@@ -227,6 +228,31 @@ def upload(stmts: list[str], chunk_chars: int = 8_000_000) -> int:
     return len(batches)
 
 
+def categories() -> list[str]:
+    """Cartup's category slugs ("detergent", "monitors_499", "mice"), from its category sitemap."""
+    index = requests.get(CATEGORY_INDEX, headers={"User-Agent": UA}, timeout=60).text
+    slugs: list[str] = []
+    for url in re.findall(r"<loc>([^<]+)</loc>", index):
+        xml = requests.get(url, headers={"User-Agent": UA}, timeout=60).text
+        slugs += re.findall(r"/category/([^<\s/?#]+)</loc>", xml)
+        time.sleep(1)
+    return sorted(set(slugs))
+
+
+def category_statements(slugs: list[str]) -> list[str]:
+    """The category list as meta rows ('categories:0', ...), each under D1's statement limit."""
+    rows, current = [], []
+    for slug in slugs:
+        current.append(slug)
+        if len(json.dumps(current)) > MAX_ROW_CHARS:
+            rows.append(current[:-1])
+            current = [slug]
+    rows.append(current)
+    return ["DELETE FROM cartup_meta WHERE key LIKE 'categories:%';"] + [
+        f"INSERT INTO cartup_meta (key, value) VALUES ('categories:{i}', {_q(json.dumps(r, separators=(',', ':')))});" for i, r in enumerate(rows)
+    ]
+
+
 def run(push: bool = True) -> dict:
     t0 = time.time()
     paths = download()
@@ -244,7 +270,10 @@ def run(push: bool = True) -> dict:
         "sql_mb": round(sum(map(len, stmts)) / 1e6, 1),
         "longest_statement": longest,
     }
+    cats = categories()
+    stats["categories"] = len(cats)
     if push:
         stats["uploads"] = upload(stmts)
+        execute("\n".join(category_statements(cats)))
     stats["seconds"] = round(time.time() - t0)
     return stats

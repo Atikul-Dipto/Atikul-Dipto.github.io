@@ -196,3 +196,14 @@
 .compare-price b { color: var(--green); font: 10px 'DM Mono', monospace; text-transform: uppercase; }
 .compare-note { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 @media (max-width: 760px) { .compare-stores li { grid-template-columns: 1fr auto; } .store-tag { grid-column: 1 / -1; } }
+
+/* Store-neutral answer: which store, why this offer, all offers on both. */
+.best-body .eyebrow { display: flex; align-items: center; gap: 8px; }
+.why { margin: 14px 0 0; color: #c9d0d7; font-size: 13px; line-height: 1.6; }
+.compare-stores li.shown .compare-name { color: var(--ink); font-weight: 600; }
+.others li > .store-tag { flex: none; }
+.others li { gap: 12px; }
+.others li > a { flex: 1; }
+.choice-main > strong { display: flex; align-items: center; gap: 8px; }
+.searched-where { margin: -6px 0 14px; color: #5d6873; font: 10px 'DM Mono', monospace; }
+.checked-at { color: #5d6873; text-transform: none; letter-spacing: 0; }

@@ -13,7 +13,7 @@
  * - "product" vs "need" is decided by rule, not by the model.
  */
 
-import { FEATURE_FILLER, modelTokens, quantities, QUANTITY_RE, tokens } from './ranking.ts'
+import { FEATURE_FILLER, isNetworkGen, modelTokens, quantities, QUANTITY_RE, tokens } from './ranking.ts'
 import type { Env, Intent } from './types.ts'
 
 export const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
@@ -110,7 +110,7 @@ export function restoreModelNumbers(query: string, searchQuery: string): string 
   return missing.length ? ' ' + missing.join(' ') : ''
 }
 
-const isQuantity = (s: string) => new RegExp(`^${QUANTITY_RE.source}$`, 'i').test(s.trim())
+const isQuantity = (s: string) => !isNetworkGen(s) && new RegExp(`^${QUANTITY_RE.source}$`, 'i').test(s.trim())
 
 /**
  * `context` is the product name from the other box, when there is one: it

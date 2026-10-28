@@ -157,46 +157,101 @@ export async function searchIndex(db: D1Database, title: string): Promise<{ slug
   return { slugs: [...byName.values()], meta }
 }
 
-/** One Cartup product page -> Listing, from its schema.org Product JSON-LD. */
-export function parseProductPage(html: string, slug: string): Listing | null {
+/**
+ * What a shopper actually sees on a Cartup product page, from its text:
+ * "0.0 ( 0 reviews) 19 % ৳19,350 ৳15,591" and "93 % positive seller rating".
+ *
+ * Not the page's schema.org aggregateRating: checked 2026-10-29, every product
+ * claims 4.6–5.0 from ~1,000–1,500 ratings there (a chair wheel "4.9 from
+ * 1,375") while the page itself shows "0 reviews". Those numbers are not
+ * buyer reviews and are never used.
+ */
+export function visibleFacts(html: string): { rating: number | null; reviews: number; originalPrice: number | null; sellerPositive: number | null } {
+  const text = html.replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  const r = /(\d(?:\.\d)?)\s*\(\s*(\d+)\s*reviews?\s*\)(?:\s*(\d+)\s*%\s*৳\s*([\d,]+)\s*৳\s*([\d,]+))?/.exec(text)
+  const seller = /(\d{1,3})\s*%\s*positive seller rating/i.exec(text)
+  const reviews = r ? Number(r[2]) : 0
+  return {
+    rating: reviews > 0 ? Number(r![1]) : null,
+    reviews,
+    originalPrice: r?.[4] ? Number(r[4].replace(/,/g, '')) : null,
+    sellerPositive: seller ? Number(seller[1]) : null,
+  }
+}
+
+type LdProduct = { name?: string; url?: string; sku?: string; image?: string[] | string; brand?: { name?: string }; category?: string; offers?: Record<string, unknown> | Record<string, unknown>[] }
+
+function toListing(data: LdProduct, slug: string): Listing | null {
+  const offers = (Array.isArray(data.offers) ? data.offers[0] : data.offers) as Record<string, unknown> | undefined
+  const price = Number(offers?.price)
+  if (!offers || !Number.isFinite(price) || price <= 0) return null
+  const id = /[_-](\d{9,})[_-][a-z0-9]+$/.exec(slug)?.[1] ?? slug
+  return {
+    site: 'cartup',
+    itemId: `cartup:${id}`,
+    name: String(data.name ?? nameFromSlug(slug)).trim(),
+    url: `https://www.cartup.com/product/${slug}`,
+    image: (Array.isArray(data.image) ? data.image[0] : data.image) ?? '',
+    price,
+    originalPrice: null,
+    discountPercent: null,
+    seller: String((offers.seller as { name?: string } | undefined)?.name ?? ''),
+    brand: String(data.brand?.name ?? ''),
+    rating: null, // filled from the visible page (visibleFacts), never from schema.org
+    reviews: 0,
+    sold: '',
+    inStock: String(offers.availability ?? '').endsWith('InStock'),
+    location: '',
+    officialStore: false,
+    sellerPositive: null,
+    badges: [],
+    highlights: [String(data.category ?? '')].filter(Boolean),
+    relevance: 0,
+    matchedFeatures: [],
+  }
+}
+
+function ldBlocks(html: string): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = []
   for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
-    let data: Record<string, unknown>
     try {
-      data = JSON.parse(m[1])
+      out.push(JSON.parse(m[1]))
     } catch {
-      continue
-    }
-    if (data['@type'] !== 'Product') continue
-    const offers = (Array.isArray(data.offers) ? data.offers[0] : data.offers) as Record<string, unknown> | undefined
-    const price = Number(offers?.price)
-    if (!offers || !Number.isFinite(price) || price <= 0) return null
-    const rating = data.aggregateRating as { ratingValue?: string | number; ratingCount?: number; reviewCount?: number } | undefined
-    const images = data.image as string[] | string | undefined
-    const id = /[_-](\d{9,})[_-][a-z0-9]+$/.exec(slug)?.[1] ?? slug
-    return {
-      site: 'cartup',
-      itemId: `cartup:${id}`,
-      name: String(data.name ?? nameFromSlug(slug)).trim(),
-      url: `https://www.cartup.com/product/${slug}`,
-      image: (Array.isArray(images) ? images[0] : images) ?? '',
-      price,
-      originalPrice: null,
-      discountPercent: null,
-      seller: String((offers.seller as { name?: string } | undefined)?.name ?? 'Cartup'),
-      brand: String((data.brand as { name?: string } | undefined)?.name ?? ''),
-      rating: rating?.ratingValue !== undefined ? Number(rating.ratingValue) : null,
-      reviews: Number(rating?.ratingCount ?? rating?.reviewCount ?? 0) || 0,
-      sold: '',
-      inStock: String(offers.availability ?? '').endsWith('InStock'),
-      location: '',
-      officialStore: false,
-      badges: [],
-      highlights: [String(data.category ?? '')].filter(Boolean),
-      relevance: 0,
-      matchedFeatures: [],
+      // not JSON: skip
     }
   }
-  return null
+  return out
+}
+
+/** One Cartup product page -> Listing: price and stock from its schema.org data, reviews and seller from what's shown. */
+export function parseProductPage(html: string, slug: string): Listing | null {
+  const product = ldBlocks(html).find((d) => d['@type'] === 'Product') as LdProduct | undefined
+  const listing = product ? toListing(product, slug) : null
+  if (!listing) return null
+  const seen = visibleFacts(html)
+  listing.rating = seen.rating
+  listing.reviews = seen.reviews
+  listing.sellerPositive = seen.sellerPositive
+  if (seen.originalPrice && seen.originalPrice > listing.price) {
+    listing.originalPrice = seen.originalPrice
+    listing.discountPercent = Math.round(((seen.originalPrice - listing.price) / seen.originalPrice) * 100)
+  }
+  return listing
+}
+
+/**
+ * A category page (allowed by robots.txt) -> its first 20 products, from the
+ * page's schema.org ItemList: name, price, stock. No seller or reviews there
+ * (and the list's ratings are the same unreal numbers), so the agent fetches
+ * the product page of any Cartup listing it's about to recommend.
+ */
+export function parseCategoryPage(html: string): Listing[] {
+  const list = ldBlocks(html).find((d) => d['@type'] === 'ItemList') as { itemListElement?: { item?: LdProduct }[] } | undefined
+  return (list?.itemListElement ?? [])
+    .map((e) => e.item)
+    .filter((item): item is LdProduct => Boolean(item?.url))
+    .map((item) => toListing(item, String(item.url).split('/product/')[1] ?? ''))
+    .filter((l): l is Listing => l !== null && l.url !== 'https://www.cartup.com/product/')
 }
 
 async function fetchProduct(slug: string): Promise<Listing | null> {
@@ -220,4 +275,96 @@ export async function lookup(db: D1Database | undefined, title: string): Promise
   } catch {
     return { status: 'error', listings: [], indexedAt: null }
   }
+}
+
+// ---- browsing by kind of item, through category pages ----
+
+const IRREGULAR: Record<string, string> = { mouse: 'mice', mice: 'mice' }
+// A category of these is for things that go with the item, not the item.
+const ACCESSORY_CATEGORY = new Set(['accessory', 'accessorie', 'lense', 'lens', 'case', 'cover', 'protector', 'battery', 'part', 'charger', 'cable', 'strap', 'holder', 'stand', 'mount', 'skin', 'bag'])
+
+/** "monitors" -> "monitor", "glasses" -> "glass", "batteries" -> "battery", "mouse" -> "mice". */
+export function stem(word: string): string {
+  if (IRREGULAR[word]) return IRREGULAR[word]
+  if (/(ss|ch|sh|x)es$/.test(word)) return word.slice(0, -2)
+  if (/ies$/.test(word) && word.length > 4) return word.slice(0, -3) + 'y'
+  if (/s$/.test(word) && !/ss$/.test(word) && word.length > 3) return word.slice(0, -1)
+  return word
+}
+
+const categoryWords = (slug: string) => slug.split(/[_-]+/).filter((w) => w && !/^\d+$/.test(w)).map(stem)
+
+/**
+ * The Cartup categories for a kind of item: "detergent" -> detergent (not
+ * baby_detergent), "monitor" -> monitors_449 and monitors_499 (not
+ * blood_pressure_monitors), "mouse" -> mice. A category has to contain every
+ * word of the kind; fewer extra words ranks higher. At most `limit`.
+ */
+export function pickCategories(kinds: string[], all: string[], limit = 2): string[] {
+  let best: { slug: string; score: number }[] = []
+  for (const kind of kinds) {
+    const want = [...new Set(tokens(kind).map(stem))]
+    const wantsAccessory = want.some((w) => ACCESSORY_CATEGORY.has(w))
+    if (!want.length) continue
+    const scored = all
+      .map((slug) => {
+        const have = categoryWords(slug)
+        if (!want.every((w) => have.includes(w))) return null
+        if (!wantsAccessory && have.some((w) => ACCESSORY_CATEGORY.has(w))) return null
+        return { slug, score: want.length - 0.2 * (have.length - want.length) }
+      })
+      .filter((c): c is { slug: string; score: number } => c !== null)
+      .sort((a, b) => b.score - a.score)
+    if (scored.length && (!best.length || scored[0].score > best[0].score)) best = scored
+  }
+  if (!best.length) return []
+  return best.filter((c) => c.score >= best[0].score - 1e-9).slice(0, limit).map((c) => c.slug)
+}
+
+let categoriesCache: { slugs: string[]; at: number } | null = null
+
+async function loadCategories(db: D1Database): Promise<string[]> {
+  if (categoriesCache && Date.now() - categoriesCache.at < 10 * 60_000) return categoriesCache.slugs
+  const { results } = await db.prepare(`SELECT value FROM cartup_meta WHERE key LIKE 'categories:%'`).all<{ value: string }>()
+  const slugs = results.flatMap((r) => JSON.parse(r.value) as string[])
+  categoriesCache = { slugs, at: Date.now() }
+  return slugs
+}
+
+/**
+ * Cartup listings for a kind of item: the first page of its best-matching
+ * categories, keeping only listings whose names name the kind. A category's
+ * name can mislead — Cartup's "mobiles" is baby crib mobiles, its "Mobiles &
+ * Tablets" page is cases and power banks (it barely sells phones).
+ */
+export async function browse(db: D1Database | undefined, kinds: string[]): Promise<{ listings: Listing[]; categories: string[] }> {
+  if (!db) return { listings: [], categories: [] }
+  try {
+    const categories = pickCategories(kinds, await loadCategories(db))
+    const pages = await Promise.all(
+      categories.map((c) =>
+        fetch(`https://www.cartup.com/category/${c}`, { headers: { 'user-agent': UA, accept: 'text/html' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+          .then((r) => (r.ok ? r.text() : ''))
+          .catch(() => ''),
+      ),
+    )
+    const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
+    const namesKind = (l: Listing) => tokens(l.name).some((w) => kindWords.has(stem(w)))
+    const byId = new Map<string, Listing>()
+    for (const html of pages) for (const l of parseCategoryPage(html)) if (l.inStock && namesKind(l)) byId.set(l.itemId, l)
+    return { listings: [...byId.values()], categories }
+  } catch {
+    return { listings: [], categories: [] }
+  }
+}
+
+/** Full product-page details (seller, real reviews, seller rating) for listings found on category pages. */
+export async function enrich(listings: Listing[]): Promise<Listing[]> {
+  return Promise.all(
+    listings.map(async (l) => {
+      const slug = l.url.split('/product/')[1]
+      const full = slug ? await fetchProduct(slug).catch(() => null) : null
+      return full ?? l
+    }),
+  )
 }

@@ -66,6 +66,10 @@ export interface Answer {
   results: Result[] // product mode: the named product, exact match first, other sellers after
   alternatives: Result[] // product mode: similar items that aren't the named product
   cartup: CartupCompare // the same product on Cartup, for comparison
+  main: Result | null // the best offer to show first, from either store
+  offers: Result[] // every listing of that product, both stores, cheapest first
+  cartupCategories: string[] // kind-of-item searches: the Cartup categories browsed
+  checkedAt: string // when these prices were read from the stores (all live, in this answer)
   seen: number
   skippedSuspicious: number
   vouchersKnown: number
@@ -86,7 +90,7 @@ const STOP = new Set(['for', 'with', 'and', 'the', 'of', 'new', 'original', 'pcs
 const words = (s: string) => tokens(s).filter((t) => !STOP.has(t))
 
 /**
- * Which Cartup listings are the same product as `title` (the shopper's product
+ * Which listings (on the other store) are the same product as `title` (the shopper's product
  * name, or the Daraz pick's title). Across stores, titles are written
  * differently — Daraz's "Dahua LM27-B221B=V1 27 Inch Full HD..." is Cartup's
  * "Dahua LM27-B221B 27 Inch IPS Monitor" — so instead of every code in the
@@ -94,7 +98,7 @@ const words = (s: string) => tokens(s).filter((t) => !STOP.has(t))
  * (Pro/Plus/...), the same storage and size where both state one, and heavy
  * word overlap either way (heavier still when there's no model code).
  */
-export function sameOnCartup(listings: Listing[], title: string): Listing[] {
+export function sameProduct(listings: Listing[], title: string): Listing[] {
   const main = mainModel(title)
   const t = new Set(words(title))
   const [variants, storage, size] = [variantsOf(title, main), storageOf(title), quantities(title)]
@@ -115,7 +119,14 @@ export function sameOnCartup(listings: Listing[], title: string): Listing[] {
   })
 }
 
-const standing = (l: Listing) => (l.officialStore ? 'Daraz Mall' : `★ ${l.rating?.toFixed(1)} from ${l.reviews} reviews`)
+const STORE: Record<Listing['site'], string> = { daraz: 'Daraz', cartup: 'Cartup' }
+
+/** Why a listing counts as trusted, in the words the store itself uses. */
+export function standing(l: Listing): string {
+  if (l.officialStore) return 'Daraz Mall'
+  if ((l.rating ?? 0) >= 4 && l.reviews >= 5) return `★ ${l.rating?.toFixed(1)} from ${l.reviews} reviews`
+  return `seller rated ${l.sellerPositive}% positive`
+}
 
 /**
  * The same product on Cartup, if it's meaningfully cheaper (by MIN_SAVING_RATIO)
@@ -131,7 +142,8 @@ export function cheaperElsewhere(here: Result, elsewhere: Result[]): BestChoice 
     if (best < 0 || r.finalPrice < elsewhere[best].finalPrice) best = i
   })
   if (best < 0) return null
-  return { kind: 'other_store', index: best, reason: `Same product on Cartup, ${money(here.finalPrice - elsewhere[best].finalPrice)} less than on Daraz (${standing(elsewhere[best].listing)}).` }
+  const [there, herePlace] = [STORE[elsewhere[best].listing.site], STORE[here.listing.site]]
+  return { kind: 'other_store', index: best, reason: `Same product on ${there}, ${money(here.finalPrice - elsewhere[best].finalPrice)} less than on ${herePlace} (${standing(elsewhere[best].listing)}).` }
 }
 
 const hasWishes = (intent: Intent) => intent.mustHave.length > 0 || intent.maxPrice !== null || intent.minPrice !== null
@@ -149,7 +161,11 @@ const fitsWishes = (r: Result, intent: Intent) =>
  */
 export function chooseBest(results: Result[], alternatives: Result[], intent: Intent, elsewhere: Result[] = []): BestChoice | null {
   if (!results.length) {
-    if (elsewhere.length) return { kind: 'other_store', index: 0, reason: "Not in stock on Daraz right now, but Cartup has it." }
+    if (elsewhere.length) {
+      const pick = elsewhere.findIndex((r) => trusted(r.listing))
+      const l = elsewhere[Math.max(pick, 0)].listing
+      return { kind: 'other_store', index: Math.max(pick, 0), reason: `Not in stock on Daraz right now; Cartup has it from ${l.seller} (${pick >= 0 ? standing(l) : 'no ratings yet'}).` }
+    }
     return alternatives.length ? { kind: 'alternative', index: 0, reason: 'The closest thing on Daraz right now.' } : null
   }
   const exact = results[0]
@@ -165,20 +181,29 @@ export function chooseBest(results: Result[], alternatives: Result[], intent: In
       return { kind: 'alternative', index: fit, reason: `The one you named doesn't match what you need; this ${why.join(' and ') || 'fits what you asked for'}.` }
     }
   }
-  let cheaper = -1
-  results.forEach((r, i) => {
-    if (i === 0 || !trusted(r.listing) || r.finalPrice > exact.finalPrice * (1 - MIN_SAVING_RATIO)) return
-    // 8+128GB is not "the same product, ৳3,000 less" than 8+256GB.
+  // The best offer of the product on either store: the cheapest from a seller
+  // worth trusting (8+128GB is not the same product as 8+256GB). Measured
+  // against the best trusted offer on the other store — not against whichever
+  // listing happened to have the closest title, which can be an odd ৳2,500 one.
+  const sameSize = (r: Result) => {
     const [a, b] = [storageOf(exact.listing.name), storageOf(r.listing.name)]
-    if (a !== null && b !== null && a !== b) return
-    if (cheaper < 0 || r.finalPrice < results[cheaper].finalPrice) cheaper = i
-  })
-  // The same product on Cartup counts too, by the same rules.
-  const onCartup = cheaperElsewhere(exact, elsewhere)
-  if (onCartup && (cheaper < 0 || elsewhere[onCartup.index].finalPrice < results[cheaper].finalPrice)) return onCartup
-  if (cheaper > 0) {
-    const l = results[cheaper].listing
-    return { kind: 'same', index: cheaper, reason: `Same product, ${money(exact.finalPrice - results[cheaper].finalPrice)} less from ${l.seller} (${standing(l)}).` }
+    return a === null || b === null || a === b
+  }
+  const offers = [...results.map((r, index) => ({ r, kind: 'same' as const, index })), ...elsewhere.map((r, index) => ({ r, kind: 'other_store' as const, index }))]
+  const trustedOffers = offers.filter((o) => trusted(o.r.listing) && sameSize(o.r)).sort((a, b) => a.r.finalPrice - b.r.finalPrice)
+  const best = trustedOffers[0]
+  const isExact = best?.kind === 'same' && best.index === 0
+  // Not worth leaving a trusted named listing for a saving under MIN_SAVING_RATIO.
+  const marginal = best && trusted(exact.listing) && best.r.finalPrice > exact.finalPrice * (1 - MIN_SAVING_RATIO)
+  if (best && !isExact && !marginal) {
+    const l = best.r.listing
+    const other = trustedOffers.find((o) => o.r.listing.site !== l.site)
+    const cheaperUnrated = offers.filter((o) => o.r.finalPrice < best.r.finalPrice && !trusted(o.r.listing)).length
+    let reason = `The cheapest offer of it from a seller worth trusting: ${l.seller} on ${STORE[l.site]} (${standing(l)})`
+    if (other) reason += `, ${money(other.r.finalPrice - best.r.finalPrice)} less than the best on ${STORE[other.r.listing.site]}`
+    reason += '.'
+    if (cheaperUnrated) reason += ` ${cheaperUnrated} cheaper listing${cheaperUnrated > 1 ? 's' : ''} from sellers without ratings ${cheaperUnrated > 1 ? 'are' : 'is'} in All offers.`
+    return { kind: best.kind, index: best.index, reason }
   }
   if (misfit) {
     const over = intent.maxPrice !== null && exact.finalPrice > intent.maxPrice
@@ -193,7 +218,7 @@ export function chooseBest(results: Result[], alternatives: Result[], intent: In
     index: 0,
     reason:
       results.length > 1
-        ? `The one you asked for is already the best deal: no seller worth trusting has it meaningfully cheaper among ${results.length} in-stock listings.`
+        ? `The one you asked for is already the best deal: no seller worth trusting has it meaningfully cheaper on Daraz or Cartup.`
         : 'The one you asked for is the only in-stock listing of it.',
   }
 }
@@ -306,6 +331,10 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   const optional = (q: string | null, opts: Parameters<typeof daraz.search>[1] = {}) => (q ? daraz.search(q, opts).catch(() => null) : Promise.resolve(null))
   // Cartup, for a named product: looked up alongside the Daraz searches.
   const cartupEarly = named ? cartup.lookup(env.PP_DB, intent.searchQuery) : null
+  // ...and for a kind of item, browsed through Cartup's category pages, so both
+  // stores' listings are ranked together.
+  const kinds = [intent.refinedQuery, intent.productType, intent.searchQuery].filter((k): k is string => Boolean(k))
+  const cartupBrowse = named ? null : cartup.browse(env.PP_DB, kinds)
   const [first, coreHits, alt, nearHits, refinedHits] = await Promise.all([
     daraz.search(intent.searchQuery, named ? {} : budget),
     optional(core),
@@ -314,7 +343,16 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
     optional(refined, budget),
   ])
   const extra = alt?.listings ?? []
-  const pool = [...new Map([first, coreHits, nearHits, refinedHits].flatMap((r) => r?.listings ?? []).map((l) => [l.itemId, l])).values()]
+  const browsed = cartupBrowse ? await cartupBrowse : null
+  let pool = [...new Map([first, coreHits, nearHits, refinedHits].flatMap((r) => r?.listings ?? []).concat(browsed?.listings ?? []).map((l) => [l.itemId, l])).values()]
+  // Cartup listings from category pages carry no seller or reviews, so they'd
+  // never outrank anything: the best few Cartup candidates get their product
+  // pages read first, then both stores are ranked together.
+  if (browsed?.listings.length) {
+    const topCartup = rank(browsed.listings, intent, 3).ranked
+    const full = new Map((await cartup.enrich(topCartup)).map((l) => [l.itemId, l]))
+    pool = pool.map((l) => full.get(l.itemId) ?? l)
+  }
   let { ranked, alternatives, suspicious } = rank(pool, intent, RESULT_LIMIT, extra)
   let searchUrl = first.url
   let category: string | null = null
@@ -338,14 +376,31 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
     lap('scope')
   }
 
-  // For a kind of item, Cartup is checked for the Daraz pick itself, so it
-  // waits for the ranking; for a named product the lookup already ran.
-  const lookedUp = named ? intent.searchQuery : (ranked[0]?.name ?? null)
-  const found = cartupEarly ? await cartupEarly : lookedUp ? await cartup.lookup(env.PP_DB, lookedUp) : null
-  const onCartup = found && lookedUp ? sameOnCartup(found.listings, lookedUp) : []
+  // The same product on the other store. Named: Cartup, looked up already.
+  // Kind of item: for the pick itself — a Daraz pick is looked up on Cartup
+  // (and matched against the Cartup listings already browsed); a Cartup pick
+  // is matched against the Daraz listings already found.
+  const pick = ranked[0]
+  const lookedUp = named ? intent.searchQuery : (pick?.name ?? null)
+  const found = cartupEarly ? await cartupEarly : pick?.site === 'daraz' ? await cartup.lookup(env.PP_DB, pick.name) : null
+  let onOtherStore: Listing[] = []
+  if (lookedUp) {
+    const candidates =
+      named || pick?.site === 'daraz'
+        ? [...(found?.listings ?? []), ...(browsed?.listings ?? [])]
+        : pool.filter((l) => l.site === 'daraz')
+    onOtherStore = [...new Map(sameProduct(candidates, lookedUp).filter((l) => l.itemId !== pick?.itemId).map((l) => [l.itemId, l])).values()]
+    // Cartup offers found on category pages: read their product pages too
+    // (seller, real reviews) before anything is recommended from them.
+    const bare = onOtherStore.filter((l) => l.site === 'cartup' && !l.seller).slice(0, 3)
+    if (bare.length) {
+      const full = new Map((await cartup.enrich(bare)).map((l) => [l.itemId, l]))
+      onOtherStore = onOtherStore.map((l) => full.get(l.itemId) ?? l)
+    }
+  }
   lap('cartup')
 
-  const everything = [...ranked, ...alternatives, ...onCartup]
+  const everything = [...new Map([...ranked, ...alternatives, ...onOtherStore].map((l) => [l.itemId, l])).values()]
   let history = new Map<string, HistoryMatch>()
   let vouchers: Voucher[] = []
   let harvestedAt: string | null = null
@@ -367,15 +422,20 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   }
   const results = ranked.map(toResult)
   const altResults = alternatives.map(toResult)
-  const cartupResults = onCartup.map(toResult)
+  const otherResults = onOtherStore.map(toResult)
+  const cartupResults = otherResults.filter((r) => r.listing.site === 'cartup')
   let choice: BestChoice | null = null
-  if (named) choice = chooseBest(results, altResults, intent, cartupResults)
+  if (named) choice = chooseBest(results, altResults, intent, otherResults)
   else if (results.length) {
-    choice = { kind: 'need', index: 0, reason: 'Best fit for what you described: features, seller trust and closeness to your budget.' }
-    // The pick itself, cheaper on Cartup: same rule as for a named product.
-    const elsewhere = cheaperElsewhere(results[0], cartupResults)
+    choice = { kind: 'need', index: 0, reason: 'Best fit for what you described across Daraz and Cartup: features, seller trust and closeness to your budget.' }
+    // The pick itself, cheaper on the other store: same rule as for a named product.
+    const elsewhere = cheaperElsewhere(results[0], otherResults)
     if (elsewhere) choice = elsewhere
   }
+  // What to show first: the best offer, from whichever store it's on.
+  const main =
+    choice?.kind === 'other_store' ? otherResults[choice.index] : choice?.kind === 'same' ? results[choice.index] : (results[0] ?? otherResults[0] ?? null)
+  const offers = (named ? [...results, ...otherResults] : main ? [results[0], ...otherResults].filter(Boolean) : []).sort((a, b) => a.finalPrice - b.finalPrice)
   let summary = summarize(intent, results, altResults, choice, vouchers.length, named ? suspicious : 0, first.listings.length)
   if (cartupResults.length && results.length) {
     const here = results[0].finalPrice
@@ -399,8 +459,12 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
     summary,
     results,
     alternatives: altResults,
+    main,
+    offers,
+    cartupCategories: browsed?.categories ?? [],
+    checkedAt: nowIso,
     cartup: {
-      status: !found ? 'skipped' : found.status === 'found' && !cartupResults.length ? 'not_found' : found.status,
+      status: cartupResults.length ? 'found' : !found && !browsed ? 'skipped' : found && found.status !== 'found' ? found.status : 'not_found',
       lookedUp,
       results: cartupResults,
       indexedAt: found?.indexedAt ?? null,
