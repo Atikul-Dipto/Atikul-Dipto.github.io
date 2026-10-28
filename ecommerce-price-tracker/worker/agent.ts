@@ -20,7 +20,7 @@
 import * as daraz from './daraz.ts'
 import { bestVoucher, checkAll, listingHints, money } from './eligibility.ts'
 import { buildIntent, coreQuery, describeQuery, parseIntent } from './intent.ts'
-import { rank, trusted } from './ranking.ts'
+import { rank, storageOf, trusted } from './ranking.ts'
 import * as store from './store.ts'
 import type { Env, HistoryMatch, Intent, Listing, Voucher, VoucherCheck } from './types.ts'
 
@@ -105,6 +105,9 @@ export function chooseBest(results: Result[], alternatives: Result[], intent: In
   let cheaper = -1
   results.forEach((r, i) => {
     if (i === 0 || !trusted(r.listing) || r.finalPrice > exact.finalPrice * (1 - MIN_SAVING_RATIO)) return
+    // 8+128GB is not "the same product, ৳3,000 less" than 8+256GB.
+    const [a, b] = [storageOf(exact.listing.name), storageOf(r.listing.name)]
+    if (a !== null && b !== null && a !== b) return
     if (cheaper < 0 || r.finalPrice < results[cheaper].finalPrice) cheaper = i
   })
   if (cheaper > 0) {
@@ -228,13 +231,22 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   // Brand + model code ("Jedel KL69"): Daraz answers the same long title with
   // 7 listings one time and 40 the next; this reliably finds every seller.
   const core = named ? coreQuery(intent.searchQuery) : null
-  const [first, coreHits, alt] = await Promise.all([
+  // A kind of item with a budget: Daraz's first page for "monitor" under ৳30k
+  // is mostly ৳3–6k screens, so also look near the budget (50–100% of it).
+  // And the kind plus the shopper's describing words ("formal Shirt").
+  const nearBudget =
+    !named && intent.maxPrice ? { minPrice: Math.max(intent.minPrice ?? 0, Math.round(intent.maxPrice * 0.5)), maxPrice: intent.maxPrice } : null
+  const refined = !named ? (intent.refinedQuery ?? null) : null
+  const optional = (q: string | null, opts: Parameters<typeof daraz.search>[1] = {}) => (q ? daraz.search(q, opts).catch(() => null) : Promise.resolve(null))
+  const [first, coreHits, alt, nearHits, refinedHits] = await Promise.all([
     daraz.search(intent.searchQuery, named ? {} : budget),
-    core ? daraz.search(core).catch(() => null) : Promise.resolve(null),
-    altQuery ? daraz.search(altQuery, budget).catch(() => null) : Promise.resolve(null),
+    optional(core),
+    optional(altQuery, budget),
+    optional(nearBudget ? intent.searchQuery : null, nearBudget ?? {}),
+    optional(refined, budget),
   ])
   const extra = alt?.listings ?? []
-  const pool = coreHits ? [...new Map([...first.listings, ...coreHits.listings].map((l) => [l.itemId, l])).values()] : first.listings
+  const pool = [...new Map([first, coreHits, nearHits, refinedHits].flatMap((r) => r?.listings ?? []).map((l) => [l.itemId, l])).values()]
   let { ranked, alternatives, suspicious } = rank(pool, intent, RESULT_LIMIT, extra)
   let searchUrl = first.url
   let category: string | null = null

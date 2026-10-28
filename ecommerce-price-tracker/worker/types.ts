@@ -14,6 +14,7 @@ export interface Intent {
   minPrice: number | null
   maxPrice: number | null
   mustHave: string[]
+  refinedQuery?: string | null // kind-of-item searches: the kind plus descriptive words the shopper typed ("formal Shirt")
   source: 'llm' | 'rules' | 'typed' // who read it: the AI, the rule fallback, or nobody (a product name taken as typed)
 }
 

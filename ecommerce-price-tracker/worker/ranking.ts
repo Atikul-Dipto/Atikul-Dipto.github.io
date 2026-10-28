@@ -17,7 +17,7 @@ const ACCESSORY_WORDS = new Set([
 ])
 const PRICE_FLOOR_RATIO = 0.3
 // "good camera" is checked as "camera".
-const FEATURE_FILLER = new Set(['good', 'great', 'best', 'nice', 'long', 'big', 'high', 'strong', 'fast', 'excellent', 'better', 'quality'])
+export const FEATURE_FILLER = new Set(['good', 'great', 'best', 'nice', 'long', 'big', 'high', 'strong', 'fast', 'excellent', 'better', 'quality'])
 export const QUANTITY_RE = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gram|grams|l|ltr|litre|liter|ml|pcs|pc|pack)\b/gi
 const UNIT_ALIASES: Record<string, string> = { gm: 'g', gram: 'g', grams: 'g', ltr: 'l', litre: 'l', liter: 'l', pc: 'pcs' }
 
@@ -80,14 +80,36 @@ export function parseSold(sold: string): number {
 export const bayesianRating = (rating: number | null, reviews: number, prior = 4, weight = 10) =>
   rating === null || reviews <= 0 ? prior : (reviews * rating + weight * prior) / (reviews + weight)
 
-const featureKeywords = (feature: string) => tokens(feature).filter((t) => !FEATURE_FILLER.has(t) && t.length > 2)
+// Numbers are kept: "27 inch" has to mean 27 (it used to drop the "27" as too
+// short, and every monitor with "inch" in its title matched).
+const featureKeywords = (feature: string) => tokens(feature).filter((t) => !FEATURE_FILLER.has(t) && (t.length > 2 || /^\d+$/.test(t)))
+// A unit right after a number is satisfied by the number in any notation: 27", 27-inch, 27 Inch.
+const UNIT_WORDS = new Set(['inch', 'in', 'hz', 'gb', 'tb', 'mah', 'mp', 'w', 'watt', 'kg', 'ml', 'ltr', 'litre'])
 
 function matchFeatures(listing: Listing, mustHave: string[]): string[] {
   const haystack = [listing.name, ...listing.highlights].join(' ').toLowerCase()
   return mustHave.filter((f) => {
     const kw = featureKeywords(f)
-    return kw.length > 0 && kw.every((k) => haystack.includes(k))
+    return (
+      kw.length > 0 &&
+      kw.every((k, i) => {
+        if (/^\d+$/.test(k)) return new RegExp(`(^|[^\\d.])${k}(?![\\d.])`).test(haystack)
+        if (UNIT_WORDS.has(k) && i > 0 && /^\d+$/.test(kw[i - 1])) return true
+        return haystack.includes(k)
+      })
+    )
   })
+}
+
+/** "256" from "8+256GB", "8/256GB" or "256GB ROM": the storage that tells variants apart. */
+export function storageOf(name: string): number | null {
+  const n = name.toLowerCase()
+  const pair = /\b\d{1,2}\s*[+/]\s*(\d{2,4})\s*(?:gb)?\b/.exec(n)
+  if (pair) return Number(pair[1])
+  const sizes = [...n.matchAll(/\b(\d{2,4})\s*gb\b/g)].map((m) => Number(m[1])).filter((v) => v >= 32)
+  const tb = /\b(\d)\s*tb\b/.exec(n)
+  if (tb) sizes.push(Number(tb[1]) * 1024)
+  return sizes.length ? Math.max(...sizes) : null
 }
 
 function isAccessory(listing: Listing, queryTokens: string[]): boolean {
@@ -130,7 +152,13 @@ function scoreForNeed(candidates: Listing[], intent: Intent): Listing[] {
     l.matchedFeatures = matchFeatures(l, intent.mustHave)
     const features = intent.mustHave.length ? l.matchedFeatures.length / intent.mustHave.length : 0
     const budgetFit = intent.maxPrice ? l.price / intent.maxPrice : 0
-    l.relevance = Math.round((features * 1.5 + trustScore(l) + budgetFit * 0.8) * 1000) / 1000
+    // The pull toward the budget only counts as far as there's evidence the
+    // listing is any good: "mouse, 30k" put unrated ৳28k mice from a
+    // cross-border seller above ৳249 ones rated 4.7 by 138 buyers.
+    const evidence = l.officialStore ? 1 : Math.min(l.reviews / 10, 1)
+    // Unrated listings start below the usual prior, for the same reason.
+    const trust = l.reviews > 0 || l.officialStore ? trustScore(l) : trustScore(l) - 0.1
+    l.relevance = Math.round((features * 1.5 + trust + budgetFit * 0.8 * evidence) * 1000) / 1000
   }
   return candidates.sort((a, b) => b.relevance - a.relevance || a.price - b.price)
 }

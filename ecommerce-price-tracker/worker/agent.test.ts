@@ -6,8 +6,8 @@ import { test } from 'node:test'
 
 import { chooseBest, type Result, summarize } from './agent.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
-import { cleanSearchQuery, coreQuery, describeQuery, groundedPrice, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
-import { modelTokens, quantities, rank, tokens } from './ranking.ts'
+import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
+import { modelTokens, quantities, rank, storageOf, tokens } from './ranking.ts'
 import type { Intent, Listing, Voucher } from './types.ts'
 
 const CAMPAIGN = 'https://pages.daraz.com.bd/wow/gcp/route/daraz/bd/upr/router?wh_pid=%2Flazada%2Fchannel%2Fbd%2Fweekly-campaigns%2FbKashChoice'
@@ -186,4 +186,69 @@ test('variant words name a different model', () => {
   const items = [listing('Xiaomi Redmi Note 14 Pro Plus 5g (12+256GB)', 38999, { rating: 5, reviews: 1 }), listing('Xiaomi Redmi Note 14(8/128GB) Official', 30999)]
   assert.deepEqual(rank(items, product('Xiaomi Redmi Note 14')).ranked.map((l) => l.price), [30999])
   assert.deepEqual(rank(items, product('Redmi Note 14 Pro Plus')).ranked.map((l) => l.price), [38999])
+})
+
+// Real searches from the log after the two-box change: a kind of item typed
+// in the product box ("monitor" + "30k") came back as a ৳5,993 Raspberry Pi
+// screen labelled "the product you asked for".
+test('a kind of item in the product box is a best-fit search, not a named product', () => {
+  for (const kind of ['monitor', 'Shampoo', 'mouse', 'formal shirt', 'Walton refrigerator']) assert.equal(namesAProduct(kind), false, kind)
+  for (const name of ['Jedel KL69 61 Keys RGB Mechanical Keyboard', 'Samsung Galaxy A36', 'miniket rice 5kg', 'sony wh-1000xm5', 'Xiaomi Redmi Note 14'])
+    assert.equal(namesAProduct(name), true, name)
+})
+
+test('a lone amount in the needs box is a budget', () => {
+  assert.equal(parseRules('30k').maxPrice, 30000)
+  assert.equal(parseRules('১৫০০০').maxPrice, 15000)
+  assert.equal(parseRules('iphone 15').maxPrice, null)
+})
+
+test('monitor + 30k: best fit near the budget, not the first cheap screen', async () => {
+  const intent = await buildIntent('monitor', '30k', {}) // no AI here: the rules read "30k"
+  assert.deepEqual([intent.mode, intent.searchQuery, intent.maxPrice], ['need', 'monitor', 30000])
+  const { ranked } = rank(
+    [
+      listing('Raspberry Pi 7 Inch NONTouch Screen IPS 1024x600 HD LCD HDMI', 5993, { rating: 5, reviews: 1 }),
+      listing('Wintech WM-17V 17 Inch LED Monitor', 3100),
+      listing('Samsung 27 inch Curved Monitor LS27C360EAWXXL', 24500, { officialStore: true, rating: 4.8, reviews: 40 }),
+      listing('MSI PRO MP243X 24 inch 100Hz Monitor', 15900, { rating: 4.7, reviews: 22 }),
+    ],
+    intent,
+  )
+  assert.equal(ranked[0].price, 24500)
+})
+
+test('mouse + 30k: a near-budget price does not beat evidence', () => {
+  const intent: Intent = { ...product('mouse'), mode: 'need', maxPrice: 30000 }
+  const { ranked } = rank(
+    [listing('MCHOSE A7 V2 Ultra Plus Wireless Gaming Mouse', 28207, { rating: null, reviews: 0 }), listing('HP W10 Rechargeable Wireless Bluetooth Mouse', 298, { rating: 4.8, reviews: 351 })],
+    intent,
+  )
+  assert.equal(ranked[0].price, 298)
+})
+
+test('"27 inch" means 27 inches, not any title with "inch" in it', () => {
+  const intent: Intent = { ...product('monitor'), mode: 'need', maxPrice: 25000, mustHave: ['27 inch'] }
+  const { ranked } = rank(
+    [listing('ZSUS 14-inch 2K Portable Monitor', 13280, { rating: 5, reviews: 30 }), listing('Dahua LM27-B221B 27 Inch Full HD 100Hz IPS Monitor', 17000, { rating: 4.5, reviews: 6 })],
+    intent,
+  )
+  assert.equal(ranked[0].price, 17000)
+  assert.deepEqual(ranked[0].matchedFeatures, ['27 inch'])
+})
+
+test('the shopper\'s own describing words reach the search, even when the AI drops them', async () => {
+  const ai = { AI: { run: async () => ({ response: { search_query: 'shirt', brand: null, min_price: null, max_price: 1000, must_have: [], product_type: 'shirt' } }) } }
+  const shirt = await buildIntent('Shirt', 'Under 1000, formal', ai)
+  assert.deepEqual([shirt.refinedQuery, shirt.mustHave, shirt.maxPrice], ['formal Shirt', ['formal'], 1000])
+  const monitor = await buildIntent('monitor', '27 inch under 25000', {})
+  assert.equal(monitor.refinedQuery, '27 inch monitor') // works with the AI down, too: these are the shopper's own words
+})
+
+test('a different storage size is not "the same product, cheaper"', () => {
+  assert.equal(storageOf('Xiaomi Redmi Note 14 5G (8+256GB)'), 256)
+  assert.equal(storageOf('Redmi Note 14(8/128GB) Official'), 128)
+  const items = [listing('Xiaomi Redmi Note 14 5G (8+256GB)', 29999, { rating: 5, reviews: 4 }), listing('Xiaomi Redmi Note 14 5G (8+128GB)', 26999, { officialStore: true })]
+  const { ranked } = rank(items, product('Xiaomi Redmi Note 14'))
+  assert.equal(chooseBest(ranked.map(asResult), [], product('Xiaomi Redmi Note 14'))?.kind, 'exact')
 })

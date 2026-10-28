@@ -13,7 +13,7 @@
  * - "product" vs "need" is decided by rule, not by the model.
  */
 
-import { modelTokens, QUANTITY_RE, tokens } from './ranking.ts'
+import { FEATURE_FILLER, modelTokens, quantities, QUANTITY_RE, tokens } from './ranking.ts'
 import type { Env, Intent } from './types.ts'
 
 export const MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast'
@@ -25,7 +25,7 @@ The request may be English, Bangla, or mixed. Return ONLY JSON with keys:
  "min_price": number in BDT or null,
  "max_price": number in BDT or null ("25k" means 25000),
  "must_have": list of short English feature phrases they asked for (empty list if none),
- "product_type": the kind of item in English, e.g. "smartphone", "headphones", "rice", "laptop".`
+ "product_type": the kind of item in English as a shop would list it, e.g. "smartphone" (never just "phone" for a mobile), "headphones", "rice", "laptop".`
 
 const BANGLA_DIGITS = '০১২৩৪৫৬৭৮৯'
 export const normalize = (text: string) => text.replace(/[০-৯]/g, (d) => String(BANGLA_DIGITS.indexOf(d)))
@@ -67,6 +67,8 @@ export function parseRules(query: string): Intent {
   if (numbers.length >= 2 && /between|-|to/i.test(text)) [minPrice, maxPrice] = [numbers[0], numbers[numbers.length - 1]]
   else if (numbers.length && MAX_HINTS.test(text)) maxPrice = numbers[numbers.length - 1]
   else if (numbers.length && MIN_HINTS.test(text)) minPrice = numbers[0]
+  // A lone price-sized amount with no "under"/"above" ("30k" in the needs box) is a budget.
+  else if (numbers.length === 1 && numbers[0] >= 1000) maxPrice = numbers[0]
   return {
     rawQuery: query,
     mode: minPrice !== null || maxPrice !== null ? 'need' : 'product',
@@ -218,6 +220,24 @@ export function describeQuery(name: string): string | null {
   return kept.length ? kept.join(' ') : null
 }
 
+/**
+ * Does the product box hold a particular product, or just a kind of thing?
+ * Real searches after the two-box change were "monitor", "Shampoo", "mouse",
+ * "Shirt" — treated as names, "monitor" with a ৳30k budget came back as a ৳5,993
+ * Raspberry Pi screen, "the product you asked for". A name carries a model
+ * code (KL69, A36), a size (5kg), or reads like a listing title (4+ words);
+ * anything shorter is the kind of item, and gets a best-fit search instead.
+ */
+// Words in the needs box that don't describe the item, and units that only
+// mean something next to a number.
+const DETAIL_STOPWORDS = new Set(['and', 'with', 'for', 'the', 'want', 'need', 'needs', 'looking', 'should', 'must', 'have', 'has', 'any', 'some', 'please', 'very', 'more', 'less', 'than', 'around', 'about', 'only', 'also', 'not', 'but', 'that', 'this', 'from', 'like', 'buy', 'my'])
+const UNIT_ONLY = new Set(['inch', 'in', 'hz', 'gb', 'tb', 'mah'])
+
+export function namesAProduct(name: string): boolean {
+  const cleaned = cleanSearchQuery(name)
+  return modelTokens(tokens(cleaned)).length > 0 || quantities(cleaned).size > 0 || cleaned.split(' ').filter(Boolean).length >= 4
+}
+
 export async function buildIntent(name: string, details: string, env: Env): Promise<Intent> {
   name = name.replace(/\s+/g, ' ').trim()
   details = details.replace(/\s+/g, ' ').trim()
@@ -225,15 +245,46 @@ export async function buildIntent(name: string, details: string, env: Env): Prom
 
   const typed = parseRules(name) // a budget typed into the name box still counts
   const wish = details ? await parseIntent(details, env, name) : null
+  const named = namesAProduct(name)
+  const searchQuery = cleanSearchQuery(name) || name
+  let mustHave = wish?.mustHave ?? []
+
+  // For a kind of item, the describing words from the needs box go into a
+  // second search: "Shirt" + "Under 1000, formal" also searches "formal Shirt"
+  // (the plain "Shirt" search under ৳1,000 had no formal shirts on its first
+  // page). Only words the shopper actually typed, at most three, never prices.
+  let refinedQuery: string | null = null
+  if (!named && wish) {
+    const own = details.toLowerCase()
+    const have = new Set(tokens(name))
+    const typed = tokens(cleanSearchQuery(details))
+    // Their own describing words first — the model doesn't always pass them on
+    // ("formal" went missing) — with a number only next to its unit ("27 inch");
+    // then the model's words, if they're in the text too.
+    const fromText = typed.filter((w, i) => (/^\d+$/.test(w) ? UNIT_ONLY.has(typed[i + 1] ?? '') : !DETAIL_STOPWORDS.has(w)))
+    const fromModel = [...tokens(wish.productType ?? ''), ...mustHave.flatMap((f) => tokens(f))].filter((w) => new RegExp(`\\b${w}\\b`).test(own))
+    const words = [...new Set([...fromText, ...fromModel])].filter((w) => (w.length > 2 || /^\d+$/.test(w)) && !have.has(w) && !FEATURE_FILLER.has(w))
+    if (words.length) {
+      const picked = words.slice(0, 3)
+      refinedQuery = `${picked.join(' ')} ${searchQuery}`
+      // ...and they count in the ranking too, if the model didn't list them as features.
+      const missing = picked.filter((w) => !UNIT_ONLY.has(w) && !mustHave.some((f) => tokens(f).includes(w)))
+      if (missing.length) mustHave = [...mustHave, missing.join(' ')]
+    }
+  }
+
   return {
     rawQuery: details ? `${name} — ${details}` : name,
-    mode: 'product',
-    searchQuery: cleanSearchQuery(name) || name,
-    productType: wish?.productType ?? null,
+    // A kind of item ("monitor") is a best-fit search for it, still with the
+    // shopper's own words as the search text — the AI only reads the needs.
+    mode: named ? 'product' : 'need',
+    searchQuery,
+    productType: wish?.productType ?? (named ? null : searchQuery),
     brand: wish?.brand ?? null,
     minPrice: wish?.minPrice ?? typed.minPrice,
     maxPrice: wish?.maxPrice ?? typed.maxPrice,
-    mustHave: wish?.mustHave ?? [],
+    mustHave,
     source: wish ? wish.source : 'typed',
+    refinedQuery,
   }
 }

@@ -10,7 +10,7 @@ const EXAMPLES = [
   { name: 'Samsung Galaxy A36' },
   { details: 'phone under 25k with good camera' },
   { details: 'ভালো ব্যাটারি সহ ১৫০০০ টাকার মধ্যে ফোন' },
-  { name: 'sony wh-1000xm5', details: 'under 25000' },
+  { name: 'monitor', details: '30k' },
 ]
 const RECENT_KEY = 'pricepulse:recent-asks-v2'
 
@@ -451,9 +451,9 @@ export default function AskAgent({ stats }) {
           <em>Get the best price</em> in seconds.
         </h1>
         <p className="ask-copy">
-          Type the product's name and you get exactly that product first, with the best choice beneath it. Add what you
-          need, in English or বাংলা, and the agent weighs that too. It searches Daraz live, remembers the price it saw
-          last time, and checks which public vouchers really fit.
+          Type a product's name and you get exactly that product first, with the best choice beneath it — or just the kind
+          of thing ("monitor") and you get the best fit for your budget. Add what you need, in English or বাংলা. It
+          searches Daraz live, remembers the price it saw last time, and checks which public vouchers really fit.
         </p>
       </div>
 
@@ -465,7 +465,7 @@ export default function AskAgent({ stats }) {
         }}
       >
         <div className="ask-field">
-          <label htmlFor="ask-name">Product name</label>
+          <label htmlFor="ask-name">Product or kind of item</label>
           <input
             id="ask-name"
             ref={nameRef}
@@ -476,7 +476,7 @@ export default function AskAgent({ stats }) {
             enterKeyHint="search"
             maxLength={200}
           />
-          <small>Searched exactly as you type it.</small>
+          <small>Searched exactly as you type it. A full name gets that product first.</small>
         </div>
         <div className="ask-field">
           <label htmlFor="ask-details">
