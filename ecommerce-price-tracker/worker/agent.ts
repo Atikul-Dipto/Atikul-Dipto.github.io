@@ -22,7 +22,7 @@ import * as cartup from './cartup.ts'
 import * as daraz from './daraz.ts'
 import { bestVoucher, checkAll, listingHints, money } from './eligibility.ts'
 import { buildIntent, coreQuery, describeQuery, parseIntent } from './intent.ts'
-import { compact, foundWords, isAccessory, mainModel, modelTokens, namesAllOf, quantities, rank, storageOf, tokens, trusted, variantsOf, withoutVariants } from './ranking.ts'
+import { compact, foundWords, isAccessory, isBundle, mainModel, modelTokens, namesAllOf, quantities, rank, sizesAgree, storageOf, tokens, trusted, variantsOf, withoutVariants } from './ranking.ts'
 import * as store from './store.ts'
 import type { Env, HistoryMatch, Intent, Listing, Voucher, VoucherCheck } from './types.ts'
 
@@ -82,6 +82,9 @@ export interface Answer {
 
 const STOP = new Set(['for', 'with', 'and', 'the', 'of', 'new', 'original', 'pcs', 'pc', 'official', 'warranty'])
 const words = (s: string) => tokens(s).filter((t) => !STOP.has(t))
+// Words sellers add to any title; they never make it a different product.
+const SALES_TALK = new Set(['premium', 'quality', 'high', 'best', 'special', 'genuine', 'authentic', 'imported', 'fresh', 'super', 'top', 'hot', 'sale', 'care'])
+const COLOURS = new Set(['black', 'white', 'red', 'blue', 'green', 'pink', 'grey', 'gray', 'silver', 'gold', 'purple', 'yellow', 'orange', 'brown', 'graphite'])
 
 type Relation = 'same' | 'variant' | 'close'
 
@@ -123,7 +126,26 @@ export function relations(title: string): (l: Listing) => Relation | null {
     main.length < 3 ||
     compact(name).includes(main) ||
     modelTokens(tokens(name)).some((c) => shape(c) === shape(main) && Math.abs(number(c) - number(main)) <= 0.3 * number(main))
-  const relate = (name: string): Relation | null => {
+  const bundle = isBundle(title)
+  // Words a name adds between the title's own words name another product in
+  // the same line: "Parachute Just for Baby – Milky Glow Lotion" isn't its
+  // "Baby Lotion". A brand or description before or after them doesn't
+  // ("Pran Miniket Rice", "Khan Rice Miniket premium Packet"), nor does sales talk.
+  const lineOrder = words(line)
+  // What kind of thing it is: the title's last plain word ("lotion", "bag",
+  // "keyboard"), colours aside. A brand + model title ("MX Master 3S") has none.
+  const tail = lineOrder.filter((w) => !COLOURS.has(w)).at(-1)
+  const noun = tail && /^[a-z]+$/.test(tail) ? tail : null
+  const joined = new Set(lineOrder.slice(1).map((w, i) => lineOrder[i] + w))
+  const inserted = (nameLine: string) => {
+    const ws = words(nameLine)
+    const hit = ws.map((w) => joined.has(w) || foundWords([w], line).length > 0)
+    const [first, last] = [hit.indexOf(true), hit.lastIndexOf(true)]
+    return ws.some((w, i) => i > first && i < last && !hit[i] && !SALES_TALK.has(w))
+  }
+  const relate = (name: string, earlier = false): Relation | null => {
+    // A combo or gift box isn't the product in it, or another size of it.
+    if (isBundle(name) && !bundle) return null
     // Shares of each name's line words found in the other.
     const nameLine = withoutVariants(name)
     const nl = [...new Set(words(nameLine))]
@@ -133,29 +155,35 @@ export function relations(title: string): (l: Listing) => Relation | null {
     // Jordan", "Jedel KL69", "miniket rice") — not just its generic words
     // (a women's "waterproof crossbody chest waist bag" isn't an Air Jordan one).
     const sameMake = foundWords(lineWords.slice(0, 2), nameLine).length > 0
-    const close = sameMake && sibling(name) && (ofTitle >= 0.6 || (ofTitle >= 0.4 && ofName >= 0.75)) ? 'close' : null
+    // ...and is the same kind of thing: a Baby Shampoo isn't close to a Baby Lotion.
+    const sameKind = !noun || foundWords([noun], nameLine).length > 0
+    const close = sameMake && sameKind && sibling(name) && (ofTitle >= 0.6 || (ofTitle >= 0.4 && ofName >= 0.75)) ? 'close' : null
     if (main && !(compact(name).includes(main) && namesAllOf(name, title))) return close
     if (lead && !foundWords([lead], name).length) return close
     // With a model code in common, most words is enough. Without one, the
     // words are the identity: the name holds (nearly) all of the title's
     // ("Khan Rice Miniket premium 2 KG Packet" is miniket rice; "Teer
     // Nazirshail Rice 5kg" isn't), or is held in it and covers at least half
-    // of it ("Jordan Chest Bag" doesn't).
-    const identity = main ? Math.max(ofTitle, ofName) >= 0.6 : ofTitle >= 0.8 || (ofName >= 0.8 && ofTitle >= 0.5)
+    // of it ("Jordan Chest Bag" doesn't). A renamed listing's earlier name
+    // has to hold it all: a generic old "Kodomo Baby Lotion Powder 180ml"
+    // doesn't make today's "(Extra Mild)" the Pink Hanabaki one.
+    const identity = main
+      ? Math.max(ofTitle, ofName) >= 0.6
+      : ofTitle >= 0.8 || (!earlier && ofName >= 0.8 && ofTitle >= 0.5)
     if (!identity) return close
     const s = storageOf(name)
-    const q = quantities(name)
     const differs =
       variantsOf(name, main) !== variants ||
+      (!main && inserted(nameLine)) ||
       (storage !== null && s !== null && s !== storage) ||
-      (size.size > 0 && q.size > 0 && ![...q].some((x) => size.has(x)))
+      (size.size > 0 && quantities(name).size > 0 && !sizesAgree(size, name))
     return differs ? 'variant' : 'same'
   }
   const order: (Relation | null)[] = ['same', 'variant', 'close', null]
   return (l) => {
     if (!l.inStock || isAccessory(l, titleTokens)) return null
     // A renamed Cartup listing is what it is under either of its names.
-    const found = [l.name, l.alsoNamed].map((name) => (name ? relate(name) : null))
+    const found = [relate(l.name), l.alsoNamed ? relate(l.alsoNamed, true) : null]
     return found.sort((a, b) => order.indexOf(a) - order.indexOf(b))[0]
   }
 }
@@ -224,7 +252,9 @@ export function matchRows(o: {
     const close = cheapest('close').sort((a, b) => closeness(b, o.title) - closeness(a, o.title))
     for (const l of close) if (inBudget(l)) add(l, 'close', 'Close match')
   }
-  for (const l of o.fits ?? []) if (l.price >= floor) add(l, 'fits', 'Also fits')
+  // Other fits are single products too, unless a bundle was asked for.
+  const bundles = isBundle(o.intent.searchQuery)
+  for (const l of o.fits ?? []) if (l.price >= floor && (bundles || !isBundle(l.name))) add(l, 'fits', 'Also fits')
   return rows
 }
 

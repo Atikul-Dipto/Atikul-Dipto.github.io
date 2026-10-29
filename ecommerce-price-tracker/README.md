@@ -48,6 +48,10 @@ How, and why this way (checked 2026-10-28):
   - With a model code, 60% of the words must be shared. A two-character code also needs the word before it: "3S" is the MX Master *and* the MX Anywhere.
   - Without a model code, the listing must hold 80% of the name's words, or sit inside the name and cover half of it. "Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg"; "Jordan Chest Bag" isn't the Air Jordan crossbody chest/waist bag.
   - Words are matched as sellers type them: a letter off at the end ("waterproofe") or run together ("chestwaist").
+  - **Sizes:** in the units the name uses, every amount a listing states must be the wanted one. "Baby Lotion 200ml & Baby Wash 100ml" is not the 100ml lotion; its 100ml is the wash. A free extra in another unit ("Face Cream 50g FREE") doesn't count against it.
+  - **Bundles never match a single product,** whether a combo, a gift box or set, an item list ("Powder + Oil + Lotion + Wash"), or two amounts in one unit. They aren't listed as "Also fits" either, unless a bundle was asked for.
+  - **Words inserted between the product's own words name another product in its line.** "Parachute Just for Baby – Milky Glow Lotion" is a variant of its "Baby Lotion". Words before or after don't count ("Pran Miniket Rice"), and neither does filler like "premium" or "care".
+  - **A close match is the same kind of thing.** It must contain the name's last plain word, so a Baby Shampoo isn't close to a Baby Lotion.
 - **The index search weighs rare words more** ("jordan" over "bag"), and always looks at the listings that hold the name's rarest word. Repeated words count once, so keyword-stuffed titles ("bag chest bag crossbody bag…") don't win.
 - **Renamed listings:** a seller who renames a Cartup listing leaves the old name in Cartup's search results and the page title. The agent matches on either name and shows both.
 

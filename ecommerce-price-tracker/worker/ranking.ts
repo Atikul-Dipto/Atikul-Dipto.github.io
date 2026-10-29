@@ -42,6 +42,34 @@ export function quantities(text: string): Set<string> {
   return found
 }
 
+const unitOf = (quantity: string) => quantity.replace(/^[\d.]+/, '')
+
+/**
+ * Whether a listing states the wanted size. Of the units the wanted sizes are
+ * in, every amount it states must be one of them: "Baby Lotion 200ml & Baby
+ * Wash 100ml" is not the 100ml lotion — its 100ml is the wash. An extra in
+ * another unit ("Face Cream 50g FREE") doesn't count against it.
+ */
+export function sizesAgree(wanted: Set<string>, name: string): boolean {
+  const units = new Set([...wanted].map(unitOf))
+  const stated = [...quantities(name)].filter((q) => units.has(unitOf(q)))
+  return stated.length > 0 && stated.every((q) => wanted.has(q))
+}
+
+/**
+ * Several products sold as one: a combo, gift box or set, a list of items
+ * ("Powder + Oil + Lotion + Wash"), or two amounts in one unit ("Baby Lotion
+ * 200ml & Baby Wash 100ml"). Never the single product
+ * inside it, nor another size of it.
+ */
+export function isBundle(name: string): boolean {
+  if (/\b(combo|bundle|hamper|gift\s*(?:box|set|pack))\b/i.test(name)) return true
+  // "(Powder + Oil + Lotion + Wash + Face Cream)"
+  if ((name.match(/[a-z]\s*\+\s*[a-z]/gi) ?? []).length >= 3) return true
+  const units = [...quantities(name)].map(unitOf)
+  return new Set(units).size < units.length
+}
+
 // Spec values, not model names: "8gb" and "5000mah" describe a phone, "61 keys" a keyboard.
 /** "5G" on a phone is the network, not 5 grams ("best 5G phone" lost its 5G as a weight). */
 export const isNetworkGen = (t: string) => /^[3-6]g$/i.test(t.trim())
@@ -295,7 +323,8 @@ export function rank(listings: Listing[], intent: Intent, limit = 6, extra: List
   const wantedVariants = variantsOf(intent.searchQuery, main)
   same = same.filter((l) => variantsOf(l.name, main) === wantedVariants)
   // A different stated size is a different product; no stated size is kept.
-  if (wanted.size) same = same.filter((l) => !quantities(l.name).size || [...quantities(l.name)].some((x) => wanted.has(x)))
+  if (wanted.size) same = same.filter((l) => !quantities(l.name).size || sizesAgree(wanted, l.name))
+  if (!isBundle(intent.searchQuery)) same = same.filter((l) => !isBundle(l.name))
   if (!models.length && same.length) {
     // No model code to go on, so the words are the identity: match as many
     // as the best match does (keeps Jasmine rice out of "miniket rice 5kg").

@@ -543,3 +543,47 @@ test('mouse + 30k: the best-fit product is recommended at its best trusted offer
   const rows = matchRows({ intent, title: pick.name, ref: pick, same: [], pool: [pick, cheap], fits: [cheap] })
   assert.ok(!rows.some((r) => r.listing === cheap))
 })
+
+test('"lotion": a bundle with a 100ml wash is not the 100ml lotion, and a gift box is not another size of it', () => {
+  const pick = 'Parachute Just for Baby - Baby Lotion 100ml'
+  const relate = relations(pick)
+  assert.deepEqual(
+    [
+      listing('Parachute Just for Baby - Baby Lotion 100ml', 175),
+      listing('Parachute Just for Baby - Baby Lotion 200ml & Baby Wash 100ml', 453),
+      listing('Parachute Just for Baby - Baby Lotion 200ml (Baby Face Cream 50g FREE)', 364),
+      listing('Parachute Just for Baby - Baby Gift Box 450ml (Powder + Oil + Lotion + Wash + Face Cream)', 600),
+      listing('Parachute Just for Baby - Baby Gift 450ml (Powder + Oil + Lotion + Wash + Face Cream)', 900),
+      // Another product in the same line: "Milky Glow" sits between its words.
+      listing('Parachute Just For Baby - Milky Glow Lotion 100ml', 158),
+      // Same brand line, another kind of thing: not even close.
+      listing('Parachute Just for Baby - Baby Shampoo 100ml', 180),
+    ].map(relate),
+    ['same', null, 'variant', null, null, 'variant', null],
+  )
+  // "Care" is filler: the same Aveeno lotion.
+  assert.equal(relations('Aveeno Baby Daily Moisturising Lotion 150ml')(onCartup('Aveeno Baby Daily Care Baby Moisturising Lotion - 150ml', 1344)), 'same')
+  // Nor is a gift box one of the other lotions worth a look.
+  const need: Intent = { ...product('lotion'), mode: 'need' }
+  const giftBox = onCartup('Parachute Just for Baby – Baby Gift Box 450ml (Powder + Oil + Lotion + Wash + Face Cream)', 720)
+  const johnsons = onCartup('Johnsons Baby Lotion 100 ml', 280)
+  const lotion200 = onCartup('Parachute Just for Baby - Baby Lotion 200ml', 269)
+  assert.deepEqual(matchRows({ intent: need, title: lotion200.name, ref: lotion200, same: [], pool: [lotion200], fits: [giftBox, johnsons] }).filter((r) => r.relation === 'fits').map((r) => r.listing), [johnsons])
+  // A brand or sales talk around the name doesn't make it another product.
+  const rice = relations('miniket rice 5kg')
+  assert.deepEqual([listing('Pran Premium Miniket Rice 5kg', 450), listing('Miniket Atab Rice 5kg', 460)].map(rice), ['same', 'variant'])
+  // Named on its own, the 100ml lotion: the bundle is not one of its sellers.
+  const { ranked } = rank(
+    [listing(pick, 163, { officialStore: true }), listing('Parachute Just for Baby - Baby Lotion 200ml & Baby Wash 100ml', 453)],
+    product(pick),
+    6,
+  )
+  assert.deepEqual(ranked.map((l) => l.price), [163])
+})
+
+test("a renamed listing's generic earlier name doesn't make a different scent the same product", () => {
+  const relate = relations('Kodomo_Baby Lotion Powder Pink Hanabaki - 180ml (Thailand)')
+  const extraMild = onCartup('Kodomo Baby Lotion Powder (Extra Mild) - 180ml', 847, { alsoNamed: 'Kodomo Baby Lotion Powder 180ml (Thailand)' })
+  assert.notEqual(relate(extraMild), 'same')
+  assert.equal(relate(onCartup('Kodomo Baby Lotion Powder (Pink Hanabaki) 180ml', 744)), 'same')
+})
