@@ -92,6 +92,22 @@ export function modelTokens(queryTokens: string[]): string[] {
   return found
 }
 
+const nearSpelling = (a: string, b: string) =>
+  /^[a-z]{4,}$/.test(a) && /^[a-z]{4,}$/.test(b) && Math.abs(a.length - b.length) <= 2 && (a.startsWith(b) || b.startsWith(a))
+
+/**
+ * Which of `want` (a title's words, in order) a name has, the way sellers
+ * actually type: a letter or two off at the end ("waterproofe", "bags") or
+ * two words run together ("Chest/Waist" as "chestwaist"). Plain words only —
+ * "kl699" is not near "kl69".
+ */
+export function foundWords(want: string[], name: string): string[] {
+  const have = new Set(tokens(name))
+  return want.filter(
+    (w, i) => have.has(w) || [...have].some((h) => nearSpelling(w, h) || (want[i + 1] && h === w + want[i + 1]) || (i > 0 && h === want[i - 1] + w)),
+  )
+}
+
 /**
  * A short typed name with a model code: every word but the first (usually the
  * brand, often left out of titles) has to be in the title. A short code
@@ -165,6 +181,20 @@ export function storageOf(name: string): number | null {
   const tb = /\b(\d)\s*tb\b/.exec(n)
   if (tb) sizes.push(Number(tb[1]) * 1024)
   return sizes.length ? Math.max(...sizes) : null
+}
+
+/**
+ * A name without what tells sizes and variants apart — amounts ("5kg", "500
+ * ml"), storage ("8/128GB", "256GB", "1TB") and variant words — leaving what
+ * names the product line: "Pran Miniket Rice 25kg" -> "Pran Miniket Rice".
+ */
+export function withoutVariants(name: string): string {
+  return name
+    .replace(QUANTITY_RE, ' ')
+    .replace(/\b\d{1,2}\s*[+/]\s*\d{2,4}\s*(?:gb)?\b|\b\d{1,4}\s*(?:gb|tb)\b/gi, ' ')
+    .split(/\s+/)
+    .filter((w) => !VARIANT_WORDS.has(w.toLowerCase()))
+    .join(' ')
 }
 
 export function isAccessory(listing: Listing, queryTokens: string[]): boolean {

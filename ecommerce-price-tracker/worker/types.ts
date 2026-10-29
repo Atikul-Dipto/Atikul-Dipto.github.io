@@ -36,6 +36,7 @@ export interface Listing {
   location: string
   officialStore: boolean // Daraz Mall ("lazMall" badge)
   sellerPositive?: number | null // Cartup: the seller's "% positive seller rating" shown on its product page
+  alsoNamed?: string | null // Cartup: the name its search and page title still show after a seller renames the listing
   badges: string[] // raw Daraz icon bizTypes, e.g. FreeshippingAndVoucherMax
   highlights: string[] // key-feature bullets Daraz returns with each search hit
   // Filled in by ranking

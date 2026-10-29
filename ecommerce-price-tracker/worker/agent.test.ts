@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { compareAcross, evidence, recommendHere, type Result, sameProduct, type StoreAnswer, standing } from './agent.ts'
+import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, sameProduct, type StoreAnswer, standing } from './agent.ts'
 import { decodeIds, fnv1a, likeDaraz, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
-import { modelTokens, quantities, rank, storageOf, tokens, trusted, variantsOf } from './ranking.ts'
+import { foundWords, modelTokens, quantities, rank, storageOf, tokens, trusted, variantsOf } from './ranking.ts'
 import type { Intent, Listing, Voucher } from './types.ts'
 
 const CAMPAIGN = 'https://pages.daraz.com.bd/wow/gcp/route/daraz/bd/upr/router?wh_pid=%2Flazada%2Fchannel%2Fbd%2Fweekly-campaigns%2FbKashChoice'
@@ -423,4 +423,123 @@ test('a listing with a couple of reviews says so, not "no ratings yet"', () => {
   assert.equal(evidence(listing('MX Master 3S', 15000, { rating: 5, reviews: 2 })), '★ 5.0 from 2 reviews')
   assert.equal(evidence(listing('x', 1, { rating: null, reviews: 0, sellerPositive: 94 })), 'seller rated 94% positive')
   assert.equal(evidence(listing('x', 1, { rating: null, reviews: 0 })), 'no ratings yet')
+})
+
+test('words as sellers type them: a letter off at the end, or two words run together', () => {
+  const want = tokens('Air Jordan waterproof Crossbody Chest/Waist Bag')
+  assert.deepEqual(foundWords(want, 'Air Jordan waterproofe Crossbody Chestwaist Bag'), want)
+  // Model codes stay exact: a KL699 is not a KL69.
+  assert.deepEqual(foundWords(['kl69'], 'Jedel KL699 Keyboard'), [])
+})
+
+test('a renamed Cartup listing is found under the name its search still shows', () => {
+  const html = `<html><head><title>Air Jordan waterproofe Crossbody Chest/Waist Bag</title>
+  <meta property="og:title" content="Air Jordan waterproofe Crossbody Chest/Waist Bag "/></head>
+  <script type="application/ld+json">{"@type":"Product","name":"Jordan Luxurious Professional Waterproof Trendy Side Bag","offers":{"price":369,"availability":"https://schema.org/InStock","seller":{"name":"Picks"}}}</script>
+  <body><h1>Jordan Luxurious Professional Waterproof Trendy Side Bag</h1> 0.0 ( 0 reviews)</body></html>`
+  const bag = parseProductPage(html, 'air_jordan_waterproofe_crossbody_chestwaist_bag_1266170223066047_8j1h13')!
+  assert.equal(bag.alsoNamed, 'Air Jordan waterproofe Crossbody Chest/Waist Bag')
+  const name = 'Air Jordan waterproof Crossbody Chest/Waist Bag'
+  assert.deepEqual(sameProduct([bag], name).map((l) => l.price), [369])
+  // A short name inside the typed one is a close match, not the product.
+  const relate = relations(name)
+  assert.equal(relate(onCartup('Jordan Chest Bag', 1290)), 'close')
+  assert.equal(relate(onCartup('Bacbaas Crossbody Waist Belt Bag Unisex Chest Sling Bag', 573)), null)
+  // Generic bags with the same generic words aren't close: the make is missing.
+  assert.equal(relate(listing("Women's Waist Bag Oxford Cloth Waterproof Belt Bag Crossbody Chest Bag", 765)), null)
+  assert.equal(relate(listing('Air Jordan Cross Body Bag', 1200)), 'close')
+})
+
+test('how a listing relates to the product: same, another size or variant, close, or not at all', () => {
+  const rice = relations('miniket rice 5kg')
+  assert.deepEqual(
+    [
+      listing('Pran Miniket Rice 5kg', 445),
+      listing('Pran Miniket Rice 25kg', 2100),
+      listing('Khan Rice Miniket premium 2 KG Packet', 175),
+      listing('Teer Nazirshail Rice 5kg', 480),
+      listing('Pran Miniket Rice 5kg', 445, { inStock: false }),
+    ].map(rice),
+    ['same', 'variant', 'variant', null, null],
+  )
+  const mx = relations('Logitech MX Master 3S')
+  assert.deepEqual(
+    [listing('Logitech MX Master 3S Wireless Mouse', 15000), listing('Logitech MX Master 3 Wireless Mouse', 9000), listing('Logitech M170 Wireless Mouse', 950), listing('Mouse pad for Logitech MX Master 3S', 300)].map(mx),
+    ['same', 'close', null, null],
+  )
+  assert.equal(relations('iPhone 15 128GB')(listing('Apple iPhone 15 Pro 128GB', 150000)), 'variant')
+  // With a model code, close means a sibling model.
+  const sony = relations('Sony WH-1000XM5')
+  assert.deepEqual([listing('Sony WH-1000XM4 Wireless Headphones', 25000), listing('Sony WF-1000XM5 Wireless Earbuds', 27000)].map(sony), ['close', null])
+  const a36 = relations('Samsung Galaxy A36')
+  assert.deepEqual(
+    [listing('Samsung Galaxy A26 5G 8/128GB', 36999), listing('Samsung Galaxy A37 5G', 43499), listing('Samsung Galaxy A07 4/64GB', 20499), listing('Samsung Galaxy F13 4G 4/64GB', 20001)].map(a36),
+    ['close', 'close', null, null],
+  )
+})
+
+test('"More on a store": the product\'s other sellers, then its other sizes, then close matches — nothing unrelated', () => {
+  const intent = product('miniket rice 5kg')
+  const pran = listing('Pran Miniket Rice 5kg', 445)
+  const aci = listing('ACI Miniket Rice 5kg', 470)
+  const pool = [
+    pran, aci,
+    listing('Pran Miniket Rice 25kg', 2100),
+    listing('Pran Miniket Rice 2kg', 190),
+    listing('Miniket Rice Premium 10kg Bag', 900),
+    listing('Chinigura Aromatic Rice 1kg', 160),
+    listing('Rice Cooker 1.8L', 2400),
+  ]
+  const rows = matchRows({ intent, title: intent.searchQuery, ref: pran, same: [pran, aci], pool })
+  assert.deepEqual(rows.map((r) => [r.listing.name, r.label]), [
+    ['Pran Miniket Rice 5kg', 'Same product'],
+    ['ACI Miniket Rice 5kg', 'Same product'],
+    ['Pran Miniket Rice 2kg', 'Other size or variant'],
+    ['Miniket Rice Premium 10kg Bag', 'Other size or variant'],
+    ['Pran Miniket Rice 25kg', 'Other size or variant'],
+  ])
+  // A "same product" rank set aside (priced like a copy) doesn't come back through the pool.
+  const copy = listing('Pran Miniket Rice 5kg', 90)
+  assert.ok(!matchRows({ intent, title: intent.searchQuery, ref: pran, same: [pran], pool: [...pool, copy] }).some((r) => r.listing === copy))
+})
+
+test('"Also worth a look" for a kind of item: the pick\'s other sellers and the other store\'s pick first, then other fits', () => {
+  const intent: Intent = { ...product('mouse'), mode: 'need', maxPrice: 30000 }
+  const pick = onCartup('Logitech MX Master 3S Wireless Mouse', 12320)
+  const otherSeller = onCartup('Logitech MX Master 3S Performance Wireless Mouse', 12900)
+  const darazPick = listing('Logitech MX Anywhere 3S Compact Wireless Mouse', 9500)
+  const anywhere = onCartup('Logitech MX Anywhere 3S Compact Wireless Mouse', 9200)
+  const fit = onCartup('Razer DeathAdder V3 Gaming Mouse', 8000)
+  const office = onCartup('A4tech OP-720 Wired Mouse', 300)
+  const rows = matchRows({ intent, title: pick.name, ref: pick, same: [], pool: [pick, otherSeller, anywhere, fit, office], otherPick: { label: 'Daraz', listing: darazPick }, fits: [fit] })
+  assert.deepEqual(rows.filter((r) => r.listing !== pick).map((r) => [r.listing.name, r.label]), [
+    ['Logitech MX Master 3S Performance Wireless Mouse', 'Same product, another seller'],
+    ['Logitech MX Anywhere 3S Compact Wireless Mouse', "Same as Daraz's pick"],
+    ['Razer DeathAdder V3 Gaming Mouse', 'Also fits'],
+  ])
+})
+
+test('a lone Cartup category with nothing in common with what Daraz found is left out', () => {
+  const eggs = [onCartup('Egg Master Electric Egg Roll Maker with Timer', 1450), onCartup('Egg Master Automatic Rising Egg Cooker', 1290)]
+  const browsed = { categories: ['egg_master'], byCategory: { egg_master: eggs }, listings: eggs }
+  const daraz = ['Logitech MX Master 3S Graphite Bluetooth Mouse', 'Logitech MX Master 3S with Free Adobe Subscription - Wireless Performance Mouse']
+  assert.deepEqual(likeDaraz(browsed, daraz, ['master']).categories, [])
+  const mice = [onCartup('Logitech M331 Silent Wireless Mouse', 1450), onCartup('Logitech MX Anywhere 3S Wireless Mouse', 8580)]
+  const browsedMice = { categories: ['mice'], byCategory: { mice }, listings: mice }
+  assert.deepEqual(likeDaraz(browsedMice, daraz, ['mouse']).categories, ['mice'])
+})
+
+test('mouse + 30k: the best-fit product is recommended at its best trusted offer, and ৳260 mice aren\'t "worth a look" next to it', () => {
+  const asResult = (l: Listing): Result => ({ listing: l, history: null, vouchers: [], bestVoucher: null, finalPrice: l.price, hints: [] })
+  const fit = asResult(listing('MX MASTER 3S High-performance Wireless Mouse', 15000, { rating: 5, reviews: 2 }))
+  const mall = asResult(listing('Logitech MX Master 3S with Free Adobe Subscription', 11999, { officialStore: true }))
+  const unrated = asResult(listing('Logitech MX Master 3S Wireless Mouse', 9000, { rating: null, reviews: 0 }))
+  assert.equal(bestOffer(fit, [fit, mall, unrated]), mall)
+  assert.equal(bestOffer(fit, [fit, unrated]), fit)
+
+  const intent: Intent = { ...product('mouse'), mode: 'need', maxPrice: 30000 }
+  const pick = onCartup('Logitech MX Master 3S with Free Adobe Subscription', 12320)
+  const cheap = onCartup('HP 2.4G Wireless Optical Mouse', 260)
+  const rows = matchRows({ intent, title: pick.name, ref: pick, same: [], pool: [pick, cheap], fits: [cheap] })
+  assert.ok(!rows.some((r) => r.listing === cheap))
 })

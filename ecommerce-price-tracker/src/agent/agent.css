@@ -236,7 +236,10 @@
 .store-matches li a:hover .other-name { color: var(--orange); }
 .relation { justify-self: start; padding: 1px 6px; border-radius: 3px; font: 9px 'DM Mono', monospace; font-weight: 400; text-transform: uppercase; }
 .relation.same { color: #15191d; background: var(--green); }
-.relation.similar { color: #c9d0d7; background: #2a3138; }
+.relation.variant { color: #15191d; background: var(--orange); }
+.relation.close, .relation.fits { color: #c9d0d7; background: #2a3138; }
+.also-named, .other-aka { color: var(--muted); font-size: 11px; line-height: 1.4; }
+.also-named { margin: 0 0 6px; }
 .store-section .voucher-checks { margin-top: 14px; }
 @media (max-width: 760px) {
   .stores-grid { grid-template-columns: 1fr; }

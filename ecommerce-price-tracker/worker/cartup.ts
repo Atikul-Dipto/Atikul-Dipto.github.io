@@ -13,11 +13,15 @@
  * Only a handful of pages are fetched per question (MAX_PAGES), never a crawl.
  */
 
-import { isAccessory, modelTokens, tokens } from './ranking.ts'
+import { compact, foundWords, isAccessory, modelTokens, tokens } from './ranking.ts'
 import type { D1Database, Listing } from './types.ts'
 
 const MAX_PAGES = 4
 const MAX_CANDIDATES = 40
+// Extra candidates holding the title's rarest word (see searchIndex).
+const RARE_CANDIDATES = 20
+// A browsed category's listings must share this many words (on average) with what Daraz found.
+const MIN_LIKENESS = 0.3
 const TIMEOUT_MS = 6000
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 // Words that don't identify a product, on top of the index's own too-common list.
@@ -121,15 +125,25 @@ export async function searchIndex(db: D1Database, title: string): Promise<{ slug
   const required = codes.find((parts) => parts.every((w) => postings.has(w))) ?? []
   if (codes.length && !required.length) return { slugs: [], meta }
 
+  // A rare word says more than a common one: "jordan" picks out a bag,
+  // "bag" picks out nothing. Words the index lacks weigh as much as an average one.
+  const weight = new Map([...postings].map(([w, ids]) => [w, Math.log(meta.docs / ids.length)]))
+  const usual = [...weight.values()].reduce((a, b) => a + b, 0) / (weight.size || 1)
+  const weightOf = (w: string) => weight.get(w) ?? usual
   const hits = new Map<number, number>()
-  for (const ids of postings.values()) for (const id of ids) hits.set(id, (hits.get(id) ?? 0) + 1)
+  for (const [w, ids] of postings) for (const id of ids) hits.set(id, (hits.get(id) ?? 0) + weightOf(w))
   let candidates = [...hits.entries()]
   const requiredIds = required.filter((w) => postings.has(w)).map((w) => new Set(postings.get(w)))
   if (requiredIds.length) candidates = candidates.filter(([id]) => requiredIds.every((s) => s.has(id)))
   // Cases and covers flood model searches ("Samsung Galaxy A36" on Cartup is
   // mostly cases); they're dropped once names are known, before any page fetch.
   candidates.sort((a, b) => b[1] - a[1] || a[0] - b[0])
-  const top = candidates.slice(0, MAX_CANDIDATES).map(([id]) => id)
+  // Generic listings stuffed with the title's common words ("waterproof
+  // crossbody chest waist bag") can outnumber the product itself, so the ones
+  // holding its rarest word (usually the brand or line) always get a look.
+  const rarest = [...postings.entries()].sort((a, b) => a[1].length - b[1].length)[0]
+  const rare = new Set(rarest?.[1] ?? [])
+  const top = [...new Set([...candidates.slice(0, MAX_CANDIDATES), ...candidates.filter(([id]) => rare.has(id)).slice(0, RARE_CANDIDATES)].map(([id]) => id))]
   if (!top.length) return { slugs: [], meta }
 
   const blocks = [...new Set(top.map((id) => Math.floor(id / meta.docBlock)))]
@@ -138,16 +152,17 @@ export async function searchIndex(db: D1Database, title: string): Promise<{ slug
     .bind(...blocks)
     .all<{ block: number; data: string }>()
   const byBlock = new Map(docRows.results.map((r) => [r.block, JSON.parse(r.data) as string[]]))
-  const titleWords = new Set(words)
-  // Re-score on the full name: share of the title's words it has, minus extra words it adds.
+  const total = words.reduce((sum, w) => sum + weightOf(w), 0)
+  // Re-score on the full name: the weighted share of the title's words it has
+  // (each counted once, however often a seller repeats it), minus extra words it adds.
   const scored = top
     .map((id) => byBlock.get(Math.floor(id / meta.docBlock))?.[id % meta.docBlock])
     .filter((slug): slug is string => Boolean(slug))
     .map((slug) => {
       const name = nameFromSlug(slug)
-      const nameWords = tokens(name)
-      const shared = nameWords.filter((w) => titleWords.has(w)).length
-      return { slug, name, score: shared / titleWords.size - 0.02 * Math.max(0, nameWords.length - shared) }
+      const found = foundWords(words, name)
+      const extra = new Set(tokens(name)).size - found.length
+      return { slug, name, score: found.reduce((sum, w) => sum + weightOf(w), 0) / total - 0.02 * Math.max(0, extra) }
     })
     .filter((c) => c.score >= MIN_CANDIDATE_SCORE && !isAccessory({ name: c.name } as Listing, all))
     .sort((a, b) => b.score - a.score || b.slug.length - a.slug.length)
@@ -236,8 +251,21 @@ export function parseProductPage(html: string, slug: string): Listing | null {
     listing.originalPrice = seen.originalPrice
     listing.discountPercent = Math.round(((seen.originalPrice - listing.price) / seen.originalPrice) * 100)
   }
+  // Sellers rename listings, and Cartup's search results and the page title
+  // keep the old name: "Air Jordan waterproofe Crossbody Chest/Waist Bag" is
+  // now headed "Jordan Luxurious Professional Waterproof Trendy Side Bag".
+  // Shoppers find it by either, so both are kept.
+  const title = /<meta property="og:title" content="([^"]*)"/.exec(html)?.[1]
+  const earlier = title && decodeEntities(title).trim()
+  if (earlier && compact(earlier) !== compact(listing.name)) listing.alsoNamed = earlier
   return listing
 }
+
+const ENTITIES: Record<string, string> = { amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ' }
+const decodeEntities = (s: string) =>
+  s.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (m, e: string) =>
+    e[0] === '#' ? String.fromCodePoint(parseInt(e.slice(1).replace(/^x/i, ''), /^#x/i.test(e) ? 16 : 10)) : (ENTITIES[e.toLowerCase()] ?? m),
+  )
 
 /**
  * A category page (allowed by robots.txt) -> its first 20 products, from the
@@ -373,14 +401,15 @@ export async function browse(db: D1Database | undefined, kinds: string[]): Promi
  * same search ("inch", "hz", "ips"...), dropping any far behind the best.
  */
 export function likeDaraz(browsed: Browsed, darazNames: string[], kinds: string[]): Browsed {
-  if (browsed.categories.length < 2 || !darazNames.length) return browsed
+  if (!browsed.categories.length || !darazNames.length) return browsed
   const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
-  const vocabulary = new Set(darazNames.flatMap((n) => tokens(n)).filter((w) => w.length > 1 && !kindWords.has(stem(w))))
+  const vocabulary = new Set(darazNames.flatMap((n) => tokens(n)).filter((w) => w.length > 1 && !QUERY_STOPWORDS.has(w) && !kindWords.has(stem(w))))
   const score = (ls: Listing[]) => (ls.length ? ls.reduce((n, l) => n + tokens(l.name).filter((w) => vocabulary.has(w)).length, 0) / ls.length : 0)
   const scores = browsed.categories.map((c) => score(browsed.byCategory[c] ?? []))
   const best = Math.max(...scores)
-  const keep = browsed.categories.filter((_, i) => scores[i] > 0 && scores[i] >= best * 0.4)
-  if (!keep.length) return browsed
+  // Also when there's only one: nothing alike at all means it isn't this kind
+  // of item ("egg_master" for the MX Master 3S), and it's left out.
+  const keep = browsed.categories.filter((_, i) => scores[i] >= MIN_LIKENESS && scores[i] >= best * 0.4)
   const byCategory = Object.fromEntries(keep.map((c) => [c, browsed.byCategory[c] ?? []]))
   return { categories: keep, byCategory, listings: [...new Map(Object.values(byCategory).flat().map((l) => [l.itemId, l])).values()] }
 }

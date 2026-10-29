@@ -22,7 +22,19 @@ Over the API: `POST /api/agent/ask {"query": "..."}` and `GET /api/agent/voucher
 
 ### Cartup comparison
 
-Every answer also checks **the same product on [Cartup](https://cartup.com)** and shows Daraz and Cartup side by side. If Cartup has it meaningfully cheaper (by 2% or more, from a seller rated ★4+ by 5+ buyers), Cartup can be the best choice. Daraz vouchers are never applied to Cartup prices.
+Every answer also checks **[Cartup](https://cartup.com)**. Each store answers for itself, side by side: its own recommended listing, and below it a "More on {store}" list. Where both stores have the same product, each says how its price compares. Daraz vouchers are never applied to Cartup prices.
+
+**Every row in a store's list is matched to the product (2026-10-29).** Nothing unrelated is added to fill the list out:
+- **Same product**: another seller of it.
+- **Other size or variant**: the same product line in another pack size, storage or variant ("Pran Miniket Rice 25kg" for "miniket rice 5kg").
+- **Close match**: same make, most of the product's words. With a model code, it must be a sibling model: KL68 for the KL69, A26/A37 for the A36, WH-1000XM4 for the XM5. Not the WF-1000XM5 earbuds, and not a Galaxy A07.
+
+For a kind of item ("mouse" + "30k"), the list is built around each store's pick:
+- the pick's other sellers;
+- the other store's pick, if this store has it too;
+- then other fits, within the budget and at no less than a third of the pick's price.
+
+The pick itself is shown at its cheapest offer from a seller worth trusting.
 
 How, and why this way (checked 2026-10-28):
 - **Cartup's search API needs a per-request signature** its page script computes from a hidden key. The `sxsrf` header decodes to `{"random","sign","expires"}`. Its `robots.txt` also disallows `/search` and every URL with `?`. Neither is used.
@@ -31,7 +43,13 @@ How, and why this way (checked 2026-10-28):
   - its product pages, which `robots.txt` allows. Each carries schema.org `Product` JSON-LD with the live price, stock, seller and rating.
 - **[`agent/cartup_index.py`](agent/cartup_index.py)** builds a name index from the sitemap URLs (the product name is in the address) and uploads it to D1: 15.5k rows, ~148MB, within the free plan's 500MB per database.
 - **[`worker/cartup.ts`](worker/cartup.ts)** looks a product up in that index, then fetches at most 4 of its pages per question for live prices. That takes ~0.1–0.5s from Cloudflare's Dhaka edge. For a named product it runs alongside the Daraz search, so it adds no waiting.
-- **Matching across stores** uses the same rules as on Daraz: the main model code must match ("LM27-B221B=V1" on Daraz is "lm27-b221bv1" on Cartup), plus the same variant words, storage and size. With a model code, 60% of the words must be shared; without one, 80% ("Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg").
+- **Matching across stores** uses the same rules as on Daraz.
+  - The main model code must match ("LM27-B221B=V1" on Daraz is "lm27-b221bv1" on Cartup), plus the same variant words, storage and size.
+  - With a model code, 60% of the words must be shared. A two-character code also needs the word before it: "3S" is the MX Master *and* the MX Anywhere.
+  - Without a model code, the listing must hold 80% of the name's words, or sit inside the name and cover half of it. "Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg"; "Jordan Chest Bag" isn't the Air Jordan crossbody chest/waist bag.
+  - Words are matched as sellers type them: a letter off at the end ("waterproofe") or run together ("chestwaist").
+- **The index search weighs rare words more** ("jordan" over "bag"), and always looks at the listings that hold the name's rarest word. Repeated words count once, so keyword-stuffed titles ("bag chest bag crossbody bag…") don't win.
+- **Renamed listings:** a seller who renames a Cartup listing leaves the old name in Cartup's search results and the page title. The agent matches on either name and shows both.
 
 Refresh the index weekly. It downloads ~195MB of sitemaps into `data/cartup/` (gitignored):
 

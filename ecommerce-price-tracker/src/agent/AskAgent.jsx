@@ -210,6 +210,7 @@ function StorePick({ store }) {
         <div className="store-pick-head">
           <p className="eyebrow">Recommended on {label}</p>
           <h3>{listing.name}</h3>
+          {listing.alsoNamed && <p className="also-named">Listed in {label}'s search as “{listing.alsoNamed}”</p>}
           <Seller listing={listing} />
         </div>
       </div>
@@ -261,7 +262,7 @@ function StorePick({ store }) {
   )
 }
 
-/** One store's other matches: other sellers of the same product first, then similar items. */
+/** One store's other matches, each matched to the product: its other sellers, other sizes, then close matches. */
 function StoreMatches({ store, named }) {
   if (!store.matches.length) return null
   return (
@@ -271,8 +272,9 @@ function StoreMatches({ store, named }) {
         {store.matches.map((r) => (
           <li key={r.listing.itemId}>
             <a href={r.listing.url} target="_blank" rel="noreferrer">
-              {named && <b className={`relation ${r.relation}`}>{r.relation === 'same' ? 'Same product' : 'Similar'}</b>}
+              <b className={`relation ${r.relation}`}>{r.label}</b>
               <span className="other-name">{r.listing.name}</span>
+              {r.listing.alsoNamed && <span className="other-aka">in {store.label}'s search as “{r.listing.alsoNamed}”</span>}
               <span className="other-seller">
                 {r.listing.seller}
                 {r.listing.officialStore && ' · Daraz Mall'}
