@@ -26,6 +26,7 @@ export const isOverseas = (l: Listing) => l.location.toLowerCase() === 'overseas
 // "camera", "2k resolution" as "2k", "144hz refresh rate" as "144hz".
 export const FEATURE_FILLER = new Set(['good', 'great', 'best', 'nice', 'long', 'big', 'high', 'strong', 'fast', 'excellent', 'better', 'quality', 'resolution', 'refresh', 'rate'])
 export const QUANTITY_RE = /(\d+(?:\.\d+)?)\s*(kg|g|gm|gram|grams|l|ltr|litre|liter|ml|pcs|pc|pack)\b/gi
+const UNIT_RE = /^(kg|g|gm|gram|grams|l|ltr|litre|liter|litres|liters|ml|pcs|pc|pack)$/
 const UNIT_ALIASES: Record<string, string> = { gm: 'g', gram: 'g', grams: 'g', ltr: 'l', litre: 'l', liter: 'l', pc: 'pcs' }
 
 export const tokens = (text: string): string[] => text.toLowerCase().match(/[a-z0-9]+/g) ?? []
@@ -63,7 +64,9 @@ export function sizesAgree(wanted: Set<string>, name: string): boolean {
  * inside it, nor another size of it.
  */
 export function isBundle(name: string): boolean {
-  if (/\b(combo|bundle|hamper|gift\s*(?:box|set|pack))\b/i.test(name)) return true
+  if (/\b(combo|bundle|hamper|gift\s*(?:box|set|pack)|bogo)\b/i.test(name)) return true
+  // "Buy 1 Get 1 Free", "Buy 10 pcs Box Get 1 pcs free"
+  if (/\bbuy\s*\d+\b.{0,20}?\bget\s*\d+/i.test(name)) return true
   // "(Powder + Oil + Lotion + Wash + Face Cream)"
   if ((name.match(/[a-z]\s*\+\s*[a-z]/gi) ?? []).length >= 3) return true
   const units = [...quantities(name)].map(unitOf)
@@ -113,7 +116,9 @@ export function modelTokens(queryTokens: string[]): string[] {
       return
     }
     const prev = queryTokens[i - 1]
-    if (/^\d+$/.test(t) && prev && /^[a-z]+$/.test(prev) && !GLUE_STOPWORDS.has(prev) && !SPEC_WORDS.has(queryTokens[i + 1] ?? '')) {
+    // ...unless a unit follows: "Mustard Oil - 1 Ltr" is a size, not an "oil1".
+    const next = queryTokens[i + 1] ?? ''
+    if (/^\d+$/.test(t) && prev && /^[a-z]+$/.test(prev) && !GLUE_STOPWORDS.has(prev) && !SPEC_WORDS.has(next) && !UNIT_RE.test(next)) {
       found.push(prev + t)
     }
   })
@@ -134,6 +139,21 @@ export function foundWords(want: string[], name: string): string[] {
   return want.filter(
     (w, i) => have.has(w) || [...have].some((h) => nearSpelling(w, h) || (want[i + 1] && h === w + want[i + 1]) || (i > 0 && h === want[i - 1] + w)),
   )
+}
+
+// Words typed around what's wanted, not part of it.
+const FILLER_WORDS = new Set(['for', 'with', 'and', 'the', 'of', 'new', 'original', 'best', 'pcs', 'pc'])
+
+/** How many of the shopper's words a title has, plurals included ("bag" in "Bags", "men" in "Mens"). */
+function wordsCovered(words: string[], name: string): number {
+  const have = new Set(tokens(name))
+  const found = new Set(foundWords(words, name))
+  return words.filter((w) => found.has(w) || have.has(w + 's') || have.has(w + 'es')).length
+}
+
+/** The words of a search a title lacks ("radhuni" when Daraz has no Radhuni mustard oil). */
+export function missingWords(query: string, name: string): string[] {
+  return tokens(query).filter((w) => !FILLER_WORDS.has(w) && !/^\d+$/.test(w) && !wordsCovered([w], name))
 }
 
 /**
@@ -306,6 +326,13 @@ export function rank(listings: Listing[], intent: Intent, limit = 6, extra: List
 
   if (intent.mode === 'need') {
     let pool = candidates.filter((l) => withinBudget(l, intent))
+    // What the shopper typed narrows it first: "radhuni mustard oil" is
+    // Radhuni's, and "lotto" is the brand, not whatever Daraz lists beside it.
+    const words = queryTokens.filter((t) => !FILLER_WORDS.has(t) && !/^\d+$/.test(t))
+    const best = Math.max(0, ...pool.map((l) => wordsCovered(words, l.name)))
+    if (best > 0) pool = pool.filter((l) => wordsCovered(words, l.name) === best)
+    // One of it, unless a combo was asked for ("Lux Body Wash 245ml (Bundle of 4)").
+    if (!isBundle(intent.searchQuery)) pool = pool.filter((l) => !isBundle(l.name))
     const [kept, suspicious] = priceFloor(pool, pool.length >= 4 ? median(pool.map((l) => l.price)) : null)
     pool = scoreForNeed(kept, intent)
     return { ranked: pool.slice(0, limit), alternatives: [], suspicious }

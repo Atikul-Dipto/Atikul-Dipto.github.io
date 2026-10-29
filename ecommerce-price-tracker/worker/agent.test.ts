@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, sameProduct, type StoreAnswer, standing } from './agent.ts'
+import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, sameProduct, sharedPick, type StoreAnswer, standing } from './agent.ts'
 import { decodeIds, fnv1a, likeDaraz, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
-import { foundWords, modelTokens, quantities, rank, storageOf, tokens, trusted, variantsOf } from './ranking.ts'
+import { foundWords, isBundle, missingWords, modelTokens, quantities, rank, storageOf, tokens, trusted, variantsOf } from './ranking.ts'
 import type { Intent, Listing, Voucher } from './types.ts'
 
 const CAMPAIGN = 'https://pages.daraz.com.bd/wow/gcp/route/daraz/bd/upr/router?wh_pid=%2Flazada%2Fchannel%2Fbd%2Fweekly-campaigns%2FbKashChoice'
@@ -586,4 +586,57 @@ test("a renamed listing's generic earlier name doesn't make a different scent th
   const extraMild = onCartup('Kodomo Baby Lotion Powder (Extra Mild) - 180ml', 847, { alsoNamed: 'Kodomo Baby Lotion Powder 180ml (Thailand)' })
   assert.notEqual(relate(extraMild), 'same')
   assert.equal(relate(onCartup('Kodomo Baby Lotion Powder (Pink Hanabaki) 180ml', 744)), 'same')
+})
+
+test('"lotion": a pick the other store sells too goes on both cards; of two such picks, the one more buyers reviewed', () => {
+  const parachute = listing('Parachute Just for Baby - Baby Lotion 100ml', 163, { officialStore: true, reviews: 1273 })
+  const onCartupToo = onCartup('Parachute Just for Baby - Baby Lotion 100ml', 198)
+  const dNee = onCartup('D Nee Organic Baby Lotion Sakura For Newborn 300ml', 1499, { reviews: 0, sellerPositive: 90 })
+  assert.equal(sharedPick({ pick: parachute, elsewhere: [onCartupToo] }, { pick: dNee, elsewhere: [] }), 'a')
+  assert.equal(sharedPick({ pick: dNee, elsewhere: [] }, { pick: parachute, elsewhere: [onCartupToo] }), 'b')
+  // "baby lotion": each store sells the other's pick; the 100ml has the reviews.
+  const lotion200 = onCartup('Parachute Just for Baby - Baby Lotion 200ml', 269, { reviews: 44 })
+  const lotion200OnDaraz = listing('Parachute Just for Baby - Baby Lotion 200ml', 364, { reviews: 60 })
+  assert.equal(sharedPick({ pick: parachute, elsewhere: [onCartupToo] }, { pick: lotion200, elsewhere: [lotion200OnDaraz] }), 'a')
+  assert.equal(sharedPick({ pick: parachute, elsewhere: [] }, { pick: dNee, elsewhere: [] }), null)
+})
+
+test('a kind of item with a brand: the brand typed is the brand picked', () => {
+  const need = (q: string): Intent => ({ ...product(q), mode: 'need' })
+  const pool = [
+    listing('Cold pressed mustard oil Ghani 1 litre', 220, { reviews: 900, rating: 4.9 }),
+    listing('Radhuni Pure Mustard Oil 1 Litre', 330, { reviews: 40 }),
+    listing('Radhuni Turmeric Powder 200gm', 120, { reviews: 500 }),
+  ]
+  assert.equal(rank(pool, need('radhuni mustard oil')).ranked[0].name, 'Radhuni Pure Mustard Oil 1 Litre')
+  const shoes = [listing("New Men's Sport Sneakers", 1162, { reviews: 300 }), listing("Lotto Men's Running Shoes", 2400, { reviews: 12 })]
+  assert.equal(rank(shoes, need('lotto')).ranked[0].name, "Lotto Men's Running Shoes")
+  // Daraz has no Radhuni mustard oil: the pick says so.
+  assert.deepEqual(missingWords('radhuni mustard oil', 'Cold pressed mustard oil Ghani 500 ml'), ['radhuni'])
+  // A bundle isn't one of it.
+  assert.equal(rank([listing('Lux Body Wash 245ml (Bundle of 4)', 645, { reviews: 300 }), listing('Lux Body Wash 245ml', 162)], need('lux body wash')).ranked[0].price, 162)
+  // Plurals count: "bag" is in "Bags".
+  assert.equal(rank([listing('Ladies Bags Leather', 900), listing('Wallet Leather', 500, { reviews: 400 })], need('bag')).ranked[0].name, 'Ladies Bags Leather')
+})
+
+test('buy one get one free is two of it, not another seller of one', () => {
+  assert.ok(isBundle('[BUY 1 GET 1 Free] Himalaya Clear Complexion Brightening Body Lotion 400ml'))
+  assert.ok(!isBundle('Himalaya Clear Complexion Brightening Body Lotion 400ml'))
+})
+
+test('a number before a unit is a size, not a model code: another brand\'s 1 Ltr oil is not the same product', () => {
+  assert.deepEqual(modelTokens(tokens('Radhuni Mustard Oil - 1 Ltr')), [])
+  assert.deepEqual(modelTokens(tokens('miniket rice 5 kg')), [])
+  assert.deepEqual(modelTokens(tokens('iphone 15')), ['iphone15'])
+  const relate = relations('Radhuni Mustard Oil - 1 Ltr')
+  assert.deepEqual(
+    [listing('Organic Mustard Oil- 1 Ltr', 280), listing('Radhuni Mustard Oil 1 Litre', 313), listing('Radhuni Mustard Oil 2 Ltr', 571)].map(relate),
+    ['close', 'same', 'variant'],
+  )
+})
+
+test('a brandless name held in a branded title is not the same product; bulk "buy 10 get 1" deals are bundles', () => {
+  const relate = relations('Radhuni Mustard Oil - 1 Ltr')
+  assert.notEqual(relate(listing('Mustard Oil1 liter', 271)), 'same')
+  assert.ok(isBundle('AMA Sugar Free Coffee 150gm Box (Buy 10 pcs Box Get 1 pcs free)'))
 })

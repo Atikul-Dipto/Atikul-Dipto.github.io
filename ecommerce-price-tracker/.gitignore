@@ -41,3 +41,6 @@ data/debug/
 
 # Cartup product sitemaps + built search index (agent/cartup_index.py)
 data/cartup/
+
+# Keyword dumps from stores (private analytics, never committed)
+data/keywords/

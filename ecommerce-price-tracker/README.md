@@ -36,6 +36,10 @@ For a kind of item ("mouse" + "30k"), the list is built around each store's pick
 
 The pick itself is shown at its cheapest offer from a seller worth trusting.
 
+**Both cards show the same product when both stores sell it.** For "lotion", Daraz's pick was Parachute Baby Lotion 100ml at ৳163. Cartup sold it too, at ৳198, but its card showed a ৳1,499 newborn lotion. Now Cartup's card shows the Parachute lotion as "Daraz's pick, sold here too", ৳35 more than on Daraz, and its own pick moves into its list. When each store sells the other's pick, the one more buyers have reviewed (across both stores) goes on both cards. Neither store comes first: Daraz also searches for Cartup's pick by name. When neither store sells the other's pick, each keeps its own.
+
+**What was typed narrows a kind-of-item search first.** "radhuni mustard oil" recommends Radhuni's oil and "lotto" a Lotto shoe, not the best-reviewed listing of whatever the store showed beside them. When a store has nothing with a typed word, its card says so: Daraz has no Radhuni mustard oil, so its card reads "No “radhuni” listing here — the best fit for the rest of what you typed". Cartup's name index is searched for every question, not only named products: Cartup's Radhuni oil is in no "mustard oil" category. A combo, a bundle or a "Buy 1 Get 1" deal is never the pick unless one was asked for.
+
 How, and why this way (checked 2026-10-28):
 - **Cartup's search API needs a per-request signature** its page script computes from a hidden key. The `sxsrf` header decodes to `{"random","sign","expires"}`. Its `robots.txt` also disallows `/search` and every URL with `?`. Neither is used.
 - **What Cartup publishes for automated visitors is used instead:**
@@ -46,7 +50,8 @@ How, and why this way (checked 2026-10-28):
 - **Matching across stores** uses the same rules as on Daraz.
   - The main model code must match ("LM27-B221B=V1" on Daraz is "lm27-b221bv1" on Cartup), plus the same variant words, storage and size.
   - With a model code, 60% of the words must be shared. A two-character code also needs the word before it: "3S" is the MX Master *and* the MX Anywhere.
-  - Without a model code, the listing must hold 80% of the name's words, or sit inside the name and cover half of it. "Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg"; "Jordan Chest Bag" isn't the Air Jordan crossbody chest/waist bag.
+  - Without a model code, the listing must hold 80% of the name's words, or sit inside the name, cover half of it, and keep its first word (usually the brand). "Teer Nazirshail Rice 5kg" isn't "miniket rice 5kg"; "Jordan Chest Bag" isn't the Air Jordan crossbody chest/waist bag; a plain "Mustard Oil 1 liter" isn't Radhuni's.
+  - A number before a unit is a size, never a model code: "Mustard Oil - 1 Ltr" has no code "oil1" (it made two brands' 1-litre oils "the same product").
   - Words are matched as sellers type them: a letter off at the end ("waterproofe") or run together ("chestwaist").
   - **Sizes:** in the units the name uses, every amount a listing states must be the wanted one. "Baby Lotion 200ml & Baby Wash 100ml" is not the 100ml lotion; its 100ml is the wash. A free extra in another unit ("Face Cream 50g FREE") doesn't count against it.
   - **Bundles never match a single product,** whether a combo, a gift box or set, an item list ("Powder + Oil + Lotion + Wash"), or two amounts in one unit. They aren't listed as "Also fits" either, unless a bundle was asked for.
@@ -61,6 +66,23 @@ Refresh the index weekly. It downloads ~195MB of sitemaps into `data/cartup/` (g
 .venv\Scripts\python.exe -m agent --index-cartup            # build + upload (~5 min)
 .venv\Scripts\python.exe -m agent --index-cartup --dry-run  # build + report only
 ```
+
+### Testing with a store's search keywords
+
+[`tools/keyword-batch.ts`](tools/keyword-batch.ts) runs a store's keyword export through the real agent from this PC. The export needs `keyword` and `searchers` columns, and the most-searched keywords run first. It does three things:
+- It flags answers that look wrong for review: the pick lacks a typed word, wrong size, a bundle, an accessory, a price far off the rest, or a store with nothing.
+- It saves every price it sees into a local database. That covers all of Daraz's results and up to 8 extra Cartup product pages per keyword, since no shopper is waiting.
+- It writes those prices as SQL for D1, most-searched first.
+
+It runs one keyword at a time with a pause between them, about 17 seconds a keyword. Name-only searches never call the AI, and nothing goes into the live `asks` log. Exports stay in `data/keywords/`, which is gitignored.
+
+```powershell
+node tools/keyword-batch.ts run data/keywords/<export>.csv --top 2000   # resumable
+node tools/keyword-batch.ts report [--flag no_cartup]                  # flags, with examples
+node tools/keyword-batch.ts push --send                                # 20k price points per run
+```
+
+D1's free plan allows 100k written rows a day, and a new listing costs about four of them. A big run is therefore pushed over a few days.
 
 ### Live on the website (Cloudflare)
 

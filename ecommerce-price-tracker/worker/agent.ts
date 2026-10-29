@@ -22,7 +22,7 @@ import * as cartup from './cartup.ts'
 import * as daraz from './daraz.ts'
 import { bestVoucher, checkAll, listingHints, money } from './eligibility.ts'
 import { buildIntent, coreQuery, describeQuery, parseIntent } from './intent.ts'
-import { compact, foundWords, isAccessory, isBundle, mainModel, modelTokens, namesAllOf, quantities, rank, sizesAgree, storageOf, tokens, trusted, variantsOf, withoutVariants } from './ranking.ts'
+import { compact, foundWords, isAccessory, isBundle, mainModel, missingWords, modelTokens, namesAllOf, quantities, rank, sizesAgree, storageOf, tokens, trusted, variantsOf, withoutVariants } from './ranking.ts'
 import * as store from './store.ts'
 import type { Env, HistoryMatch, Intent, Listing, Voucher, VoucherCheck } from './types.ts'
 
@@ -166,10 +166,12 @@ export function relations(title: string): (l: Listing) => Relation | null {
     // Nazirshail Rice 5kg" isn't), or is held in it and covers at least half
     // of it ("Jordan Chest Bag" doesn't). A renamed listing's earlier name
     // has to hold it all: a generic old "Kodomo Baby Lotion Powder 180ml"
-    // doesn't make today's "(Extra Mild)" the Pink Hanabaki one.
+    // doesn't make today's "(Extra Mild)" the Pink Hanabaki one. Held in it,
+    // the name still needs the title's first word, usually the brand: a
+    // plain "Mustard Oil 1 liter" isn't Radhuni's.
     const identity = main
       ? Math.max(ofTitle, ofName) >= 0.6
-      : ofTitle >= 0.8 || (!earlier && ofName >= 0.8 && ofTitle >= 0.5)
+      : ofTitle >= 0.8 || (!earlier && ofName >= 0.8 && ofTitle >= 0.5 && foundWords(lineWords.slice(0, 1), nameLine).length > 0)
     if (!identity) return close
     const s = storageOf(name)
     const differs =
@@ -317,8 +319,15 @@ export function evidence(l: Listing): string {
 }
 
 /** For a kind of item: what made a store's top listing its best fit. */
-function needWhy(pick: Result, intent: Intent, fit: Result = pick): string {
-  const parts = ['Best fit here for what you described']
+function needWhy(pick: Result, intent: Intent, fit: Result = pick, otherStorePick: string | null = null): string {
+  const missing = otherStorePick ? [] : missingWords(intent.searchQuery, fit.listing.name)
+  const parts = [
+    otherStorePick
+      ? `${otherStorePick}'s pick, sold here too`
+      : missing.length
+        ? `No “${missing.join(' ')}” listing here — the best fit for the rest of what you typed`
+        : 'Best fit here for what you described',
+  ]
   if (fit.listing.matchedFeatures.length) parts.push(`mentions ${fit.listing.matchedFeatures.join(', ')}`)
   parts.push(evidence(pick.listing))
   if (intent.maxPrice !== null) parts.push(`within your ${money(intent.maxPrice)} budget`)
@@ -336,12 +345,32 @@ export function bestOffer(fit: Result, offers: Result[]): Result {
   return cheaper.sort((a, b) => a.finalPrice - b.finalPrice)[0] ?? fit
 }
 
+/**
+ * For a kind of item, the stores' cards show the same product when one
+ * store's pick is sold on the other too, so the prices compare like for like:
+ * "lotion" had Daraz's Parachute Baby Lotion 100ml beside a ৳1,499 newborn
+ * lotion on Cartup, which sold the Parachute one too, at ৳198. Of two picks
+ * both stores sell, the one more buyers have reviewed (in both stores); if
+ * neither store sells the other's pick, each keeps its own (null).
+ */
+export function sharedPick(a: { pick: Listing; elsewhere: Listing[] }, b: { pick: Listing; elsewhere: Listing[] }): 'a' | 'b' | null {
+  const reviewed = (x: { pick: Listing; elsewhere: Listing[] }) => [x.pick, ...x.elsewhere].reduce((n, l) => n + l.reviews, 0)
+  if (a.elsewhere.length && b.elsewhere.length) return reviewed(b) > reviewed(a) ? 'b' : 'a'
+  return a.elsewhere.length ? 'a' : b.elsewhere.length ? 'b' : null
+}
+
+/** Of one product's listings on a store, the one to show: a seller worth trusting, then the cheapest. */
+const firstOffer = (listings: Listing[]): Listing => [...listings].sort((x, y) => Number(trusted(y)) - Number(trusted(x)) || x.price - y.price)[0]
+
+/** Two stores' listings of one product, judged from either title (one store's may say more). */
+const samePicks = (a: Listing, b: Listing) => sameProduct([b], a.name).length > 0 || sameProduct([a], b.name).length > 0
+
 /** Where two stores' picks are the same product, each says how its price compares — a fact, not a push. */
 export function compareAcross(stores: StoreAnswer[]): void {
   for (const a of stores) {
     for (const b of stores) {
       if (a === b || !a.recommended || !b.recommended) continue
-      if (!sameProduct([b.recommended.listing], a.recommended.listing.name).length) continue
+      if (!samePicks(a.recommended.listing, b.recommended.listing)) continue
       const diff = a.recommended.finalPrice - b.recommended.finalPrice
       const fact = diff === 0 ? `Same price as on ${b.label}.` : `${money(Math.abs(diff))} ${diff < 0 ? 'less' : 'more'} than on ${b.label}.`
       a.why = a.why ? `${a.why} ${fact}` : fact
@@ -408,11 +437,12 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   const refined = !named ? (intent.refinedQuery ?? null) : null
   const optional = (q: string | null, opts: Parameters<typeof daraz.search>[1] = {}) => (q ? daraz.search(q, opts).catch(() => null) : Promise.resolve(null))
 
-  // Cartup runs alongside: the named product through its name index, and the
+  // Cartup runs alongside: what was typed through its name index, and the
   // kind of item through its category pages (for a named product, its kind's
-  // categories give the similar items).
+  // categories give the similar items). A kind of item needs both: Cartup's
+  // Radhuni mustard oil is in no "mustard oil" category, and "lotto" has none.
   const kinds = named ? namedKinds(intent.searchQuery) : [intent.refinedQuery, intent.productType, intent.searchQuery].filter((k): k is string => Boolean(k))
-  const cartupLookup = named ? cartup.lookup(db, intent.searchQuery) : Promise.resolve(null)
+  const cartupLookup = cartup.lookup(db, intent.searchQuery)
   const cartupBrowse = kinds.length ? cartup.browse(db, kinds) : Promise.resolve(null)
   const [first, coreHits, alt, nearHits, refinedHits] = await Promise.all([
     daraz.search(intent.searchQuery, named ? {} : budget),
@@ -485,35 +515,51 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   const cartupPick = cartupRanked[0] ?? null
   // Cartup's own pick, by name, for its other sellers and sizes — unless it's
   // Daraz's pick, which was just looked up.
-  if (cartupPick && !(darazPick && sameProduct([cartupPick], darazPick.name).length)) {
-    const own = await cartup.lookup(db, cartupPick.name)
+  // Daraz searched for it too, as Cartup was for Daraz's pick.
+  if (cartupPick && !(darazPick && samePicks(darazPick, cartupPick))) {
+    const [own, onDaraz] = await Promise.all([
+      cartup.lookup(db, cartupPick.name),
+      named ? Promise.resolve(null) : optional(coreQuery(cartupPick.name) ?? cartupPick.name.split(/\s+/).slice(0, 6).join(' ')),
+    ])
     cartupPool = unique([...cartupPool, ...own.listings])
+    darazAll = [...darazAll, ...(onDaraz?.listings ?? [])]
   }
   lap('cartup')
 
   // ---- each store's "More" rows, matched to the product ----
-  const darazRows = named
+  const needRows = (pick: Listing | null, pool: Listing[], other: { label: string; listing: Listing } | null, fits: Listing[]) =>
+    matchRows({ intent, title: pick?.name ?? '', ref: pick, same: [], pool, otherPick: other, fits })
+  let darazRows = named
     ? matchRows({ intent, title: intent.searchQuery, ref: ranked[0] ?? null, same: ranked, pool: darazAll })
-    : matchRows({
-        intent,
-        title: darazPick?.name ?? '',
-        ref: darazPick,
-        same: [],
-        pool: darazAll,
-        otherPick: cartupPick && { label: 'Cartup', listing: cartupPick },
-        fits: ranked.slice(1),
-      })
-  const cartupRows = named
+    : needRows(darazPick, darazAll, cartupPick && { label: 'Cartup', listing: cartupPick }, ranked.slice(1))
+  let cartupRows = named
     ? matchRows({ intent, title: intent.searchQuery, ref: cartupSame[0] ?? ranked[0] ?? null, same: cartupSame, pool: cartupPool })
-    : matchRows({
-        intent,
-        title: cartupPick?.name ?? '',
-        ref: cartupPick,
-        same: [],
-        pool: cartupPool,
-        otherPick: darazPick && { label: 'Daraz', listing: darazPick },
-        fits: cartupRanked.slice(1),
-      })
+    : needRows(cartupPick, cartupPool, darazPick && { label: 'Daraz', listing: darazPick }, cartupRanked.slice(1))
+
+  // A kind of item: where one store's pick is sold on the other too, both
+  // cards show that product, and each store's own pick moves to its "More".
+  let darazFit = darazPick
+  let cartupFit = cartupPick
+  let shared: 'daraz' | 'cartup' | null = null
+  const elsewhere = (rows: Row[]) => rows.filter((r) => r.otherStore).map((r) => r.listing)
+  if (!named && darazPick && cartupPick && samePicks(darazPick, cartupPick)) {
+    // Already the same product: the other store's pick is just another seller of it here.
+    for (const r of [...darazRows, ...cartupRows]) if (r.otherStore) Object.assign(r, { relation: 'same', label: 'Same product, another seller', otherStore: undefined })
+  } else if (!named && darazPick && cartupPick) {
+    const darazPickOnCartup = elsewhere(cartupRows)
+    const cartupPickOnDaraz = elsewhere(darazRows)
+    const which = sharedPick({ pick: darazPick, elsewhere: darazPickOnCartup }, { pick: cartupPick, elsewhere: cartupPickOnDaraz })
+    shared = which === 'a' ? 'daraz' : which === 'b' ? 'cartup' : null
+    if (shared === 'daraz') {
+      cartupFit = firstOffer(darazPickOnCartup)
+      darazRows = needRows(darazPick, darazAll, null, ranked.slice(1))
+      cartupRows = needRows(cartupFit, cartupPool, null, [cartupPick, ...cartupRanked.slice(1)])
+    } else if (shared === 'cartup') {
+      darazFit = firstOffer(cartupPickOnDaraz)
+      darazRows = needRows(darazFit, darazAll, null, [darazPick, ...ranked.slice(1)])
+      cartupRows = needRows(cartupPick, cartupPool, null, cartupRanked.slice(1))
+    }
+  }
 
   const everything = unique([...ranked, ...cartupSame, ...cartupRanked, ...darazRows.map((r) => r.listing), ...cartupRows.map((r) => r.listing)])
   let history = new Map<string, HistoryMatch>()
@@ -561,9 +607,9 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
         ? `No in-stock listing of “${intent.searchQuery}” itself — Daraz's ${first.listings.length} results were accessories, other models, or sold out.`
         : `Nothing on Daraz matched “${intent.searchQuery}” right now.`
   } else {
-    const fit = darazResults[0] ?? null
+    const fit = darazFit ? toResult(darazFit) : null
     darazStore.recommended = fit && bestOffer(fit, offersOf(darazRows))
-    darazStore.why = fit && needWhy(darazStore.recommended!, intent, fit)
+    darazStore.why = fit && needWhy(darazStore.recommended!, intent, fit, shared === 'cartup' ? 'Cartup' : null)
     darazStore.matches = matchesBesides(darazRows, darazStore.recommended)
     if (!darazResults.length) darazStore.note = 'Nothing on Daraz matched what you described right now.'
   }
@@ -589,14 +635,14 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
       cartupStore.note = cartupStore.matches.length ? `${why} Its closest matches are below.` : why
     }
   } else {
-    const fit = cartupPick ? toResult(cartupPick) : null
+    const fit = cartupFit ? toResult(cartupFit) : null
     cartupStore.recommended = fit && bestOffer(fit, offersOf(cartupRows))
-    cartupStore.why = fit && needWhy(cartupStore.recommended!, intent, fit)
+    cartupStore.why = fit && needWhy(cartupStore.recommended!, intent, fit, shared === 'daraz' ? 'Daraz' : null)
     cartupStore.matches = matchesBesides(cartupRows, cartupStore.recommended)
     if (!fit)
       cartupStore.note = categories.length
         ? `Nothing in Cartup's ${categories.map((c) => c.replace(/_\d+$/, '').replace(/_+/g, ' ')).join(' and ')} pages fits what you described.`
-        : 'Cartup has no section for this kind of item — it may not sell it.'
+        : `Nothing on Cartup is listed as “${intent.searchQuery}”, and it has no section for this kind of item.`
   }
 
   const stores = [darazStore, cartupStore]
