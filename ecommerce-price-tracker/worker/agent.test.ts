@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, sameProduct, sharedPick, type StoreAnswer, standing } from './agent.ts'
+import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, run, sameProduct, sharedPick, type StoreAnswer, standing } from './agent.ts'
 import { decodeIds, fnv1a, likeDaraz, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
@@ -639,4 +639,22 @@ test('a brandless name held in a branded title is not the same product; bulk "bu
   const relate = relations('Radhuni Mustard Oil - 1 Ltr')
   assert.notEqual(relate(listing('Mustard Oil1 liter', 271)), 'same')
   assert.ok(isBundle('AMA Sugar Free Coffee 150gm Box (Buy 10 pcs Box Get 1 pcs free)'))
+})
+
+test('when Daraz answers with a bot check, Cartup still answers and Daraz says it could not be reached', async () => {
+  const realFetch = globalThis.fetch
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = String(input instanceof Request ? input.url : input)
+    if (url.includes('daraz.com.bd')) return new Response('<script>sec check</script>', { status: 200 })
+    return new Response('', { status: 404 })
+  }) as typeof fetch
+  try {
+    const answer = await run({ name: 'lotion' }, {})
+    const darazAnswer = answer.stores.find((s) => s.site === 'daraz')!
+    assert.equal(darazAnswer.recommended, null)
+    assert.match(darazAnswer.note ?? '', /Couldn't reach Daraz/)
+    assert.ok(answer.stores.some((s) => s.site === 'cartup'))
+  } finally {
+    globalThis.fetch = realFetch
+  }
 })

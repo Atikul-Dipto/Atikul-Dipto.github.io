@@ -444,8 +444,13 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   const kinds = named ? namedKinds(intent.searchQuery) : [intent.refinedQuery, intent.productType, intent.searchQuery].filter((k): k is string => Boolean(k))
   const cartupLookup = cartup.lookup(db, intent.searchQuery)
   const cartupBrowse = kinds.length ? cartup.browse(db, kinds) : Promise.resolve(null)
+  // Daraz sometimes answers with a bot check instead of results; Cartup still answers then.
+  let darazDown = false
   const [first, coreHits, alt, nearHits, refinedHits] = await Promise.all([
-    daraz.search(intent.searchQuery, named ? {} : budget),
+    daraz.search(intent.searchQuery, named ? {} : budget).catch(() => {
+      darazDown = true
+      return { listings: [], categories: [], url: `https://www.daraz.com.bd/catalog/?q=${encodeURIComponent(intent.searchQuery)}` }
+    }),
     optional(core),
     optional(altQuery, budget),
     optional(nearBudget ? intent.searchQuery : null, nearBudget ?? {}),
@@ -645,6 +650,7 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
         : `Nothing on Cartup is listed as “${intent.searchQuery}”, and it has no section for this kind of item.`
   }
 
+  if (darazDown) darazStore.note = "Couldn't reach Daraz just now — try again in a moment."
   const stores = [darazStore, cartupStore]
   compareAcross(stores)
   const summary = summarize(stores)
