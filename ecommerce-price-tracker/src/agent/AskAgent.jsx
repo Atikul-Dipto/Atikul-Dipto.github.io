@@ -182,7 +182,7 @@ function Seller({ listing }) {
 const STORE_LABEL = { daraz: 'Daraz', cartup: 'Cartup' }
 
 function StoreTag({ site }) {
-  return <span className={`store-tag ${site}`}>{STORE_LABEL[site]}</span>
+  return <span className={`store-tag ${site}`}>{STORE_LABEL[site] ?? site}</span>
 }
 
 /** How a seller earns trust, in the store's own terms (Cartup products rarely have reviews yet). */
@@ -192,111 +192,86 @@ function trustLine(listing) {
   return ' · no ratings yet'
 }
 
-function MainCard({ result, eyebrow, why }) {
+/** One store's recommended option: its own pick, never compared away. */
+function StorePick({ store }) {
+  const { recommended: result, why, label, site } = store
   const { listing, history, bestVoucher, finalPrice } = result
   const [imgOk, setImgOk] = useState(true)
-  const store = STORE_LABEL[listing.site]
   return (
-    <article className="best-card">
-      <div className="best-media">
-        {listing.image && imgOk ? (
-          <img src={listing.image} alt="" referrerPolicy="no-referrer" onError={() => setImgOk(false)} />
-        ) : (
-          <span>{listing.name.slice(0, 2)}</span>
-        )}
-      </div>
-      <div className="best-body">
-        <p className="eyebrow">
-          <StoreTag site={listing.site} /> {eyebrow}
-        </p>
-        <h2>{listing.name}</h2>
-        <Seller listing={listing} />
-
-        <div className="price-grid">
-          <div>
-            <span>Price on {store}</span>
-            <strong>{money(listing.price)}</strong>
-            {listing.originalPrice ? (
-              <small>
-                <del>{money(listing.originalPrice)}</del> {listing.discountPercent}% off
-              </small>
-            ) : (
-              <small>No listed discount</small>
-            )}
-          </div>
-          <div className={bestVoucher ? 'with-voucher' : ''}>
-            <span>With best voucher</span>
-            <strong>{bestVoucher ? money(finalPrice) : '—'}</strong>
-            <small>
-              {bestVoucher
-                ? `${bestVoucher.voucher.title} −${money(bestVoucher.saving)}`
-                : listing.site === 'daraz'
-                  ? 'No public voucher fits'
-                  : 'Cartup vouchers aren’t tracked yet'}
-            </small>
-          </div>
-          <PriceMemory listing={listing} history={history} />
+    <article className="store-pick">
+      <div className="store-pick-top">
+        <div className="store-pick-media">
+          {listing.image && imgOk ? (
+            <img src={listing.image} alt="" referrerPolicy="no-referrer" onError={() => setImgOk(false)} />
+          ) : (
+            <span>{listing.name.slice(0, 2)}</span>
+          )}
         </div>
-
-        {bestVoucher?.conditions.length > 0 && (
-          <div className="conditions">
-            <span>Only if</span>
-            <ul>
-              {bestVoucher.conditions.map((c) => (
-                <li key={c}>{c}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {why && <p className="why">{why}</p>}
-
-        <a className="buy-btn best-buy" href={listing.url} target="_blank" rel="noreferrer">
-          Open on {store} ↗
-        </a>
+        <div className="store-pick-head">
+          <p className="eyebrow">Recommended on {label}</p>
+          <h3>{listing.name}</h3>
+          <Seller listing={listing} />
+        </div>
       </div>
+
+      <div className="price-grid">
+        <div>
+          <span>Price</span>
+          <strong>{money(listing.price)}</strong>
+          {listing.originalPrice ? (
+            <small>
+              <del>{money(listing.originalPrice)}</del> {listing.discountPercent}% off
+            </small>
+          ) : (
+            <small>No listed discount</small>
+          )}
+        </div>
+        <div className={bestVoucher ? 'with-voucher' : ''}>
+          <span>With voucher</span>
+          <strong>{bestVoucher ? money(finalPrice) : '—'}</strong>
+          <small>{bestVoucher ? `${bestVoucher.voucher.title} −${money(bestVoucher.saving)}` : site === 'daraz' ? 'No public voucher fits' : 'Not tracked yet'}</small>
+        </div>
+        <PriceMemory listing={listing} history={history} />
+      </div>
+
+      {bestVoucher?.conditions.length > 0 && (
+        <div className="conditions">
+          <span>Only if</span>
+          <ul>
+            {bestVoucher.conditions.map((c) => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {why && <p className="why">{why}</p>}
+      {result.hints.length > 0 && (
+        <ul className="agent-notes">
+          {result.hints.map((h) => (
+            <li key={h}>{h}</li>
+          ))}
+        </ul>
+      )}
+
+      <a className="buy-btn best-buy" href={listing.url} target="_blank" rel="noreferrer">
+        Open on {label} ↗
+      </a>
     </article>
   )
 }
 
-/** When the product named doesn't fit what they need: the best thing that does, beneath it. */
-function ChoicePanel({ choice, pick, exact }) {
-  const { listing } = pick
-  const saving = exact ? exact.finalPrice - pick.finalPrice : 0
+/** One store's other matches: other sellers of the same product first, then similar items. */
+function StoreMatches({ store, named }) {
+  if (!store.matches.length) return null
   return (
-    <div className="choice">
-      <span className="choice-tag">Best choice for what you need</span>
-      <div className="choice-row">
-        <a href={listing.url} target="_blank" rel="noreferrer" className="choice-main">
-          <strong>
-            <StoreTag site={listing.site} /> {listing.name}
-          </strong>
-          <Seller listing={listing} />
-          <small>{choice.reason}</small>
-        </a>
-        <div className="choice-price">
-          <strong>{money(pick.finalPrice)}</strong>
-          {pick.bestVoucher && <small>with voucher · {money(listing.price)} before</small>}
-          {saving > 0 && <b>{money(saving)} less</b>}
-          <a className="buy-btn" href={listing.url} target="_blank" rel="noreferrer">
-            Open on {STORE_LABEL[listing.site]} ↗
-          </a>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ListingRows({ title, results }) {
-  if (!results.length) return null
-  return (
-    <div className="others">
-      <h3>{title}</h3>
+    <div className="store-matches">
+      <h4>{named ? `More on ${store.label}` : `Also worth a look on ${store.label}`}</h4>
       <ul>
-        {results.map((r) => (
+        {store.matches.map((r) => (
           <li key={r.listing.itemId}>
-            <StoreTag site={r.listing.site} />
             <a href={r.listing.url} target="_blank" rel="noreferrer">
+              {named && <b className={`relation ${r.relation}`}>{r.relation === 'same' ? 'Same product' : 'Similar'}</b>}
               <span className="other-name">{r.listing.name}</span>
               <span className="other-seller">
                 {r.listing.seller}
@@ -319,61 +294,27 @@ function ListingRows({ title, results }) {
   )
 }
 
-const MISSING_ON_CARTUP = {
-  not_found: "Cartup doesn't list this product right now.",
-  no_index: "Cartup comparison isn't set up yet.",
-  error: "Couldn't reach Cartup just now.",
-}
-
-/**
- * Every listing of the product on both stores, cheapest first: the
- * comparison itself, not an afterthought. Cartup is found through a name
- * index built from its sitemap (or its category pages, for a kind of item)
- * and priced live from its product pages.
- */
-function AllOffers({ offers, cartup, mainId, checkedAt }) {
-  if (!offers.length) return null
-  const stores = new Set(offers.map((r) => r.listing.site))
-  const cheapest = offers[0].finalPrice
-  let missing = null
-  if (!stores.has('cartup')) missing = MISSING_ON_CARTUP[cartup?.status] ?? MISSING_ON_CARTUP.not_found
-  else if (!stores.has('daraz')) missing = "Daraz doesn't list this product in stock right now."
+/** One store's whole answer. Each store gets one of these, side by side. */
+function StoreSection({ store, named }) {
+  const count = (store.recommended ? 1 : 0) + store.matches.length
   return (
-    <div className="compare-stores">
-      <h4>
-        All offers · {offers.length} listing{offers.length > 1 ? 's' : ''} on {[...stores].map((s) => STORE_LABEL[s]).join(' and ')}
-        {checkedAt && <span className="checked-at"> · prices checked live at {new Date(checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-      </h4>
-      <ul>
-        {offers.map((r) => (
-          <li
-            key={r.listing.itemId}
-            className={[r.finalPrice === cheapest && offers.length > 1 ? 'cheapest' : '', r.listing.itemId === mainId ? 'shown' : ''].join(' ')}
-          >
-            <StoreTag site={r.listing.site} />
-            <a href={r.listing.url} target="_blank" rel="noreferrer" className="compare-name">
-              {r.listing.name}
-              <small>
-                {r.listing.seller}
-                {r.listing.officialStore && ' · Daraz Mall'}
-                {trustLine(r.listing)}
-                {r.listing.location === 'Overseas' && ' · ships from overseas'}
-              </small>
-            </a>
-            <span className="compare-price">
-              <strong>{money(r.finalPrice)}</strong>
-              {r.bestVoucher && <small>with voucher</small>}
-              {r.finalPrice === cheapest && offers.length > 1 ? (
-                <b>cheapest</b>
-              ) : (
-                offers.length > 1 && <small className="up">+{money(r.finalPrice - cheapest)}</small>
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
-      {missing && <p className="compare-note">{missing}</p>}
-    </div>
+    <section className={`store-section ${store.site}`}>
+      <header className="store-section-head">
+        <StoreTag site={store.site} />
+        <span>
+          {count ? `${count} match${count > 1 ? 'es' : ''}` : 'No match'}
+        </span>
+        {store.link && (
+          <a href={store.link} target="_blank" rel="noreferrer">
+            {store.label}'s own results ↗
+          </a>
+        )}
+      </header>
+      {store.recommended ? <StorePick store={store} /> : <p className="store-empty">{store.note}</p>}
+      {store.recommended && store.note && <p className="store-empty">{store.note}</p>}
+      <StoreMatches store={store} named={named} />
+      {store.site === 'daraz' && store.recommended && <VoucherChecks checks={store.recommended.vouchers} />}
+    </section>
   )
 }
 
@@ -381,66 +322,37 @@ const categoryLabel = (slug) => slug.replace(/_\d+$/, '').replace(/_+/g, ' ')
 
 function Answer({ answer }) {
   const named = answer.intent.mode === 'product'
-  const choice = answer.bestChoice
-  const main = answer.main ?? answer.results[0] ?? null
-  const offers = answer.offers ?? []
-  const altPick = choice?.kind === 'alternative' ? answer.alternatives[choice.index] : null
-
+  const stores = answer.stores ?? []
   const notes = []
-  if (main && answer.intent.mustHave.length) {
-    const missing = answer.intent.mustHave.filter((f) => !main.listing.matchedFeatures.includes(f))
-    if (main.listing.matchedFeatures.length) notes.push(`The listing mentions: ${main.listing.matchedFeatures.join(', ')}.`)
-    if (missing.length) notes.push(`Not mentioned in the listing, check the specs: ${missing.join(', ')}.`)
+  if (answer.intent.mustHave.length) {
+    notes.push(`Features are checked against what each listing's title and highlights mention: ${answer.intent.mustHave.join(', ')}.`)
   }
   if (answer.skippedSuspicious) {
-    notes.push(`Left out ${answer.skippedSuspicious} listing${answer.skippedSuspicious > 1 ? 's' : ''} priced far below the rest — usually parts, accessories, copies or placeholder prices.`)
+    notes.push(`Left out ${answer.skippedSuspicious} Daraz listing${answer.skippedSuspicious > 1 ? 's' : ''} priced far below the rest — usually parts, accessories, copies or placeholder prices.`)
   }
-  if (main) notes.push(...main.hints)
-
-  // Named: similar items (other sellers are in All offers). Kind of item: the
-  // runners-up from both stores that aren't offers of the pick.
-  const inOffers = new Set(offers.map((r) => r.listing.itemId))
-  const runnersUp = answer.results.filter((r) => !inOffers.has(r.listing.itemId) && r.listing.itemId !== main?.listing.itemId)
-  const similar = answer.alternatives.filter((r) => r !== altPick)
-  const why = choice && choice.kind !== 'alternative' ? choice.reason : null
 
   return (
     <section className="answer" aria-live="polite">
       <Understood intent={answer.intent} />
-      {answer.cartupCategories?.length > 0 && (
-        <p className="searched-where">Searched Daraz, and Cartup's {answer.cartupCategories.map(categoryLabel).join(' and ')} pages</p>
-      )}
+      <p className="searched-where">
+        Searched {stores.map((s) => s.label).join(' and ')}
+        {answer.cartupCategories?.length > 0 && ` (Cartup's ${answer.cartupCategories.map(categoryLabel).join(' and ')} pages)`} · prices checked live at{' '}
+        {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </p>
 
-      {main ? (
-        <>
-          <MainCard result={main} eyebrow={named ? 'The product you asked for · best offer' : 'Best pick across Daraz and Cartup'} why={why} />
-          {altPick && <ChoicePanel choice={choice} pick={altPick} exact={main} />}
-          <AllOffers offers={offers} cartup={answer.cartup} mainId={main.listing.itemId} checkedAt={answer.checkedAt} />
-          {notes.length > 0 && (
-            <ul className="agent-notes">
-              {notes.map((n) => (
-                <li key={n}>{n}</li>
-              ))}
-            </ul>
-          )}
-          {main.listing.site === 'daraz' && <VoucherChecks checks={main.vouchers} />}
-        </>
-      ) : (
-        <>
-          <div className="no-answer">
-            <strong>{named ? 'Not in stock on Daraz or Cartup right now.' : 'No match to recommend.'}</strong>
-            <p>
-              {answer.seen
-                ? `Daraz returned ${answer.seen} results for “${answer.intent.searchQuery}”, but none is an in-stock listing of it — they were accessories, other models, or sold out. Cartup doesn't list it either.`
-                : `Nothing on Daraz or Cartup matched “${answer.intent.searchQuery}” right now.`}
-            </p>
-          </div>
-          {altPick && <ChoicePanel choice={choice} pick={altPick} exact={null} />}
-        </>
-      )}
+      <div className="stores-grid">
+        {stores.map((s) => (
+          <StoreSection key={s.site} store={s} named={named} />
+        ))}
+      </div>
 
-      {!named && <ListingRows title="Also worth a look" results={runnersUp} />}
-      {named && <ListingRows title="Similar items" results={similar} />}
+      {notes.length > 0 && (
+        <ul className="agent-notes">
+          {notes.map((n) => (
+            <li key={n}>{n}</li>
+          ))}
+        </ul>
+      )}
 
       <footer className="answer-meta">
         <span>
@@ -453,9 +365,6 @@ function Answer({ answer }) {
           {answer.timingsMs.cartup != null && <i>cartup {seconds(answer.timingsMs.cartup)}</i>}
           {answer.timingsMs.scope != null && <i>narrow down {seconds(answer.timingsMs.scope)}</i>}
         </span>
-        <a href={answer.searchUrl} target="_blank" rel="noreferrer">
-          Daraz's own results ↗
-        </a>
       </footer>
 
       <details className="caveats">
@@ -464,10 +373,6 @@ function Answer({ answer }) {
           {answer.caveats.map((c) => (
             <li key={c}>{c}</li>
           ))}
-          <li>
-            Cartup prices and stock are read live from its product pages. Reviews and seller ratings are the ones those pages show; Cartup's
-            hidden search-engine ratings (every product “4.6–5.0 from ~1,300 ratings”) aren't real reviews and are ignored.
-          </li>
           {answer.database !== 'ok' && answer.database !== 'not needed' && <li>Price memory was unreachable for this answer.</li>}
         </ul>
       </details>
@@ -542,7 +447,7 @@ export default function AskAgent({ stats }) {
           <em>Get the best price</em> in seconds.
         </h1>
         <p className="ask-copy">
-          Type a product's name and you get exactly that product at its best offer on either store — or just the kind
+          Type a product's name and each store shows you its best offer of exactly that product — or just the kind
           of thing ("monitor") and you get the best fit for your budget. Add what you need, in English or বাংলা. It
           searches Daraz and Cartup live, shows every offer of the product on both, remembers the price it saw last
           time, and checks which public vouchers really fit.

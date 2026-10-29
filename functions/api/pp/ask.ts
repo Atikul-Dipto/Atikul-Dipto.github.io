@@ -35,8 +35,9 @@ async function answer({ request, env, waitUntil }: Ctx, raw: { name?: unknown; d
   const askedAt = new Date().toISOString()
   try {
     const result = await run(input, env)
-    const choice = result.bestChoice
-    const picked = choice ? (choice.kind === 'alternative' ? result.alternatives[choice.index] : result.results[choice.index]) : null
+    // The cheapest of the stores' recommended options, for the record of how answers went.
+    const picks = result.stores.map((st) => st.recommended).filter((r) => r !== null)
+    const cheapest = picks.sort((a, b) => a.finalPrice - b.finalPrice)[0] ?? null
     if (env.PP_DB) {
       waitUntil(
         logAsk(env.PP_DB, {
@@ -44,10 +45,10 @@ async function answer({ request, env, waitUntil }: Ctx, raw: { name?: unknown; d
           query: logged,
           mode: result.intent.mode,
           intentSource: result.intent.source,
-          results: result.results.length,
-          bestPrice: picked?.listing.price ?? null,
-          bestFinal: picked?.finalPrice ?? null,
-          voucherApplied: Boolean(picked?.bestVoucher),
+          results: result.stores.reduce((n, st) => n + (st.recommended ? 1 : 0) + st.matches.length, 0),
+          bestPrice: cheapest?.listing.price ?? null,
+          bestFinal: cheapest?.finalPrice ?? null,
+          voucherApplied: picks.some((r) => r.bestVoucher),
           totalMs: result.timingsMs.total,
           timings: result.timingsMs,
           error: null,

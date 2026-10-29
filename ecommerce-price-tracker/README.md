@@ -245,6 +245,9 @@ The model downloads to `.hf_cache/` inside the project (gitignored) on first use
 
 ## Frontend
 
+> **2026-10-29:** the page is now only the shopping agent. Each store gets its own section, with its own recommended option and its own matches. The scraped-prices dashboard described below was removed from the page. The scrapers, `public/*.json` and the FastAPI backend are untouched, so it can come back.
+
+
 ```bash
 npm install
 npm run dev

@@ -337,8 +337,15 @@ async function loadCategories(db: D1Database): Promise<string[]> {
  * name can mislead — Cartup's "mobiles" is baby crib mobiles, its "Mobiles &
  * Tablets" page is cases and power banks (it barely sells phones).
  */
-export async function browse(db: D1Database | undefined, kinds: string[]): Promise<{ listings: Listing[]; categories: string[] }> {
-  if (!db) return { listings: [], categories: [] }
+export interface Browsed {
+  listings: Listing[]
+  categories: string[]
+  byCategory: Record<string, Listing[]>
+}
+
+export async function browse(db: D1Database | undefined, kinds: string[]): Promise<Browsed> {
+  const none: Browsed = { listings: [], categories: [], byCategory: {} }
+  if (!db) return none
   try {
     const categories = pickCategories(kinds, await loadCategories(db))
     const pages = await Promise.all(
@@ -350,12 +357,32 @@ export async function browse(db: D1Database | undefined, kinds: string[]): Promi
     )
     const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
     const namesKind = (l: Listing) => tokens(l.name).some((w) => kindWords.has(stem(w)))
-    const byId = new Map<string, Listing>()
-    for (const html of pages) for (const l of parseCategoryPage(html)) if (l.inStock && namesKind(l)) byId.set(l.itemId, l)
-    return { listings: [...byId.values()], categories }
+    const byCategory: Record<string, Listing[]> = {}
+    categories.forEach((c, i) => (byCategory[c] = parseCategoryPage(pages[i]).filter((l) => l.inStock && namesKind(l))))
+    return { listings: [...new Map(Object.values(byCategory).flat().map((l) => [l.itemId, l])).values()], categories, byCategory }
   } catch {
-    return { listings: [], categories: [] }
+    return none
   }
+}
+
+/**
+ * Two Cartup categories can share a name and not a meaning: of its two
+ * "monitors" categories, one is computer monitors and one is medical
+ * (fetal heart-rate monitors). The listings tell them apart: keep the
+ * categories whose names share the most words with what Daraz found for the
+ * same search ("inch", "hz", "ips"...), dropping any far behind the best.
+ */
+export function likeDaraz(browsed: Browsed, darazNames: string[], kinds: string[]): Browsed {
+  if (browsed.categories.length < 2 || !darazNames.length) return browsed
+  const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
+  const vocabulary = new Set(darazNames.flatMap((n) => tokens(n)).filter((w) => w.length > 1 && !kindWords.has(stem(w))))
+  const score = (ls: Listing[]) => (ls.length ? ls.reduce((n, l) => n + tokens(l.name).filter((w) => vocabulary.has(w)).length, 0) / ls.length : 0)
+  const scores = browsed.categories.map((c) => score(browsed.byCategory[c] ?? []))
+  const best = Math.max(...scores)
+  const keep = browsed.categories.filter((_, i) => scores[i] > 0 && scores[i] >= best * 0.4)
+  if (!keep.length) return browsed
+  const byCategory = Object.fromEntries(keep.map((c) => [c, browsed.byCategory[c] ?? []]))
+  return { categories: keep, byCategory, listings: [...new Map(Object.values(byCategory).flat().map((l) => [l.itemId, l])).values()] }
 }
 
 /** Full product-page details (seller, real reviews, seller rating) for listings found on category pages. */

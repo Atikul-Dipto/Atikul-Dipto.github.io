@@ -4,11 +4,11 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { cheaperElsewhere, chooseBest, type Result, sameProduct, standing, summarize } from './agent.ts'
-import { decodeIds, fnv1a, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
+import { compareAcross, evidence, recommendHere, type Result, sameProduct, type StoreAnswer, standing } from './agent.ts'
+import { decodeIds, fnv1a, likeDaraz, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
-import { modelTokens, quantities, rank, storageOf, tokens, variantsOf } from './ranking.ts'
+import { modelTokens, quantities, rank, storageOf, tokens, trusted, variantsOf } from './ranking.ts'
 import type { Intent, Listing, Voucher } from './types.ts'
 
 const CAMPAIGN = 'https://pages.daraz.com.bd/wow/gcp/route/daraz/bd/upr/router?wh_pid=%2Flazada%2Fchannel%2Fbd%2Fweekly-campaigns%2FbKashChoice'
@@ -111,10 +111,6 @@ test('quantity normalization', () => {
   assert.deepEqual([...quantities('Oil 1 Litre')], ['1l'])
 })
 
-test('empty answer explains itself', () => {
-  assert.match(summarize(product('iphone 15'), [], [], null, 1, 0, 40), /no in-stock listing.*40 results/)
-})
-
 // The case that prompted the exact-first answer: Daraz's own listing names it
 // word for word, other sellers word it differently, and a KL68 is not a KL69.
 const KL69 = 'Jedel KL69 61 Keys RGB Mechanical Keyboard'
@@ -144,27 +140,23 @@ test('the named product comes first; other sellers stay, other models move to al
 
 const asResult = (l: Listing): Result => ({ listing: l, history: null, vouchers: [], bestVoucher: null, finalPrice: l.price, hints: [] })
 
-test('best choice: a ৳5 saving is not worth switching away from the named listing', () => {
-  const { ranked, alternatives } = rank(kl69Listings(), product(KL69))
-  const choice = chooseBest(ranked.map(asResult), alternatives.map(asResult), product(KL69))
-  assert.equal(choice?.kind, 'exact')
+test('recommended here: a ৳5 saving is not worth leaving the closest trusted listing', () => {
+  const { ranked } = rank(kl69Listings(), product(KL69))
+  assert.equal(recommendHere(ranked.map(asResult), product(KL69)).pick?.listing.price, 1530)
 })
 
-test('best choice: the same product meaningfully cheaper from a trusted seller', () => {
+test('recommended here: the same product meaningfully cheaper from a trusted seller', () => {
   const items = [listing(KL69, 1530, { rating: 4.8, reviews: 39 }), listing('Jedel KL69 OEM 61 Keys Keyboard', 1400, { rating: 4.5, reviews: 12 }), listing('Jedel KL69 Keyboard', 1300, { rating: null, reviews: 0 })]
-  const { ranked } = rank(items, product(KL69))
-  const choice = chooseBest(ranked.map(asResult), [], product(KL69))
-  assert.equal(choice?.kind, 'same')
-  assert.equal(ranked[choice!.index].price, 1400) // the unrated ৳1,300 seller isn't recommended
+  const { pick, why } = recommendHere(rank(items, product(KL69)).ranked.map(asResult), product(KL69))
+  assert.equal(pick?.listing.price, 1400) // the unrated ৳1,300 seller isn't recommended, but is mentioned
+  assert.match(why!, /1 cheaper listing from sellers without ratings is below/)
 })
 
-test('best choice: when the named one is over budget, something that fits', () => {
+test('recommended here: over budget is said, and the named one is still shown', () => {
   const wishes: Intent = { ...product(KL69), maxPrice: 1400 }
-  const { ranked, alternatives } = rank(kl69Listings(), wishes)
-  assert.equal(ranked[0].name, KL69) // still shown first, even over budget
-  const choice = chooseBest(ranked.map(asResult), alternatives.map(asResult), wishes)
-  assert.equal(choice?.kind, 'alternative')
-  assert.ok(alternatives[choice!.index].price <= 1400)
+  const { pick, why } = recommendHere(rank(kl69Listings(), wishes).ranked.map(asResult), wishes)
+  assert.equal(pick?.listing.price, 1530)
+  assert.match(why!, /over your ৳1,400 budget/)
 })
 
 test('search helpers built from the shopper\'s own words, no AI', () => {
@@ -249,9 +241,12 @@ test('the shopper\'s own describing words reach the search, even when the AI dro
 test('a different storage size is not "the same product, cheaper"', () => {
   assert.equal(storageOf('Xiaomi Redmi Note 14 5G (8+256GB)'), 256)
   assert.equal(storageOf('Redmi Note 14(8/128GB) Official'), 128)
-  const items = [listing('Xiaomi Redmi Note 14 5G (8+256GB)', 29999, { rating: 5, reviews: 4 }), listing('Xiaomi Redmi Note 14 5G (8+128GB)', 26999, { officialStore: true })]
-  const { ranked } = rank(items, product('Xiaomi Redmi Note 14'))
-  assert.equal(chooseBest(ranked.map(asResult), [], product('Xiaomi Redmi Note 14'))?.kind, 'exact')
+  // Asked for the 256GB: the official 128GB is cheaper and trusted, but it's not the same product.
+  const asked = product('Xiaomi Redmi Note 14 8/256GB')
+  const items = [listing('Xiaomi Redmi Note 14 5G (8+256GB)', 29999, { rating: 4.8, reviews: 30 }), listing('Xiaomi Redmi Note 14 5G (8+128GB)', 26999, { officialStore: true })]
+  const { pick, why } = recommendHere(rank(items, asked).ranked.map(asResult), asked)
+  assert.equal(pick?.listing.price, 29999)
+  assert.doesNotMatch(why!, /cheapest/)
 })
 
 test('monitor + 30k: monitors in stock here beat an overseas seller\'s portable screens', () => {
@@ -328,8 +323,8 @@ test('Cartup categories for a kind of item', () => {
 test('a Cartup seller rated 90%+ positive counts as trusted, said in those words', () => {
   const l = listing('Pran Miniket Rice 5kg', 445, { site: 'cartup', rating: null, reviews: 0, sellerPositive: 96 })
   assert.equal(standing(l), 'seller rated 96% positive')
-  const r = cheaperElsewhere(asResult(listing('Special Miniket Rice 5Kg', 490)), [asResult(l)])
-  assert.match(r!.reason, /on Cartup, ৳45 less than on Daraz \(seller rated 96% positive\)/)
+  assert.ok(trusted(l))
+  assert.match(recommendHere([asResult(l)], product('miniket rice 5kg')).why!, /seller rated 96% positive/)
 })
 
 const onCartup = (name: string, price: number, extra: Partial<Listing> = {}) => listing(name, price, { site: 'cartup', ...extra })
@@ -342,13 +337,20 @@ test('the same product on Cartup: same model, not a lookalike', () => {
   assert.deepEqual(sameProduct(dahua, 'Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor').map((l) => l.price), [16500])
 })
 
-test('best choice can be the same product on Cartup, by the same rules as another Daraz seller', () => {
-  const daraz = rank([listing(KL69, 1530, { rating: 4.8, reviews: 39 })], product(KL69)).ranked.map(asResult)
-  const cheaperTrusted = [onCartup('Jedel KL69 61 Keys RGB Mechanical Keyboard', 1400, { rating: 4.7, reviews: 20 })].map(asResult)
-  const cheaperUnrated = [onCartup('Jedel KL69 61 Keys RGB Mechanical Keyboard', 1300, { rating: null, reviews: 0 })].map(asResult)
-  assert.equal(chooseBest(daraz, [], product(KL69), cheaperTrusted)?.kind, 'other_store')
-  assert.equal(chooseBest(daraz, [], product(KL69), cheaperUnrated)?.kind, 'exact')
-  assert.equal(chooseBest([], [], product(KL69), cheaperTrusted)?.kind, 'other_store') // not in stock on Daraz
+const storeOf = (site: Listing['site'], pick: Listing | null, why = 'Why.'): StoreAnswer => ({
+  site, label: site === 'daraz' ? 'Daraz' : 'Cartup', recommended: pick ? asResult(pick) : null, why: pick ? why : null, matches: [], note: null, link: null,
+})
+
+test('each store keeps its own pick; where both have the same product, each says how its price compares', () => {
+  const stores = [storeOf('daraz', listing('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 17000)), storeOf('cartup', onCartup('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 15591))]
+  compareAcross(stores)
+  assert.equal(stores[0].recommended?.listing.price, 17000) // nothing is forced across stores
+  assert.match(stores[0].why!, /৳1,409 more than on Cartup\.$/)
+  assert.match(stores[1].why!, /৳1,409 less than on Daraz\.$/)
+  // different products: no comparison is made
+  const apart = [storeOf('daraz', listing('Wheel Washing Powder 2Kg', 269)), storeOf('cartup', onCartup('Rin Liquid Detergent 800ml', 177))]
+  compareAcross(apart)
+  assert.deepEqual(apart.map((s) => s.why), ['Why.', 'Why.'])
 })
 
 test('Daraz vouchers never apply to Cartup listings', () => {
@@ -380,26 +382,18 @@ test('"Logitech MX Master 3S" is not the MX Anywhere 3S, on either store', () =>
   assert.deepEqual(sameProduct([onCartup('Buy Logitech MX Anywhere 3S & Get Backpack', 8580)], 'Logitech MX Master 3S'), [])
 })
 
-test('a kind-of-item pick that is cheaper on Cartup becomes the best choice', () => {
-  const pick = asResult(listing('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 17000))
-  const cartup = [asResult(onCartup('Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 15591, { rating: 4.6, reviews: 1091 }))]
-  assert.equal(cheaperElsewhere(pick, cartup)?.kind, 'other_store')
-  assert.match(cheaperElsewhere(pick, cartup)!.reason, /৳1,409 less/)
-})
-
 test('a product name with a number in its code gets no budget', async () => {
   assert.equal((await buildIntent('sony wh-1000xm5', '', {})).maxPrice, null)
   assert.equal((await buildIntent('Walton 1.5 ton AC', '', {})).maxPrice, null)
   assert.equal((await buildIntent('monitor', '30k', {})).maxPrice, 30000)
 })
 
-test('best offer: cheapest from a trusted seller across both stores, compared with the best on the other', () => {
-  // Today's closest-titled KL69 listing was an unrated ৳2,500 one; the comparison must not be against it.
+test('recommended here: measured against the trusted offers, not an odd closest-titled one', () => {
+  // Today's closest-titled KL69 listing was an unrated ৳2,500 one.
   const daraz = [listing('Jedel Kl 69 keys 61 Rgb Mechanical keyboard', 2500, { rating: null, reviews: 0 }), listing('Jedel KL69 OEM Mechanical 61 Keys Keyboard', 1428, { officialStore: true }), listing('Jedel KL69 OEM 61 Keys Keyboard', 1300, { rating: null, reviews: 0 })].map(asResult)
-  const cartupOffers = [asResult(onCartup('Jedel KL69 OEM White Black RGB Mechanical Gaming Keyboard', 1565, { rating: null, reviews: 0, sellerPositive: 93 }))]
-  const c = chooseBest(daraz, [], product(KL69), cartupOffers)!
-  assert.deepEqual([c.kind, c.index], ['same', 1])
-  assert.match(c.reason, /Daraz \(Daraz Mall\), ৳137 less than the best on Cartup\. 1 cheaper listing from sellers without ratings is in All offers\./)
+  const { pick, why } = recommendHere(daraz, product(KL69))
+  assert.equal(pick?.listing.price, 1428)
+  assert.match(why!, /from a seller worth trusting \(Daraz Mall\)\. 1 cheaper listing from sellers without ratings is below\./)
 })
 
 test('"best 5G phone under ৳30,000": 5G is the network; no accessory or look-alike category for phones', async () => {
@@ -413,4 +407,20 @@ test('"best 5G phone under ৳30,000": 5G is the network; no accessory or look-a
   assert.deepEqual(pickCategories(['smartphone'], all), [])
   assert.deepEqual(pickCategories(['feature phone'], all), ['feature_phones'])
   assert.deepEqual(pickCategories(['phone case'], all), ['phone_cases'])
+})
+
+test('two Cartup categories with the same name: keep the one that looks like what Daraz found', () => {
+  const pc = [onCartup('Dahua LM27-B221B 27 Inch Full HD 100Hz IPS Monitor', 15591), onCartup('PC Power 23.8 Inch FHD IPS Monitor', 16500)]
+  const medical = [onCartup('Doppler Fetal Rate Monitor Baby Fetal Sound Heart Detector', 1522), onCartup('Fetal Doppler Heart Rate Monitor', 1568)]
+  const browsed = { categories: ['monitors_449', 'monitors_499'], byCategory: { monitors_449: medical, monitors_499: pc }, listings: [...medical, ...pc] }
+  const daraz = ['Dahua LM27-B221B=V1 27 Inch Full HD 100Hz IPS Monitor', 'Live Tech 17-Inch Square Hd Led Monitor', 'PC Power PCM24FRX 23.8 Inch FHD 120Hz IPS Monitor']
+  const kept = likeDaraz(browsed, daraz, ['monitor'])
+  assert.deepEqual(kept.categories, ['monitors_499'])
+  assert.deepEqual(kept.listings.map((l) => l.price), [15591, 16500])
+})
+
+test('a listing with a couple of reviews says so, not "no ratings yet"', () => {
+  assert.equal(evidence(listing('MX Master 3S', 15000, { rating: 5, reviews: 2 })), '★ 5.0 from 2 reviews')
+  assert.equal(evidence(listing('x', 1, { rating: null, reviews: 0, sellerPositive: 94 })), 'seller rated 94% positive')
+  assert.equal(evidence(listing('x', 1, { rating: null, reviews: 0 })), 'no ratings yet')
 })
