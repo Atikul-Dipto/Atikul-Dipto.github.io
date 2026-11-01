@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "DorAI — is it cheaper elsewhere?",
+  "short_name": "DorAI",
+  "version": "0.1.0",
+  "description": "On a Daraz or Cartup product page, DorAI shows the same product on the other store, cheaper trusted sellers, and the lowest price it has seen.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "scripts": ["background.js"]
+  },
+  "host_permissions": ["https://atikul-islam-portfolio.pages.dev/*"],
+  "content_scripts": [
+    {
+      "matches": ["https://www.daraz.com.bd/*", "https://daraz.com.bd/*", "https://www.cartup.com/*", "https://cartup.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "dorai@atikul-islam-portfolio.pages.dev",
+      "strict_min_version": "121.0",
+      "data_collection_permissions": { "required": ["browsingActivity"] }
+    }
+  }
+}

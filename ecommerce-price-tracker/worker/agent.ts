@@ -261,7 +261,7 @@ export function matchRows(o: {
 }
 
 /** Closest title to `name` first (share of its words), then cheapest. */
-function closestFirst(results: Result[], name: string): Result[] {
+export function closestFirst(results: Result[], name: string): Result[] {
   const want = new Set(words(name))
   const score = (r: Result) =>
     Math.max(...[r.listing.name, r.listing.alsoNamed].map((n) => (n ? words(n).filter((w) => want.has(w)).length / (want.size || 1) : 0)))

@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import './App.css'
 import './agent/agent.css'
 import AskAgent from './agent/AskAgent.jsx'
+import GetDorAI from './agent/GetDorAI.jsx'
 import VoucherBoard from './agent/VoucherBoard.jsx'
 import { getStats, getVouchers } from './agent/api.js'
 
-// Price Pulse is the shopping agent: ask, and each store answers. (The older
+// DorAI (formerly Price Pulse) is the shopping agent: ask, and each store answers. (The older
 // scraped-prices dashboard that sat below it was removed 2026-10-29; the
 // scrapers and their backend still live in scraper/ and backend/.)
 export default function App() {
@@ -27,7 +28,7 @@ export default function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href={import.meta.env.BASE_URL}>
-          price<span>pulse</span>
+          dor<span>AI</span>
         </a>
         <nav>
           <a className="active" href="#ask">
@@ -44,6 +45,8 @@ export default function App() {
       </header>
 
       <AskAgent stats={agentStats.data} />
+
+      <GetDorAI />
 
       <VoucherBoard data={vouchers.data} status={vouchers.status} />
 

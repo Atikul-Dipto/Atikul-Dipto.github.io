@@ -1,4 +1,22 @@
-# Price Pulse
+# DorAI (formerly Price Pulse)
+
+DorAI finds the best price for one product across Daraz and Cartup. You can name a product, describe what you need, or show it a product you're already looking at.
+
+Renamed from Price Pulse on 2026-11-02: [pricepulse.co.nz](https://www.pricepulse.co.nz/) is a different product of the same kind. The page still lives at `/price-pulse/`, so existing links keep working.
+
+## Where shoppers use it
+
+- **The web page** (`/price-pulse/`). Ask by name or need, as described below. Paste a Daraz or Cartup product link into the name box to compare that exact product.
+- **The browser extension** ([`extension/`](extension/README.md), Chrome, Edge and Firefox). It adds a panel to Daraz and Cartup product pages: the same product on the other store, cheaper trusted sellers, and the lowest price seen.
+- **The installable app on Android.** The page installs from the browser ("Install DorAI" or "Add to Home screen"). Its [manifest](public/manifest.webmanifest) declares a share target, so **Share → DorAI** in the Daraz or Cartup app opens the comparison for that product. It needs no Play Store. iPhones don't allow web apps as share targets, so iPhone users paste the link instead.
+
+All three use **[`worker/compare.ts`](worker/compare.ts)** (`/api/pp/compare?link=`):
+- It reads the product from a page address, or from the text an app shares, following Daraz's short links.
+- It finds the product on both stores with the agent's matching rules.
+- It returns the product's other sellers, sizes and close matches on each store, and the cheapest trusted offer.
+- Each product's answer is cached for 6 hours (`CACHE_VERSION` in the key drops old answers when matching changes). On the Daraz page the shopper is already on, the extension adds no Daraz page fetch; DorAI only runs searches.
+
+## Price-history pipeline (where this started)
 
 A React dashboard for browsing and comparing public e-commerce prices in Bangladesh, backed by a Selenium scraping pipeline and (optionally) a live FastAPI + PostgreSQL backend that keeps a running price-history "storehouse" instead of a one-off snapshot.
 

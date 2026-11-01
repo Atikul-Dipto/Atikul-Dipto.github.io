@@ -50,7 +50,7 @@ export default function SqlShowcase() {
       <h2 className="section__heading">SQL</h2>
       <p className="section__intro">
         Queries behind the numbers in my projects — written against the Postgres databases that power
-        NeerVibe and Price Pulse. Each one answers a real operational question.
+        NeerVibe and DorAI. Each one answers a real operational question.
       </p>
 
       <div className={`sql-showcase${visible ? ' is-visible' : ''}`} ref={ref}>

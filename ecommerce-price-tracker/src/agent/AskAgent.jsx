@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { askAgent } from './api.js'
+import { askAgent, compareLink } from './api.js'
 import { money } from './format.js'
 
 // Two boxes on purpose: a product name is searched exactly as typed and never
@@ -47,17 +47,26 @@ function saveRecent(list) {
   }
 }
 
-/** ?name=&details= (shareable answers); ?q= from older links is read as a product name. */
+/**
+ * ?name=&details= (shareable answers); ?q= from older links is read as a
+ * product name. ?link= is a product to compare (from the browser extension),
+ * and ?url=/?text= is what Android's Share sends when DorAI is installed.
+ */
 function askFromUrl() {
   const p = new URLSearchParams(window.location.search)
+  const shared = p.get('link') ?? [p.get('url'), p.get('text')].filter(Boolean).join(' ')
+  if (shared) return { name: shared, details: '' }
   return { name: p.get('name') ?? p.get('q') ?? '', details: p.get('details') ?? '' }
 }
 
 function setUrlAsk(ask) {
   const url = new URL(window.location.href)
-  for (const key of ['q', 'name', 'details']) url.searchParams.delete(key)
-  if (ask.name) url.searchParams.set('name', ask.name)
-  if (ask.details) url.searchParams.set('details', ask.details)
+  for (const key of ['q', 'name', 'details', 'link', 'url', 'text', 'title']) url.searchParams.delete(key)
+  if (STORE_LINK.test(ask.name)) url.searchParams.set('link', ask.name)
+  else {
+    if (ask.name) url.searchParams.set('name', ask.name)
+    if (ask.details) url.searchParams.set('details', ask.details)
+  }
   window.history.pushState(ask, '', url)
 }
 
@@ -382,6 +391,53 @@ function Answer({ answer }) {
   )
 }
 
+/** A product someone is looking at (a pasted or shared link), on every store. */
+function Comparison({ answer }) {
+  const source = answer.source.listing
+  const sourceStore = answer.stores.find((s) => s.site === source.site)
+  const other = answer.stores.find((s) => s.site !== source.site && s.recommended)
+  let verdict
+  if (answer.cheaper) {
+    const where = answer.cheaper.site === source.site ? `from another seller on ${answer.cheaper.label}` : `on ${answer.cheaper.label}`
+    verdict = (
+      <>
+        <b className="cheaper">{money(answer.cheaper.saving)} cheaper {where}</b> for the same product.
+      </>
+    )
+  } else {
+    verdict = (
+      <>
+        <b>This is the best price we found.</b>{' '}
+        {other ? `${other.label} has it for ${money(other.recommended.finalPrice)}.` : `No other store lists it right now.`}
+      </>
+    )
+  }
+  return (
+    <section className="answer" aria-live="polite">
+      <p className="understood">
+        <span>Comparing</span>
+        <b>“{source.name}”</b>
+        <small>
+          {money(answer.source.finalPrice)} on {sourceStore?.label ?? source.site}
+        </small>
+      </p>
+      <p className="compare-verdict">{verdict}</p>
+      <p className="searched-where">
+        Checked Daraz and Cartup {answer.cached ? 'at' : 'live at'}{' '}
+        {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+      </p>
+      <div className="stores-grid">
+        {answer.stores.map((s) => (
+          <StoreSection key={s.site} store={s} named />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// A Daraz or Cartup product link, typed, pasted or shared from their apps.
+const STORE_LINK = /https?:\/\/\S*(daraz\.com\.bd|cartup\.com)\//i
+
 export default function AskAgent({ stats }) {
   const [form, setForm] = useState(askFromUrl)
   const [state, setState] = useState({ status: 'idle', answer: null, error: null, asked: null })
@@ -402,9 +458,11 @@ export default function AskAgent({ stats }) {
     const started = performance.now()
     setElapsed(0)
     const tick = window.setInterval(() => setElapsed(performance.now() - started), 100)
-    askAgent(ask, ctrl.signal)
+    const link = STORE_LINK.test(ask.name)
+    ;(link ? compareLink(ask.name, ctrl.signal) : askAgent(ask, ctrl.signal))
       .then((answer) => {
         setState({ status: 'done', answer, error: null, asked: ask })
+        if (link) return // links are long, and already in the address bar to come back to
         setRecent((list) => {
           const next = [ask, ...list.filter((x) => !sameAsk(x, ask))].slice(0, 6)
           saveRecent(next)
@@ -473,9 +531,9 @@ export default function AskAgent({ stats }) {
             placeholder="e.g. Jedel KL69 61 Keys RGB Mechanical Keyboard"
             autoComplete="off"
             enterKeyHint="search"
-            maxLength={200}
+            maxLength={600}
           />
-          <small>Searched exactly as you type it. A full name gets that product first.</small>
+          <small>Searched exactly as you type it. A full name gets that product first. Or paste a Daraz or Cartup product link to compare it.</small>
         </div>
         <div className="ask-field">
           <label htmlFor="ask-details">
@@ -539,7 +597,7 @@ export default function AskAgent({ stats }) {
           </button>
         </div>
       )}
-      {state.status === 'done' && state.answer && <Answer answer={state.answer} />}
+      {state.status === 'done' && state.answer && (state.answer.source ? <Comparison answer={state.answer} /> : <Answer answer={state.answer} />)}
     </section>
   )
 }

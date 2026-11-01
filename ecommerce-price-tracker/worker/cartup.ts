@@ -64,7 +64,7 @@ export function decodeIds(encoded: string): number[] {
 // Cartup writes slugs both ways: "jedel_kl69_..._1782881018459_m99965" and
 // "dahua-lm27-b221bv1-27-inch-...-1790653663537-wid3", and sometimes no id tail.
 const SLUG_TAIL_RE = /[_-]\d{9,}[_-][a-z0-9]+$/
-const nameFromSlug = (slug: string) => slug.toLowerCase().replace(SLUG_TAIL_RE, '').replace(/[_-]+/g, ' ')
+export const nameFromSlug = (slug: string) => slug.toLowerCase().replace(SLUG_TAIL_RE, '').replace(/[_-]+/g, ' ')
 // Re-scored candidates below this share of the title's words aren't worth a page fetch.
 const MIN_CANDIDATE_SCORE = 0.4
 
@@ -282,7 +282,7 @@ export function parseCategoryPage(html: string): Listing[] {
     .filter((l): l is Listing => l !== null && l.url !== 'https://www.cartup.com/product/')
 }
 
-async function fetchProduct(slug: string): Promise<Listing | null> {
+export async function fetchProduct(slug: string): Promise<Listing | null> {
   const response = await fetch(`https://www.cartup.com/product/${slug}`, {
     headers: { 'user-agent': UA, accept: 'text/html' },
     signal: AbortSignal.timeout(TIMEOUT_MS),

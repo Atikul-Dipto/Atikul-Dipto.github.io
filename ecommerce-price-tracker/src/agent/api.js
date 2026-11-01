@@ -19,5 +19,8 @@ export const askAgent = ({ name, details }, signal) =>
     signal,
   }).then(getJson)
 
+// link: a Daraz or Cartup product page, or the text an app shares with one in it.
+export const compareLink = (link, signal) => fetch(`${AGENT_API}/compare?link=${encodeURIComponent(link)}`, { signal }).then(getJson)
+
 export const getVouchers = () => fetch(`${AGENT_API}/vouchers`).then(getJson)
 export const getStats = () => fetch(`${AGENT_API}/stats`).then(getJson)

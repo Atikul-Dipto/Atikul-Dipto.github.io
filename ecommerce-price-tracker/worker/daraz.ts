@@ -92,6 +92,26 @@ export async function search(
  * category filter can't be used: it lists ~8 options and routinely omits
  * the main one ("samsung galaxy a36" offers only "Mobile Phone Cases").
  */
+/**
+ * A product page's own title, from its schema.org Product data. A shared
+ * link has only the address, and its words ("hoco-eq34-plus-rima-anc-enc-tws-
+ * 54-7h-13mm") don't always find the listing in search; its full title does.
+ */
+export async function productTitle(productUrl: string): Promise<string | null> {
+  const response = await fetch(productUrl, { headers: { ...HEADERS, accept: 'text/html' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
+  if (!response.ok) return null
+  const html = await response.text()
+  for (const m of html.matchAll(/<script[^>]*application\/ld\+json[^>]*>([\s\S]*?)<\/script>/g)) {
+    try {
+      const data = JSON.parse(m[1]) as { '@type'?: string; name?: unknown }
+      if (data['@type'] === 'Product' && typeof data.name === 'string') return data.name.trim()
+    } catch {
+      // not JSON: skip
+    }
+  }
+  return null
+}
+
 export async function productCategory(productUrl: string): Promise<string | null> {
   const response = await fetch(productUrl, { headers: { ...HEADERS, accept: 'text/html' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
   if (!response.ok) return null
