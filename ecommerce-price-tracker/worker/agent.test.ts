@@ -690,3 +690,14 @@ test('"ruchi sauce": a Ruchi chanachur has the brand but is no sauce, so it is n
   // "for men" says who it's for; the watch is still the kind.
   assert.equal(rank([listing("Men's Wallet Leather", 400), listing('Poedagar Watch for Men', 209)], { ...product('watch for men'), mode: 'need' }).ranked[0].name, 'Poedagar Watch for Men')
 })
+
+test('"mobile": a mobile casing is an accessory, not a mobile', () => {
+  const need: Intent = { ...product('mobile'), mode: 'need' }
+  const picks = rank([onCartup('Mobile Casing for Nokia 1280', 158), onCartup('Proton Mobile Phone C7 Blue', 999)], need).ranked
+  assert.deepEqual(picks.map((l) => l.name), ['Proton Mobile Phone C7 Blue'])
+})
+
+test('a listing that calls itself an accessory is never the product', () => {
+  const need: Intent = { ...product('mobile'), mode: 'need' }
+  assert.deepEqual(rank([onCartup('3D Glass Magnifier Mobile Accessories Mobile Phone Screen', 230), onCartup('Proton Mobile Phone C7 Blue', 999)], need).ranked.map((l) => l.price), [999])
+})

@@ -17,6 +17,7 @@ const ACCESSORY_WORDS = new Set([
   'adapter', 'skin', 'pouch', 'sticker', 'mount', 'stand', 'lens', 'film', 'bumper',
   'pad', 'mousepad', 'mat', // "Mouse" + "silk" put a silk-surface mouse pad first
   'housing', 'chassis', 'shell', 'replacement', 'spare', // parts: Cartup's "Samsung Galaxy A36" hits were housings and buttons
+  'casing', 'cases', 'covers', 'chargers', 'cables', 'protectors', 'accessory', 'accessories', // Othoba's "Mobile Casing for Nokia 1280" was its pick for "mobile"
 ])
 const PRICE_FLOOR_RATIO = 0.3
 const OVERSEAS_PENALTY = 0.35
