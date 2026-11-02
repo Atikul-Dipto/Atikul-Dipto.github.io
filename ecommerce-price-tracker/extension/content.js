@@ -71,6 +71,40 @@ function remove() {
   current = null
 }
 
+/**
+ * The price this page shows now. Stores apply campaign prices with their own
+ * scripts after the page loads (Cartup's "Big Brand Days": the page arrives
+ * saying ৳198, then shows ৳194), so the price the shopper sees is read from
+ * the page itself: the first ৳ amount after the title that isn't struck out.
+ */
+function pagePrice() {
+  const title = document.querySelector('h1')
+  if (!title) return null
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+    if (node.children.length || !(title.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
+    const m = /^\s*৳\s*([\d,]+(?:\.\d+)?)\s*$/.exec(node.textContent)
+    if (!m) continue
+    const style = getComputedStyle(node)
+    if (style.textDecorationLine.includes('line-through') || node.closest('del, s, strike') || style.display === 'none') continue
+    return Number(m[1].replace(/,/g, ''))
+  }
+  return null
+}
+
+/** The answer with this page's own listing at the price the page shows, and what's cheaper worked out from it. */
+function atPagePrice(answer, shown) {
+  const sourceId = answer.source.listing.itemId
+  if (!shown || shown === answer.source.finalPrice) return answer
+  const adjust = (r) => (r && r.listing.itemId === sourceId ? { ...r, finalPrice: shown, shownOnPage: true } : r)
+  const stores = answer.stores.map((s) => ({ ...s, recommended: adjust(s.recommended), matches: s.matches.map(adjust) }))
+  const best = stores
+    .filter((s) => s.recommended && s.recommended.listing.itemId !== sourceId)
+    .sort((a, b) => a.recommended.finalPrice - b.recommended.finalPrice)[0]
+  const saving = best ? shown - best.recommended.finalPrice : 0
+  return { ...answer, stores, source: adjust(answer.source), cheaper: best && saving > 0 ? { site: best.site, label: best.label, saving } : null }
+}
+
 function verdict(answer) {
   const source = answer.source.listing
   if (answer.cheaper) {
@@ -198,7 +232,7 @@ async function check() {
   const name = await readName()
   chrome.runtime.sendMessage({ type: 'compare', link, name }, (answer) => {
     if (current?.link !== link) return // moved on to another product meanwhile
-    current.answer = answer ?? { error: "Couldn't reach DorAI just now." }
+    current.answer = answer && !answer.error ? atPagePrice(answer, pagePrice()) : (answer ?? { error: "Couldn't reach DorAI just now." })
     open = Boolean(current.answer.cheaper)
     render()
   })
