@@ -27,11 +27,13 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href={import.meta.env.BASE_URL} aria-label="DorAI home">
-          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" width="40" height="40" />
-          <span className="brand-name">
-            দর<b>AI</b>
-          </span>
+        <a className="brand" href={import.meta.env.BASE_URL}>
+          <img
+            src={`${import.meta.env.BASE_URL}logo-wordmark.png`}
+            srcSet={`${import.meta.env.BASE_URL}logo-wordmark.png 1x, ${import.meta.env.BASE_URL}logo-wordmark-360.png 3x`}
+            alt="দরAI"
+            height="64"
+          />
         </a>
         <nav>
           <a className="active" href="#ask">

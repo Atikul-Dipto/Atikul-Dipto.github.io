@@ -20,7 +20,9 @@ footer { display: flex; justify-content: space-between; padding: 18px 0 30px; co
 
 /* DorAI's brand: the logo, the banner */
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand img { width: 40px; height: 40px; }
+.brand img { display: block; height: 64px; width: auto; }
+.topbar { height: 92px; }
+@media (max-width: 760px) { .brand img { height: 52px; } .topbar { height: 76px; } }
 .brand-name { font-size: 22px; font-weight: 800; letter-spacing: -.02em; color: var(--brand-red); }
 .brand-name b { color: var(--brand-green); }
 .hero-banner { display: block; width: 100%; height: auto; margin: 22px 0 0; border-radius: 12px; border: 1px solid var(--line); }
