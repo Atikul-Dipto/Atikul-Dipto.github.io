@@ -61,7 +61,8 @@ def main() -> int:
     parser.add_argument("--push-d1", action="store_true", help="with --harvest-vouchers: also upload them to the Cloudflare agent's D1")
     parser.add_argument("--seed-d1", action="store_true", help="copy the scrapers' Daraz price history into the Cloudflare agent's D1")
     parser.add_argument("--index-cartup", action="store_true", help="rebuild the Cartup product index from its sitemap and upload it to D1 (weekly)")
-    parser.add_argument("--dry-run", action="store_true", help="with --index-cartup: build and report, don't upload")
+    parser.add_argument("--index-othoba", action="store_true", help="rebuild the Othoba product index from its category pages and upload it to D1 (weekly)")
+    parser.add_argument("--dry-run", action="store_true", help="with --index-cartup/--index-othoba: build and report, don't upload")
     parser.add_argument("-v", "--verbose", action="store_true")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING, format="%(levelname)s %(name)s: %(message)s")
@@ -70,6 +71,12 @@ def main() -> int:
         from . import cartup_index
 
         print(json.dumps(cartup_index.run(push=not args.dry_run), indent=1))
+        return 0
+
+    if args.index_othoba:
+        from . import othoba_index
+
+        print(json.dumps(othoba_index.run(push=not args.dry_run), indent=1))
         return 0
 
     if args.seed_d1:

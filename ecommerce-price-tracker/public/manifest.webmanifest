@@ -1,7 +1,7 @@
 {
-  "name": "DorAI — best price on Daraz and Cartup",
+  "name": "DorAI — best price on Daraz, Cartup and Othoba",
   "short_name": "DorAI",
-  "description": "Name a product, or share one from the Daraz or Cartup app, and see its best price on both stores.",
+  "description": "Name a product, or share one from the Daraz, Cartup or Othoba app, and see its best price on each store.",
   "id": "/price-pulse/",
   "start_url": "/price-pulse/",
   "scope": "/price-pulse/",

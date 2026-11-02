@@ -119,6 +119,12 @@ def build(paths: list[Path]) -> tuple[list[str], dict[str, list[int]], list[str]
             if slug not in seen:
                 seen.add(slug)
                 slugs.append(slug)
+    postings, common = build_postings(slugs)
+    return slugs, postings, common
+
+
+def build_postings(slugs: list[str]) -> tuple[dict[str, list[int]], list[str]]:
+    """(postings by token, tokens dropped as too common), doc ids being positions in `slugs`."""
     postings: dict[str, list[int]] = defaultdict(list)
     for doc, slug in enumerate(slugs):
         for token in dict.fromkeys(name_tokens(slug)):
@@ -126,7 +132,7 @@ def build(paths: list[Path]) -> tuple[list[str], dict[str, list[int]], list[str]
     common = sorted(t for t, ids in postings.items() if len(ids) > MAX_DF)
     for token in common:
         del postings[token]
-    return slugs, postings, common
+    return postings, common
 
 
 def encode(ids: list[int]) -> str:
@@ -142,20 +148,21 @@ def _q(s: str) -> str:
     return "'" + s.replace("'", "''") + "'"
 
 
-def statements(slugs: list[str], postings: dict[str, list[int]], common: list[str]) -> list[str]:
+def statements(slugs: list[str], postings: dict[str, list[int]], common: list[str], prefix: str = "cartup") -> list[str]:
+    """`prefix` names the tables: "cartup" here, "othoba" for othoba_index.py."""
     # Built into *_new tables and swapped in by the last statements (SWAP), so
     # an upload that fails halfway — it happened: the login expired mid-run —
     # leaves the live index untouched instead of half rebuilt.
     stmts = [
-        "DROP TABLE IF EXISTS cartup_docs_new;",
-        "DROP TABLE IF EXISTS cartup_postings_new;",
-        "CREATE TABLE cartup_docs_new (block INTEGER PRIMARY KEY, data TEXT NOT NULL);",
-        "CREATE TABLE cartup_postings_new (shard INTEGER NOT NULL, part INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (shard, part));",
-        "CREATE TABLE IF NOT EXISTS cartup_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
+        f"DROP TABLE IF EXISTS {prefix}_docs_new;",
+        f"DROP TABLE IF EXISTS {prefix}_postings_new;",
+        f"CREATE TABLE {prefix}_docs_new (block INTEGER PRIMARY KEY, data TEXT NOT NULL);",
+        f"CREATE TABLE {prefix}_postings_new (shard INTEGER NOT NULL, part INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (shard, part));",
+        f"CREATE TABLE IF NOT EXISTS {prefix}_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);",
     ]
     for block in range(0, len(slugs), DOC_BLOCK):
         data = json.dumps(slugs[block : block + DOC_BLOCK], ensure_ascii=False, separators=(",", ":"))
-        stmts.append(f"INSERT INTO cartup_docs_new (block, data) VALUES ({block // DOC_BLOCK}, {_q(data)});")
+        stmts.append(f"INSERT INTO {prefix}_docs_new (block, data) VALUES ({block // DOC_BLOCK}, {_q(data)});")
 
     by_shard: dict[int, dict[str, str]] = defaultdict(dict)
     for token, ids in postings.items():
@@ -165,12 +172,12 @@ def statements(slugs: list[str], postings: dict[str, list[int]], common: list[st
         for token, enc in sorted(tokens.items()):
             entry = len(token) + len(enc) + 6
             if current and size + entry > MAX_ROW_CHARS:
-                stmts.append(_posting_row(shard, part, current))
+                stmts.append(_posting_row(shard, part, current, prefix))
                 part, current, size = part + 1, {}, 2
             current[token] = enc
             size += entry
         if current:
-            stmts.append(_posting_row(shard, part, current))
+            stmts.append(_posting_row(shard, part, current, prefix))
 
     meta = {
         "built": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z"),
@@ -179,31 +186,32 @@ def statements(slugs: list[str], postings: dict[str, list[int]], common: list[st
         "shards": SHARDS,
         "common": common,
     }
-    return stmts + swap(meta)
+    return stmts + swap(meta, prefix)
 
 
-SWAP_MARK = "DROP TABLE IF EXISTS cartup_docs;"
+def swap_mark(prefix: str) -> str:
+    return f"DROP TABLE IF EXISTS {prefix}_docs;"
 
 
-def swap(meta: dict) -> list[str]:
+def swap(meta: dict, prefix: str = "cartup") -> list[str]:
     return [
-        SWAP_MARK,
-        "DROP TABLE IF EXISTS cartup_postings;",
-        "ALTER TABLE cartup_docs_new RENAME TO cartup_docs;",
-        "ALTER TABLE cartup_postings_new RENAME TO cartup_postings;",
-        f"INSERT OR REPLACE INTO cartup_meta (key, value) VALUES ('index', {_q(json.dumps(meta, separators=(',', ':')))});",
+        swap_mark(prefix),
+        f"DROP TABLE IF EXISTS {prefix}_postings;",
+        f"ALTER TABLE {prefix}_docs_new RENAME TO {prefix}_docs;",
+        f"ALTER TABLE {prefix}_postings_new RENAME TO {prefix}_postings;",
+        f"INSERT OR REPLACE INTO {prefix}_meta (key, value) VALUES ('index', {_q(json.dumps(meta, separators=(',', ':')))});",
     ]
 
 
-def _posting_row(shard: int, part: int, tokens: dict[str, str]) -> str:
+def _posting_row(shard: int, part: int, tokens: dict[str, str], prefix: str = "cartup") -> str:
     data = json.dumps(tokens, separators=(",", ":"))
-    return f"INSERT INTO cartup_postings_new (shard, part, data) VALUES ({shard}, {part}, {_q(data)});"
+    return f"INSERT INTO {prefix}_postings_new (shard, part, data) VALUES ({shard}, {part}, {_q(data)});"
 
 
-def upload(stmts: list[str], chunk_chars: int = 8_000_000) -> int:
+def upload(stmts: list[str], chunk_chars: int = 8_000_000, prefix: str = "cartup") -> int:
     """Run the statements in batches (one wrangler call per ~8MB of SQL), the
     swap last and on its own; a failed batch is retried once."""
-    cut = stmts.index(SWAP_MARK)
+    cut = stmts.index(swap_mark(prefix))
     batches: list[str] = []
     chunk: list[str] = []
     size = 0

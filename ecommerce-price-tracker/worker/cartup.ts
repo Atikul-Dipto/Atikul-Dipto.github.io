@@ -88,19 +88,24 @@ export function requiredWords(queryTokens: string[]): string[] {
   return modelParts(queryTokens)[0] ?? []
 }
 
-let metaCache: { meta: Meta | null; at: number } | null = null
+// One name index per store, in tables named after it: cartup_* (from its
+// sitemap) and othoba_* (from its category pages, agent/othoba_index.py).
+export type IndexName = 'cartup' | 'othoba'
 
-async function loadMeta(db: D1Database): Promise<Meta | null> {
-  if (metaCache && Date.now() - metaCache.at < 10 * 60_000) return metaCache.meta
-  const row = await db.prepare(`SELECT value FROM cartup_meta WHERE key = 'index'`).first<{ value: string }>().catch(() => null)
+const metaCache = new Map<IndexName, { meta: Meta | null; at: number }>()
+
+async function loadMeta(db: D1Database, index: IndexName): Promise<Meta | null> {
+  const cached = metaCache.get(index)
+  if (cached && Date.now() - cached.at < 10 * 60_000) return cached.meta
+  const row = await db.prepare(`SELECT value FROM ${index}_meta WHERE key = 'index'`).first<{ value: string }>().catch(() => null)
   const meta = row ? (JSON.parse(row.value) as Meta) : null
-  metaCache = { meta, at: Date.now() }
+  metaCache.set(index, { meta, at: Date.now() })
   return meta
 }
 
 /** Candidate product slugs for a title, best word-overlap first. */
-export async function searchIndex(db: D1Database, title: string): Promise<{ slugs: string[]; meta: Meta | null }> {
-  const meta = await loadMeta(db)
+export async function searchIndex(db: D1Database, title: string, index: IndexName = 'cartup'): Promise<{ slugs: string[]; meta: Meta | null }> {
+  const meta = await loadMeta(db, index)
   if (!meta) return { slugs: [], meta }
   const common = new Set(meta.common)
   const all = [...new Set(tokens(title))]
@@ -110,7 +115,7 @@ export async function searchIndex(db: D1Database, title: string): Promise<{ slug
 
   const shards = [...new Set(words.map((w) => fnv1a(w) % meta.shards))]
   const { results } = await db
-    .prepare(`SELECT data FROM cartup_postings WHERE shard IN (${shards.map(() => '?').join(',')})`)
+    .prepare(`SELECT data FROM ${index}_postings WHERE shard IN (${shards.map(() => '?').join(',')})`)
     .bind(...shards)
     .all<{ data: string }>()
   const postings = new Map<string, number[]>()
@@ -148,7 +153,7 @@ export async function searchIndex(db: D1Database, title: string): Promise<{ slug
 
   const blocks = [...new Set(top.map((id) => Math.floor(id / meta.docBlock)))]
   const docRows = await db
-    .prepare(`SELECT block, data FROM cartup_docs WHERE block IN (${blocks.map(() => '?').join(',')})`)
+    .prepare(`SELECT block, data FROM ${index}_docs WHERE block IN (${blocks.map(() => '?').join(',')})`)
     .bind(...blocks)
     .all<{ block: number; data: string }>()
   const byBlock = new Map(docRows.results.map((r) => [r.block, JSON.parse(r.data) as string[]]))

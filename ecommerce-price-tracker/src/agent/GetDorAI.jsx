@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 const EXTENSION_SOURCE = 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/ecommerce-price-tracker/extension'
 
 // The two ways to use DorAI outside this page: installed on a phone, where
-// Share in the Daraz or Cartup app sends a product here (Android), and the
+// Share in the Daraz, Cartup or Othoba app sends a product here (Android), and the
 // browser extension, which shows it on the stores' own product pages.
 export default function GetDorAI() {
   const [installPrompt, setInstallPrompt] = useState(null)
@@ -32,7 +32,7 @@ export default function GetDorAI() {
         <div>
           <h3>On your phone</h3>
           {installed ? (
-            <p>DorAI is installed. In the Daraz or Cartup app, tap Share on a product and choose DorAI to compare it.</p>
+            <p>DorAI is installed. In the Daraz, Cartup or Othoba app, tap Share on a product and choose DorAI to compare it.</p>
           ) : iPhone ? (
             <p>
               In Safari, tap Share, then <b>Add to Home Screen</b>. To compare a product, copy its link in the Daraz or
@@ -41,7 +41,7 @@ export default function GetDorAI() {
           ) : (
             <>
               <p>
-                Install DorAI as an app. Then in the Daraz or Cartup app, tap Share on any product and choose DorAI to
+                Install DorAI as an app. Then in the Daraz, Cartup or Othoba app, tap Share on any product and choose DorAI to
                 see it on both stores.
               </p>
               {installPrompt ? (
@@ -66,7 +66,7 @@ export default function GetDorAI() {
           <h3>On a computer</h3>
           <p>
             The DorAI browser extension shows the same product on the other store, cheaper trusted sellers and the
-            lowest price we've seen, right on Daraz and Cartup product pages.
+            lowest price we've seen, right on Daraz, Cartup and Othoba product pages.
           </p>
           <p>
             It's in testing: load it into Chrome or Edge from{' '}

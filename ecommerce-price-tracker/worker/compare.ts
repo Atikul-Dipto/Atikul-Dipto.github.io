@@ -13,6 +13,7 @@
 import { closestFirst, compareAcross, matchRows, recommendHere, relations, type Result, type StoreAnswer, UNBRANDED } from './agent.ts'
 import * as cartup from './cartup.ts'
 import * as daraz from './daraz.ts'
+import * as othoba from './othoba.ts'
 import { bestVoucher, checkAll, listingHints } from './eligibility.ts'
 import { coreQuery } from './intent.ts'
 import { mainModel } from './ranking.ts'
@@ -21,7 +22,7 @@ import type { Env, HistoryMatch, Intent, Listing, Voucher } from './types.ts'
 
 const CACHE_SECONDS = 6 * 3600
 // Raised whenever matching changes, so cached answers from the old rules are dropped.
-const CACHE_VERSION = 5
+const CACHE_VERSION = 6
 
 export interface ProductRef {
   site: Listing['site']
@@ -41,9 +42,12 @@ export interface Comparison {
 
 const DARAZ_PRODUCT = /daraz\.com\.bd\/products\/([^?#\s]*?)-i(\d+)(?:-s\d+)?\.html/i
 const CARTUP_PRODUCT = /cartup\.com\/product\/([^?#\s/"'<>]+)/i
+// Othoba's product pages sit at the top level, like its categories ("/fresh-fortified-soyebean-oil-5ltr-2");
+// which one it is shows when the page is read (a category has no product data).
+const OTHOBA_PAGE = /othoba\.com\/([a-z0-9][a-z0-9-]*)\/?(?=[?#\s"'<>]|$)/i
 const ANY_URL = /https?:\/\/[^\s"'<>]+/gi
 
-/** A Daraz or Cartup product page's address, from a URL or the text an app shares ("I found this on Daraz! https://..."). */
+/** A Daraz, Cartup or Othoba product page's address, from a URL or the text an app shares ("I found this on Daraz! https://..."). */
 export function readProductUrl(text: string): ProductRef | null {
   const d = DARAZ_PRODUCT.exec(text)
   if (d) return { site: 'daraz', itemId: d[2], slug: d[1], url: `https://www.daraz.com.bd/products/${d[1]}-i${d[2]}.html` }
@@ -53,6 +57,8 @@ export function readProductUrl(text: string): ProductRef | null {
     const id = /[_-](\d{9,})[_-][a-z0-9]+$/.exec(slug)?.[1] ?? slug
     return { site: 'cartup', itemId: `cartup:${id}`, slug, url: `https://www.cartup.com/product/${slug}` }
   }
+  const o = OTHOBA_PAGE.exec(text)
+  if (o) return { site: 'othoba', itemId: `othoba-page:${o[1]}`, slug: o[1], url: `${othoba.BASE}/${o[1]}` }
   return null
 }
 
@@ -63,7 +69,7 @@ export function readProductUrl(text: string): ProductRef | null {
 export async function resolveShared(text: string): Promise<ProductRef | null> {
   const direct = readProductUrl(text)
   if (direct) return direct
-  let next = (text.match(ANY_URL) ?? []).find((u) => /(^|\.)(daraz\.com\.bd|cartup\.com)$/i.test(new URL(u).hostname))
+  let next = (text.match(ANY_URL) ?? []).find((u) => /(^|\.)(daraz\.com\.bd|cartup\.com|othoba\.com)$/i.test(new URL(u).hostname))
   for (let hop = 0; next && hop < 4; hop++) {
     const response = await fetch(next, { redirect: 'manual', headers: { 'user-agent': UA }, signal: AbortSignal.timeout(6000) }).catch(() => null)
     if (!response) return null
@@ -123,19 +129,26 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
   // "Hoco EQ34 Plus Rima ANC+ENC TWS Earbuds - Bluetooth 5.4 - App Supported
   // Wireless Headphones - 7H Playtime..." — finds generic earbuds on Cartup;
   // "Hoco EQ34" finds it); the Cartup page itself when that's the source.
-  const [darazHits, found, own] = await Promise.all([
+  const [darazHits, found, othobaFound, own] = await Promise.all([
     Promise.all(searches.map((q) => daraz.search(q).catch(() => null))),
     Promise.all(searches.map((q) => cartup.lookup(db, q))),
-    ref.site === 'cartup' ? cartup.fetchProduct(ref.slug).catch(() => null) : Promise.resolve(null),
+    Promise.all(searches.map((q) => othoba.lookup(db, q))),
+    ref.site === 'cartup'
+      ? cartup.fetchProduct(ref.slug).catch(() => null)
+      : ref.site === 'othoba'
+        ? othoba.fetchProduct(ref.slug).catch(() => null)
+        : Promise.resolve(null),
   ])
   const unique = (ls: Listing[]) => [...new Map(ls.map((l) => [l.itemId, l])).values()]
   let darazPool = unique(darazHits.flatMap((r) => r?.listings ?? []))
   const darazDown = darazHits.every((r) => r === null)
-  const cartupPool = unique([...(own ? [own] : []), ...found.flatMap((f) => f.listings)])
+  const ownIf = (site: Listing['site']) => (own && ref.site === site ? [own] : [])
+  const cartupPool = unique([...ownIf('cartup'), ...found.flatMap((f) => f.listings)])
+  const othobaPool = unique([...ownIf('othoba'), ...othobaFound.flatMap((f) => f.listings)])
   const source = ref.site === 'daraz' ? darazPool.find((l) => l.itemId === ref.itemId) : own
-  // An unbranded Cartup product goes by its photo (agent.ts `photoId`), so
-  // Daraz is also searched by its kind, where a retitled copy shows up.
-  const short = source && ref.site === 'cartup' && !darazDown && !mainModel(source.name) && UNBRANDED.test(source.brand.trim()) ? shortKind(source.name) : null
+  // An unbranded product from another store goes by its photo (agent.ts
+  // `photoId`), so Daraz is also searched by its kind, where a retitled copy shows up.
+  const short = source && ref.site !== 'daraz' && !darazDown && !mainModel(source.name) && UNBRANDED.test(source.brand.trim()) ? shortKind(source.name) : null
   if (short) darazPool = unique([...darazPool, ...((await daraz.search(short).catch(() => null))?.listings ?? [])])
   if (!source) {
     return {
@@ -144,7 +157,9 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
           ? darazDown
             ? "Couldn't reach Daraz just now — try again in a moment."
             : "Daraz's search doesn't show this product right now, so its price can't be checked."
-          : "Couldn't read that Cartup product page just now.",
+          : ref.site === 'othoba'
+            ? "That Othoba page isn't a product page, or it couldn't be read just now."
+            : "Couldn't read that Cartup product page just now.",
     }
   }
 
@@ -198,6 +213,7 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
   const stores = [
     answerFor('daraz', 'Daraz', darazPool, darazHits[0] ? darazHits[0].url : null),
     answerFor('cartup', 'Cartup', cartupPool, null),
+    answerFor('othoba', 'Othoba', othobaPool, null),
   ]
   compareAcross(stores)
 

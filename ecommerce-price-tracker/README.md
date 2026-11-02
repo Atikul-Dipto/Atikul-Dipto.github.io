@@ -1,6 +1,6 @@
 # DorAI (formerly Price Pulse)
 
-DorAI finds the best price for one product across Daraz and Cartup. You can name a product, describe what you need, or show it a product you're already looking at.
+DorAI finds the best price for one product across Daraz, Cartup and Othoba. You can name a product, describe what you need, or show it a product you're already looking at.
 
 Renamed from Price Pulse on 2026-11-02: [pricepulse.co.nz](https://www.pricepulse.co.nz/) is a different product of the same kind. The page still lives at `/price-pulse/`, so existing links keep working.
 
@@ -83,6 +83,36 @@ Refresh the index weekly. It downloads ~195MB of sitemaps into `data/cartup/` (g
 ```powershell
 .venv\Scripts\python.exe -m agent --index-cartup            # build + upload (~5 min)
 .venv\Scripts\python.exe -m agent --index-cartup --dry-run  # build + report only
+```
+
+### Othoba comparison
+
+Added 2026-11-02 as the third store. Each answer gets an Othoba section, built the way Cartup's is:
+- **Named products** are found in Othoba's name index and checked against Daraz's own listing, photo included.
+- **For a kind of item,** Othoba's card shows the product on Daraz's card when Othoba sells it too, otherwise its own best fit.
+
+The extension and pasted links work on Othoba product pages too.
+
+How, and why this way (checked 2026-11-02):
+- **Not usable:**
+  - Othoba's robots.txt disallows `/search?` and `/category/products/`, the loader its pages use.
+  - The search runs on Typesense with a key the page deliberately obscures (`decodeApiKey(...)`), so it isn't used.
+  - `sitemap.xml` is empty, and `/mcp` answers no MCP requests.
+- **What's used instead:**
+  - Category pages, which are allowed. They list 40 products each in their HTML, with `?pagenumber=N` for more.
+  - Product pages, also allowed. Each carries schema.org Product JSON-LD with the price, stock, seller (`offers.seller`) and photo.
+- **[`agent/othoba_index.py`](agent/othoba_index.py)** builds the name index from the category pages.
+  - It walks the categories in menu order, one page a second.
+  - A parent category already holds its subcategories' products, so each category stops at the first page with nothing new.
+  - It uses Cartup's index format, in `othoba_docs`/`othoba_postings`/`othoba_meta` tables.
+- **[`worker/othoba.ts`](worker/othoba.ts)** reads at most 4 product pages per lookup.
+- **Known gaps:** Othoba shows no seller ratings, and most products have no reviews. Its picks therefore usually say "Its seller has no ratings yet".
+
+Rebuild weekly, after the Cartup index:
+
+```powershell
+.venv\Scripts\python.exe -m agent --index-othoba            # crawl + upload
+.venv\Scripts\python.exe -m agent --index-othoba --dry-run  # crawl + report only
 ```
 
 ### Testing with a store's search keywords

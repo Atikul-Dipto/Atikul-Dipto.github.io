@@ -186,6 +186,7 @@
 .store-tag { justify-self: start; padding: 2px 7px; color: #15191d; border-radius: 3px; font: 700 10px 'DM Mono', monospace; }
 .store-tag.daraz { background: #ffb347; }
 .store-tag.cartup { background: #f2dc71; }
+.store-tag.othoba { background: #8fd3c7; }
 .compare-name { min-width: 0; display: grid; gap: 2px; font-size: 13px; }
 .compare-name:hover { color: var(--orange); }
 .compare-name small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 10px 'DM Mono', monospace; }
@@ -213,6 +214,7 @@
 .store-section { min-width: 0; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
 .store-section.daraz { border-top: 3px solid #ffb347; }
 .store-section.cartup { border-top: 3px solid #f2dc71; }
+.store-section.othoba { border-top: 3px solid #8fd3c7; }
 .store-section-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; color: var(--muted); font: 11px 'DM Mono', monospace; }
 .store-section-head a { margin-left: auto; color: var(--orange); }
 .store-section .store-tag { font-size: 12px; padding: 3px 9px; }

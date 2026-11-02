@@ -1,9 +1,9 @@
-// DorAI on a Daraz or Cartup product page: a small panel with the same
+// DorAI on a Daraz, Cartup or Othoba product page: a small panel with the same
 // product on the other store, a cheaper trusted seller if there is one, and
 // the lowest price DorAI has seen. Both stores change pages without reloading,
 // so the address is watched rather than read once.
 const SITE = 'https://atikul-islam-portfolio.pages.dev'
-const PRODUCT = /daraz\.com\.bd\/products\/[^?#]*-i\d+[^?#]*\.html|cartup\.com\/product\/[^?#/]+/i
+const PRODUCT = /daraz\.com\.bd\/products\/[^?#]*-i\d+[^?#]*\.html|cartup\.com\/product\/[^?#/]+|othoba\.com\/[a-z0-9][a-z0-9-]*\/?$/i
 
 const money = (v) => `৳${Math.round(v).toLocaleString('en-US')}`
 // The agent's bar for a seller worth trusting (worker/ranking.ts `trusted`).
@@ -220,8 +220,9 @@ async function readName() {
 }
 
 async function check() {
-  const match = PRODUCT.exec(location.href)
-  if (!match) return current && remove()
+  const match = PRODUCT.exec(location.href.split(/[?#]/)[0])
+  // Othoba's categories share its products' address shape; only a page with product data is a product.
+  if (!match || (location.hostname.endsWith('othoba.com') && !structuredName())) return current && remove()
   const link = location.href.split(/[?#]/)[0]
   if (current?.link === link) {
     if (host && !host.isConnected) mount()

@@ -20,6 +20,7 @@
 
 import * as cartup from './cartup.ts'
 import * as daraz from './daraz.ts'
+import * as othoba from './othoba.ts'
 import { bestVoucher, checkAll, listingHints, money } from './eligibility.ts'
 import { buildIntent, coreQuery, describeQuery, parseIntent } from './intent.ts'
 import { compact, foundWords, isAccessory, isBundle, mainModel, missingWords, modelTokens, namesAllOf, quantities, rank, sizesAgree, storageOf, tokens, trusted, variantsOf, withoutVariants } from './ranking.ts'
@@ -469,6 +470,7 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   // Radhuni mustard oil is in no "mustard oil" category, and "lotto" has none.
   const kinds = named ? namedKinds(intent.searchQuery) : [intent.refinedQuery, intent.productType, intent.searchQuery].filter((k): k is string => Boolean(k))
   const cartupLookup = cartup.lookup(db, intent.searchQuery)
+  const othobaLookup = othoba.lookup(db, intent.searchQuery)
   const cartupBrowse = kinds.length ? cartup.browse(db, kinds) : Promise.resolve(null)
   // Daraz sometimes answers with a bot check instead of results; Cartup still answers then.
   let darazDown = false
@@ -518,6 +520,7 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   // again on Daraz itself (its other sellers and sizes), while Cartup's own
   // lookups finish.
   const darazPick = named ? null : (ranked[0] ?? null)
+  const othobaPickLookup = darazPick ? othoba.lookup(db, darazPick.name) : Promise.resolve(null)
   const [found, browsedRaw, pickLookup, pickHits] = await Promise.all([
     cartupLookup,
     cartupBrowse,
@@ -558,6 +561,13 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   }
   lap('cartup')
 
+  // ---- Othoba, through its name index, the same way ----
+  const [othobaFound, othobaPickFound] = await Promise.all([othobaLookup, othobaPickLookup])
+  const othobaSame = named ? sameProduct(othobaFound.listings, intent.searchQuery, ranked[0]) : []
+  const othobaPool = unique([...othobaFound.listings, ...(othobaPickFound?.listings ?? []).filter((l) => ['same', 'variant'].includes(toDarazPick(l) ?? ''))])
+  const othobaRanked = named ? [] : rank(othobaPool, intent, RESULT_LIMIT).ranked
+  lap('othoba')
+
   // ---- each store's "More" rows, matched to the product ----
   const needRows = (pick: Listing | null, pool: Listing[], other: { label: string; listing: Listing } | null, fits: Listing[]) =>
     matchRows({ intent, title: pick?.name ?? '', ref: pick, same: [], pool, otherPick: other, fits })
@@ -593,7 +603,28 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
     }
   }
 
-  const everything = unique([...ranked, ...cartupSame, ...cartupRanked, ...darazRows.map((r) => r.listing), ...cartupRows.map((r) => r.listing)])
+  // Othoba's card shows the product on Daraz's card when Othoba sells it too, else its own best fit.
+  let othobaFit = othobaRanked[0] ?? null
+  let othobaShares: string | null = null
+  if (!named && darazFit) {
+    const onOthoba = sameProduct(othobaPool, darazFit.name, darazFit)
+    if (onOthoba.length) {
+      othobaFit = firstOffer(onOthoba)
+      othobaShares = shared === 'cartup' ? 'Cartup' : 'Daraz'
+    }
+  }
+  const othobaRows = named
+    ? matchRows({ intent, title: intent.searchQuery, ref: othobaSame[0] ?? ranked[0] ?? null, same: othobaSame, pool: othobaPool })
+    : needRows(othobaFit, othobaPool, othobaShares || !darazFit ? null : { label: 'Daraz', listing: darazFit }, othobaRanked.filter((l) => l !== othobaFit))
+
+  const everything = unique([
+    ...ranked,
+    ...cartupSame,
+    ...cartupRanked,
+    ...othobaSame,
+    ...othobaRanked,
+    ...[...darazRows, ...cartupRows, ...othobaRows].map((r) => r.listing),
+  ])
   let history = new Map<string, HistoryMatch>()
   let vouchers: Voucher[] = []
   let harvestedAt: string | null = null
@@ -677,8 +708,28 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
         : `Nothing on Cartup is listed as “${intent.searchQuery}”, and it has no section for this kind of item.`
   }
 
+  const othobaStore: StoreAnswer = { site: 'othoba', label: 'Othoba', recommended: null, why: null, matches: [], note: null, link: null }
+  const othobaMissing =
+    othobaFound.status === 'no_index' ? "Othoba comparison isn't set up yet." : othobaFound.status === 'error' ? "Couldn't reach Othoba just now." : null
+  if (named) {
+    const { pick, why } = recommendHere(closestFirst(othobaSame.map(toResult), intent.searchQuery), intent)
+    othobaStore.recommended = pick
+    othobaStore.why = why
+    othobaStore.matches = matchesBesides(othobaRows, pick)
+    if (!pick) {
+      const why = othobaMissing ?? "Othoba doesn't list this product right now."
+      othobaStore.note = othobaStore.matches.length ? `${why} Its closest matches are below.` : why
+    }
+  } else {
+    const fit = othobaFit ? toResult(othobaFit) : null
+    othobaStore.recommended = fit && bestOffer(fit, offersOf(othobaRows))
+    othobaStore.why = fit && needWhy(othobaStore.recommended!, intent, fit, othobaShares)
+    othobaStore.matches = matchesBesides(othobaRows, othobaStore.recommended)
+    if (!fit) othobaStore.note = othobaMissing ?? `Nothing on Othoba is listed as “${intent.searchQuery}” right now.`
+  }
+
   if (darazDown) darazStore.note = "Couldn't reach Daraz just now — try again in a moment."
-  const stores = [darazStore, cartupStore]
+  const stores = [darazStore, cartupStore, othobaStore]
   compareAcross(stores)
   const summary = summarize(stores)
   lap('check')

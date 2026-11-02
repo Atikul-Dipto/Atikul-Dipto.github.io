@@ -122,3 +122,32 @@ test("an unbranded title's short kind: its first two words and what it is", () =
   assert.equal(shortKind('Nylon Backpack Durable Waterproof Casual Shoulder Bag, Black'), 'Nylon Backpack Bag')
   assert.equal(shortKind('Smart Watch'), null)
 })
+
+test('an Othoba product page: its address, and its schema.org data', async () => {
+  assert.deepEqual(readProductUrl('https://othoba.com/fresh-fortified-soyebean-oil-5ltr-2?utm=x'), {
+    site: 'othoba',
+    itemId: 'othoba-page:fresh-fortified-soyebean-oil-5ltr-2',
+    slug: 'fresh-fortified-soyebean-oil-5ltr-2',
+    url: 'https://othoba.com/fresh-fortified-soyebean-oil-5ltr-2',
+  })
+  const { parseProductPage } = await import('./othoba.ts')
+  const ld = {
+    '@context': 'http://schema.org',
+    '@type': 'Product',
+    name: 'Fresh Fortified Soyebean Oil  - 5ltr ',
+    image: 'https://images.othoba.com/images/thumbs/2139066_fresh-fortified-soyebean-oil-5ltr.webp',
+    id: '882307',
+    brand: '',
+    offers: { '@type': 'Offer', availability: 'http://schema.org/InStock', price: '1000.00', seller: 'Meghna Group of Industries Rajshahi' },
+  }
+  const l = parseProductPage(`<script type="application/ld+json">${JSON.stringify(ld)}</script><del class="old-price">৳1,050</del> 3 review(s)`, 'fresh-fortified-soyebean-oil-5ltr-2')
+  assert.equal(l?.itemId, 'othoba:882307')
+  assert.equal(l?.name, 'Fresh Fortified Soyebean Oil - 5ltr')
+  assert.equal(l?.price, 1000)
+  assert.equal(l?.originalPrice, 1050)
+  assert.equal(l?.seller, 'Meghna Group of Industries Rajshahi')
+  assert.equal(l?.reviews, 3)
+  assert.ok(l?.inStock)
+  // A category page has no product data.
+  assert.equal(parseProductPage('<html>40 products</html>', 'food-grocery'), null)
+})

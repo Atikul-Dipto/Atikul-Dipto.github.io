@@ -188,7 +188,7 @@ function Seller({ listing }) {
   )
 }
 
-const STORE_LABEL = { daraz: 'Daraz', cartup: 'Cartup' }
+const STORE_LABEL = { daraz: 'Daraz', cartup: 'Cartup', othoba: 'Othoba' }
 
 function StoreTag({ site }) {
   return <span className={`store-tag ${site}`}>{STORE_LABEL[site] ?? site}</span>
@@ -346,7 +346,7 @@ function Answer({ answer }) {
     <section className="answer" aria-live="polite">
       <Understood intent={answer.intent} />
       <p className="searched-where">
-        Searched {stores.map((s) => s.label).join(' and ')}
+        Searched {stores.map((s) => s.label).join(', ')}
         {answer.cartupCategories?.length > 0 && ` (Cartup's ${answer.cartupCategories.map(categoryLabel).join(' and ')} pages)`} · prices checked live at{' '}
         {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
@@ -431,7 +431,7 @@ function Comparison({ answer }) {
       </p>
       <p className="compare-verdict">{verdict}</p>
       <p className="searched-where">
-        Checked Daraz and Cartup {answer.cached ? 'at' : 'live at'}{' '}
+        Checked {answer.stores.map((s) => s.label).join(', ')} {answer.cached ? 'at' : 'live at'}{' '}
         {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
       <div className="stores-grid">
@@ -443,8 +443,8 @@ function Comparison({ answer }) {
   )
 }
 
-// A Daraz or Cartup product link, typed, pasted or shared from their apps.
-const STORE_LINK = /https?:\/\/\S*(daraz\.com\.bd|cartup\.com)\//i
+// A Daraz, Cartup or Othoba product link, typed, pasted or shared from their apps.
+const STORE_LINK = /https?:\/\/\S*(daraz\.com\.bd|cartup\.com|othoba\.com)\/\S/i
 
 export default function AskAgent({ stats }) {
   const [form, setForm] = useState(askFromUrl)
@@ -508,7 +508,7 @@ export default function AskAgent({ stats }) {
   return (
     <section className="ask" id="ask">
       <div className="ask-head">
-        <p className="eyebrow">Shopping agent · Daraz + Cartup</p>
+        <p className="eyebrow">Shopping agent · Daraz + Cartup + Othoba</p>
         <h1>
           Name it, or describe it.
           <br />
@@ -517,7 +517,7 @@ export default function AskAgent({ stats }) {
         <p className="ask-copy">
           Type a product's name and each store shows you its best offer of exactly that product — or just the kind
           of thing ("monitor") and you get the best fit for your budget. Add what you need, in English or বাংলা. It
-          searches Daraz and Cartup live, shows every offer of the product on both, remembers the price it saw last
+          searches Daraz, Cartup and Othoba live, shows every offer of the product on each, remembers the price it saw last
           time, and checks which public vouchers really fit.
         </p>
       </div>
@@ -541,7 +541,7 @@ export default function AskAgent({ stats }) {
             enterKeyHint="search"
             maxLength={600}
           />
-          <small>Searched exactly as you type it. A full name gets that product first. Or paste a Daraz or Cartup product link to compare it.</small>
+          <small>Searched exactly as you type it. A full name gets that product first. Or paste a Daraz, Cartup or Othoba product link to compare it.</small>
         </div>
         <div className="ask-field">
           <label htmlFor="ask-details">
