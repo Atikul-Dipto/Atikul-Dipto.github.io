@@ -351,7 +351,7 @@ function Answer({ answer }) {
         {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
 
-      <div className="stores-grid">
+      <div className="stores-grid" style={{ "--stores": stores.length }}>
         {stores.map((s) => (
           <StoreSection key={s.site} store={s} named={named} />
         ))}
@@ -434,7 +434,7 @@ function Comparison({ answer }) {
         Checked {answer.stores.map((s) => s.label).join(', ')} {answer.cached ? 'at' : 'live at'}{' '}
         {new Date(answer.checkedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
       </p>
-      <div className="stores-grid">
+      <div className="stores-grid" style={{ "--stores": answer.stores.length }}>
         {answer.stores.map((s) => (
           <StoreSection key={s.site} store={s} named />
         ))}
