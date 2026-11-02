@@ -39,7 +39,7 @@ Zip the folder's contents, with `manifest.json` at the top of the zip:
 Compress-Archive -Path extension\* -DestinationPath dorai-extension.zip -Force
 ```
 
-The icons are drawn by [`../tools/make-icons.mjs`](../tools/make-icons.mjs). It also draws the installable web app's icons.
+The icons are the DorAI logo (`public/logo.png`), resized. Replace them from the original logo file when it is available; they were cut from a screenshot at 240px.
 
 ## Testing note
 

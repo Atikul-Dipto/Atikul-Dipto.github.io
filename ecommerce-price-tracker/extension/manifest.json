@@ -12,13 +12,26 @@
   },
   "background": {
     "service_worker": "background.js",
-    "scripts": ["background.js"]
+    "scripts": [
+      "background.js"
+    ]
   },
-  "host_permissions": ["https://atikul-islam-portfolio.pages.dev/*"],
+  "host_permissions": [
+    "https://atikul-islam-portfolio.pages.dev/*"
+  ],
   "content_scripts": [
     {
-      "matches": ["https://www.daraz.com.bd/*", "https://daraz.com.bd/*", "https://www.cartup.com/*", "https://cartup.com/*", "https://othoba.com/*", "https://www.othoba.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://www.daraz.com.bd/*",
+        "https://daraz.com.bd/*",
+        "https://www.cartup.com/*",
+        "https://cartup.com/*",
+        "https://othoba.com/*",
+        "https://www.othoba.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ],
@@ -26,7 +39,26 @@
     "gecko": {
       "id": "dorai@atikul-islam-portfolio.pages.dev",
       "strict_min_version": "121.0",
-      "data_collection_permissions": { "required": ["browsingActivity"] }
+      "data_collection_permissions": {
+        "required": [
+          "browsingActivity"
+        ]
+      }
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "icons/icon-48.png"
+      ],
+      "matches": [
+        "https://www.daraz.com.bd/*",
+        "https://daraz.com.bd/*",
+        "https://www.cartup.com/*",
+        "https://cartup.com/*",
+        "https://othoba.com/*",
+        "https://www.othoba.com/*"
+      ]
+    }
+  ]
 }

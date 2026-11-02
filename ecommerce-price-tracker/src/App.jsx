@@ -27,8 +27,11 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href={import.meta.env.BASE_URL}>
-          dor<span>AI</span>
+        <a className="brand" href={import.meta.env.BASE_URL} aria-label="DorAI home">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" width="40" height="40" />
+          <span className="brand-name">
+            দর<b>AI</b>
+          </span>
         </a>
         <nav>
           <a className="active" href="#ask">
@@ -43,6 +46,14 @@ export default function App() {
           {agentStats.status === 'ready' ? 'Agent online' : agentStats.status === 'error' ? 'Agent unreachable' : 'Connecting…'}
         </div>
       </header>
+
+      <img
+        className="hero-banner"
+        src={`${import.meta.env.BASE_URL}banner.webp`}
+        alt="দরAI — স্মার্ট কেনাকাটার, সেরা সঙ্গী. সঠিক দামে খুঁজুন, স্মার্ট পরামর্শ পান, বুদ্ধিমত্তায় কিনুন."
+        width="1058"
+        height="303"
+      />
 
       <AskAgent stats={agentStats.data} />
 
