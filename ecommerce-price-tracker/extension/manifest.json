@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "DorAI — is it cheaper elsewhere?",
   "short_name": "DorAI",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "On a Daraz, Cartup or Othoba product page, DorAI shows the same product on the other stores, cheaper trusted sellers, and the lowest price it has seen.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -60,5 +60,17 @@
         "https://www.othoba.com/*"
       ]
     }
+  ],
+  "action": {
+    "default_title": "DorAI: compare this product on Daraz, Cartup and Othoba",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+  "permissions": [
+    "activeTab"
   ]
 }

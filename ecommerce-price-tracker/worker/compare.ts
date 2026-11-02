@@ -22,7 +22,7 @@ import type { Env, HistoryMatch, Intent, Listing, Voucher } from './types.ts'
 
 const CACHE_SECONDS = 6 * 3600
 // Raised whenever matching changes, so cached answers from the old rules are dropped.
-const CACHE_VERSION = 6
+const CACHE_VERSION = 7
 
 export interface ProductRef {
   site: Listing['site']

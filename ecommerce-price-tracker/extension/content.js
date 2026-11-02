@@ -46,10 +46,11 @@ const STYLE = `
 .note { color: #8c7a90; font-size: 12px; }
 .memory { padding: 10px 12px; border-top: 1px solid #ecdcd3; color: #74607a; font-size: 12px; }
 .foot { display: block; padding: 10px 12px; border-top: 1px solid #ecdcd3; color: #80426e; text-decoration: none; font-size: 12px; font-weight: 600; }
-.pill { position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; display: flex; align-items: center; gap: 8px; padding: 7px 12px 7px 7px;
-  font: 600 12px system-ui, -apple-system, 'Segoe UI', sans-serif; color: #2e1a36; background: #fffaf0; border: 1px solid #ecdcd3;
-  border-radius: 999px; box-shadow: 0 8px 24px rgba(46,26,54,.16); cursor: pointer; }
-.pill.cheaper { border-color: #522d60; }
+.pill { position: fixed; right: 18px; bottom: 18px; z-index: 2147483647; display: flex; align-items: center; gap: 9px; padding: 8px 16px 8px 8px;
+  font: 700 14px system-ui, -apple-system, 'Segoe UI', sans-serif; color: #ffffff; background: #80426e; border: 2px solid #ffffff;
+  border-radius: 999px; box-shadow: 0 10px 28px rgba(46,26,54,.35); cursor: pointer; }
+.pill .logo { width: 28px; height: 28px; background: #fff; }
+.pill.cheaper { background: #522d60; }
 `
 
 let host = null
@@ -84,7 +85,7 @@ function pagePrice() {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT)
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (node.children.length || !(title.compareDocumentPosition(node) & Node.DOCUMENT_POSITION_FOLLOWING)) continue
-    const m = /^\s*৳\s*([\d,]+(?:\.\d+)?)\s*$/.exec(node.textContent)
+    const m = /^\s*(?:৳|Tk\.?)\s*([\d,]+(?:\.\d+)?)\s*$/i.exec(node.textContent) // Othoba writes "Tk 1,035"
     if (!m) continue
     const style = getComputedStyle(node)
     if (style.textDecorationLine.includes('line-through') || node.closest('del, s, strike') || style.display === 'none') continue
@@ -237,7 +238,7 @@ async function check() {
   chrome.runtime.sendMessage({ type: 'compare', link, name }, (answer) => {
     if (current?.link !== link) return // moved on to another product meanwhile
     current.answer = answer && !answer.error ? atPagePrice(answer, pagePrice()) : (answer ?? { error: "Couldn't reach DorAI just now." })
-    open = Boolean(current.answer.cheaper)
+    open = true // every product page opens on its answer; one click minimises it
     render()
   })
 }

@@ -12,3 +12,12 @@ chrome.runtime.onMessage.addListener((message, _sender, reply) => {
     .catch(() => reply({ error: "Couldn't reach DorAI just now." }))
   return true // the reply comes later
 })
+
+// The toolbar icon: the full comparison for the page this tab is on, or DorAI itself.
+const SITE = 'https://atikul-islam-portfolio.pages.dev/price-pulse/'
+const STORE = /^https:\/\/(www\.)?(daraz\.com\.bd|cartup\.com|othoba\.com)\//i
+
+chrome.action.onClicked.addListener((tab) => {
+  const url = tab.url && STORE.test(tab.url) ? `${SITE}?link=${encodeURIComponent(tab.url.split(/[?#]/)[0])}` : SITE
+  chrome.tabs.create({ url })
+})

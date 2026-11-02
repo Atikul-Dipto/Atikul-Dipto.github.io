@@ -17,7 +17,7 @@ const TIMEOUT_MS = 6000
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 export const BASE = 'https://othoba.com'
 
-type LdOffer = { price?: string | number; availability?: string; seller?: string }
+type LdOffer = { price?: string | number; sale_price?: string | number; availability?: string; seller?: string }
 type LdProduct = { '@type'?: string; name?: string; image?: string | string[]; id?: string; brand?: string; offers?: LdOffer; custom_label_0?: string }
 
 const num = (s: string | undefined) => (s ? Number(s.replace(/,/g, '')) : NaN)
@@ -33,9 +33,15 @@ export function parseProductPage(html: string, slug: string): Listing | null {
       // not JSON: skip
     }
   }
-  const price = Number(product?.offers?.price)
+  // "price" is the regular price; "sale_price" is what it sells for now
+  // (the Proton RE-Turbo: price 1150, sale_price 1035, shown as Tk 1,035).
+  const regular = Number(product?.offers?.price)
+  const sale = Number(product?.offers?.sale_price)
+  const price = Number.isFinite(sale) && sale > 0 && (!Number.isFinite(regular) || sale < regular) ? sale : regular
   if (!product || !Number.isFinite(price) || price <= 0) return null
-  const old = num(/class="old-price[^"]*"[^>]*>\s*(?:৳|Tk\.?)?\s*([\d,.]+)/i.exec(html)?.[1])
+  const old = Math.max(0, ...[regular, num(/class="old-price[^"]*"[^>]*>\s*(?:<span[^>]*>\s*)?(?:৳|Tk\.?)?\s*([\d,.]+)/i.exec(html)?.[1])].filter((v) => Number.isFinite(v)))
+  // An app-only price, shown on the page but not sold on the website.
+  const app = num(/class="app-glass-price"[^>]*>\s*(?:৳|Tk\.?)?\s*([\d,.]+)/i.exec(html)?.[1])
   const reviews = Number(/([\d,]+)\s*review\(s\)/i.exec(html)?.[1]?.replace(/,/g, '') ?? 0)
   const width = num(/class="ratings"\s+style="width:\s*([\d.]+)%/i.exec(html)?.[1])
   const original = Number.isFinite(old) && old > price ? old : null
@@ -58,7 +64,7 @@ export function parseProductPage(html: string, slug: string): Listing | null {
     location: '',
     officialStore: false,
     badges: [],
-    highlights: [],
+    highlights: Number.isFinite(app) && app < price ? [`App-only price ৳${app} in Othoba's app`] : [],
     relevance: 0,
     matchedFeatures: [],
   }

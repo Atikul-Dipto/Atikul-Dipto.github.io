@@ -151,3 +151,13 @@ test('an Othoba product page: its address, and its schema.org data', async () =>
   // A category page has no product data.
   assert.equal(parseProductPage('<html>40 products</html>', 'food-grocery'), null)
 })
+
+test("Othoba's sale price is the price; its regular price is the original, and an app-only price is a note", async () => {
+  const { parseProductPage } = await import('./othoba.ts')
+  const ld = { '@type': 'Product', name: 'Proton Mobile Phone-RE-Turbo', id: '565960', offers: { price: '1150.00', sale_price: '1035.00', availability: 'http://schema.org/InStock', seller: 'THA Electronics' } }
+  const l = parseProductPage(`<script type="application/ld+json">${JSON.stringify(ld)}</script><span class="app-glass-price">Tk 931.50</span>`, 'proton-re-turbo')
+  assert.equal(l?.price, 1035)
+  assert.equal(l?.originalPrice, 1150)
+  assert.equal(l?.discountPercent, 10)
+  assert.deepEqual(l?.highlights, ["App-only price ৳931.5 in Othoba's app"])
+})

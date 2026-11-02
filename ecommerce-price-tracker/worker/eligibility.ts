@@ -94,4 +94,7 @@ export function bestVoucher(checks: VoucherCheck[]): VoucherCheck | null {
   return usable.reduce((best, c) => (c.saving > best.saving || (c.saving === best.saving && c.status === 'applies') ? c : best))
 }
 
-export const listingHints = (l: Listing) => [...new Set(l.badges)].filter((b) => b in BADGE_HINTS).map((b) => BADGE_HINTS[b])
+export const listingHints = (l: Listing) => [
+  ...[...new Set(l.badges)].filter((b) => b in BADGE_HINTS).map((b) => BADGE_HINTS[b]),
+  ...l.highlights.filter((h) => h.startsWith('App-only price')), // Othoba's app price, shown but not sold on the website
+]
