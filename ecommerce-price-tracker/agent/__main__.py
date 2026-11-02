@@ -61,6 +61,7 @@ def main() -> int:
     parser.add_argument("--push-d1", action="store_true", help="with --harvest-vouchers: also upload them to the Cloudflare agent's D1")
     parser.add_argument("--seed-d1", action="store_true", help="copy the scrapers' Daraz price history into the Cloudflare agent's D1")
     parser.add_argument("--index-cartup", action="store_true", help="rebuild the Cartup product index from its sitemap and upload it to D1 (weekly)")
+    parser.add_argument("--cartup-menu", action="store_true", help="record Cartup's menu sections (Phones, Groceries...) in D1; also done by --index-cartup")
     parser.add_argument("--index-othoba", action="store_true", help="rebuild the Othoba product index from its category pages and upload it to D1 (weekly)")
     parser.add_argument("--dry-run", action="store_true", help="with --index-cartup/--index-othoba: build and report, don't upload")
     parser.add_argument("-v", "--verbose", action="store_true")
@@ -71,6 +72,15 @@ def main() -> int:
         from . import cartup_index
 
         print(json.dumps(cartup_index.run(push=not args.dry_run), indent=1))
+        return 0
+
+    if args.cartup_menu:
+        from . import cartup_index
+        from .d1 import execute
+
+        sections = cartup_index.menu()
+        execute(cartup_index.menu_statement(sections))
+        print(json.dumps(sections, ensure_ascii=False, indent=1))
         return 0
 
     if args.index_othoba:

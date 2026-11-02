@@ -354,6 +354,36 @@ export function pickCategories(kinds: string[], all: string[], limit = 2): strin
   return best.filter((c) => c.score >= best[0].score - 1e-9).slice(0, limit).map((c) => c.slug)
 }
 
+// Cartup's own menu (Phones, Groceries...), recorded weekly by the indexer:
+// curated sections its category sitemap leaves out ("Phones" is
+// Mobiles_20250710065132; the sitemap's "mobiles" are baby crib toys).
+const SAME_KIND: Record<string, string[]> = { mobile: ['phone'], phone: ['mobile'], cellphone: ['phone', 'mobile'], grocery: ['groceries'] }
+
+/** The menu sections for a kind of item, by their name or address ("mobile" -> Phones). */
+export function pickMenu(kinds: string[], menu: Record<string, string>): string[] {
+  const out: string[] = []
+  for (const kind of kinds) {
+    const want = [...new Set(tokens(kind).map(stem))]
+    if (!want.length || want.some((w) => ACCESSORY_CATEGORY.has(w))) continue
+    for (const [slug, label] of Object.entries(menu)) {
+      const have = new Set([...categoryWords(slug.toLowerCase()), ...tokens(label).map(stem)].flatMap((w) => [w, ...(SAME_KIND[w] ?? [])]))
+      if ([...have].some((w) => ACCESSORY_CATEGORY.has(w))) continue
+      if (want.every((w) => have.has(w)) && !out.includes(slug)) out.push(slug)
+    }
+  }
+  return out.slice(0, 1)
+}
+
+let menuCache: { menu: Record<string, string>; at: number } | null = null
+
+async function loadMenu(db: D1Database): Promise<Record<string, string>> {
+  if (menuCache && Date.now() - menuCache.at < 10 * 60_000) return menuCache.menu
+  const row = await db.prepare(`SELECT value FROM cartup_meta WHERE key = 'menu'`).first<{ value: string }>().catch(() => null)
+  const menu = row ? (JSON.parse(row.value) as Record<string, string>) : {}
+  menuCache = { menu, at: Date.now() }
+  return menu
+}
+
 let categoriesCache: { slugs: string[]; at: number } | null = null
 
 async function loadCategories(db: D1Database): Promise<string[]> {
@@ -374,13 +404,16 @@ export interface Browsed {
   listings: Listing[]
   categories: string[]
   byCategory: Record<string, Listing[]>
+  curated?: boolean // from Cartup's own menu: taken as the kind, whatever Daraz found
 }
 
 export async function browse(db: D1Database | undefined, kinds: string[]): Promise<Browsed> {
   const none: Browsed = { listings: [], categories: [], byCategory: {} }
   if (!db) return none
   try {
-    const categories = pickCategories(kinds, await loadCategories(db))
+    // Cartup's own menu section first; its listings needn't say the kind ("OPPO A6c 4GB/64GB" is a phone).
+    const menu = pickMenu(kinds, await loadMenu(db))
+    const categories = menu.length ? menu : pickCategories(kinds, await loadCategories(db))
     const pages = await Promise.all(
       categories.map((c) =>
         fetch(`https://www.cartup.com/category/${c}`, { headers: { 'user-agent': UA, accept: 'text/html' }, signal: AbortSignal.timeout(TIMEOUT_MS) })
@@ -391,8 +424,8 @@ export async function browse(db: D1Database | undefined, kinds: string[]): Promi
     const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
     const namesKind = (l: Listing) => tokens(l.name).some((w) => kindWords.has(stem(w)))
     const byCategory: Record<string, Listing[]> = {}
-    categories.forEach((c, i) => (byCategory[c] = parseCategoryPage(pages[i]).filter((l) => l.inStock && namesKind(l))))
-    return { listings: [...new Map(Object.values(byCategory).flat().map((l) => [l.itemId, l])).values()], categories, byCategory }
+    categories.forEach((c, i) => (byCategory[c] = parseCategoryPage(pages[i]).filter((l) => l.inStock && (menu.length > 0 || namesKind(l)))))
+    return { listings: [...new Map(Object.values(byCategory).flat().map((l) => [l.itemId, l])).values()], categories, byCategory, curated: menu.length > 0 }
   } catch {
     return none
   }
@@ -406,7 +439,7 @@ export async function browse(db: D1Database | undefined, kinds: string[]): Promi
  * same search ("inch", "hz", "ips"...), dropping any far behind the best.
  */
 export function likeDaraz(browsed: Browsed, darazNames: string[], kinds: string[]): Browsed {
-  if (!browsed.categories.length || !darazNames.length) return browsed
+  if (!browsed.categories.length || !darazNames.length || browsed.curated) return browsed
   const kindWords = new Set(kinds.flatMap((k) => tokens(k).map(stem)))
   const vocabulary = new Set(darazNames.flatMap((n) => tokens(n)).filter((w) => w.length > 1 && !QUERY_STOPWORDS.has(w) && !kindWords.has(stem(w))))
   const score = (ls: Listing[]) => (ls.length ? ls.reduce((n, l) => n + tokens(l.name).filter((w) => vocabulary.has(w)).length, 0) / ls.length : 0)

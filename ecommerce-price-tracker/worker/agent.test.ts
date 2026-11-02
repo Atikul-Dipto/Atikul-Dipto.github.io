@@ -701,3 +701,22 @@ test('a listing that calls itself an accessory is never the product', () => {
   const need: Intent = { ...product('mobile'), mode: 'need' }
   assert.deepEqual(rank([onCartup('3D Glass Magnifier Mobile Accessories Mobile Phone Screen', 230), onCartup('Proton Mobile Phone C7 Blue', 999)], need).ranked.map((l) => l.price), [999])
 })
+
+test("Cartup's menu: \"mobile\" and \"phone\" are its Phones section, never the crib toys or the accessories", async () => {
+  const { pickMenu } = await import('./cartup.ts')
+  const menu = {
+    men_530: 'Men', Mobiles_20250710065132: 'Phones', watches: 'Watches', Groceries_20251127074323: 'Groceries',
+    mobile_accessories: 'Gadgets', mobiles__tablets: 'Phones & AccessoriesPhones & Accessories', health__beauty: 'Health & Beauty',
+  }
+  assert.deepEqual(pickMenu(['mobile'], menu), ['Mobiles_20250710065132'])
+  assert.deepEqual(pickMenu(['phone'], menu), ['Mobiles_20250710065132'])
+  assert.deepEqual(pickMenu(['watch'], menu), ['watches'])
+  assert.deepEqual(pickMenu(['lotion'], menu), [])
+  assert.deepEqual(pickMenu(['phone case'], menu), [])
+})
+
+test('a smartphone is a mobile: no "No mobile listing here" for one', () => {
+  assert.deepEqual(missingWords('mobile', 'Coolpad Cool C35C Smartphone – 6.56” HD+ Display'), [])
+  assert.deepEqual(missingWords('mobile', 'Proton RE-PowerX Feature Phone'), [])
+  assert.deepEqual(missingWords('mobile', 'Rotating Bed Bell Toy'), ['mobile'])
+})

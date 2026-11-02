@@ -261,6 +261,36 @@ def category_statements(slugs: list[str]) -> list[str]:
     ]
 
 
+def menu() -> dict[str, str]:
+    """Cartup's own menu sections, address -> name ("Mobiles_20250710065132" -> "Phones").
+
+    Its menu is drawn by the page's scripts, so a browser reads it. It holds
+    curated sections the category sitemap leaves out: Cartup's phones are
+    only in "Phones", and the sitemap's "mobiles" are baby crib toys.
+    """
+    from scraper.browser import make_driver
+
+    driver = make_driver(headless=True)
+    try:
+        driver.get("https://cartup.com/")
+        time.sleep(6)
+        links = driver.execute_script(
+            "return [...document.querySelectorAll('a[href*=\"/category/\"]')]"
+            ".map(a => [a.href.split('/category/')[1].split(/[?#]/)[0], a.textContent.trim().replace(/\s+/g, ' ')])"
+        )
+    finally:
+        driver.quit()
+    sections: dict[str, str] = {}
+    for slug, label in links:
+        if slug and label and slug not in sections:
+            sections[slug] = label
+    return sections
+
+
+def menu_statement(sections: dict[str, str]) -> str:
+    return f"INSERT OR REPLACE INTO cartup_meta (key, value) VALUES ('menu', {_q(json.dumps(sections, ensure_ascii=False, separators=(',', ':')))});"
+
+
 def run(push: bool = True) -> dict:
     t0 = time.time()
     paths = download()

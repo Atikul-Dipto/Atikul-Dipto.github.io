@@ -149,10 +149,20 @@ const WHO_FOR = new Set(['men', 'mens', 'women', 'womens', 'man', 'woman', 'boys
 const FILLER_WORDS = new Set(['for', 'with', 'and', 'the', 'of', 'new', 'original', 'best', 'pcs', 'pc'])
 
 /** How many of the shopper's words a title has, plurals included ("bag" in "Bags", "men" in "Mens"). */
+// Names for the same kind of thing: Cartup's phones say "Smartphone", never "mobile".
+const SAME_THING: Record<string, string[]> = {
+  mobile: ['phone', 'smartphone', 'cellphone'],
+  phone: ['mobile', 'smartphone', 'cellphone'],
+  smartphone: ['mobile'], // not 'phone': a feature phone isn't a smartphone
+  earphone: ['earbuds', 'earbud', 'headphone', 'headset'],
+  earbuds: ['earbud', 'earphone', 'tws'],
+}
+
 function wordsCovered(words: string[], name: string): number {
   const have = new Set(tokens(name))
   const found = new Set(foundWords(words, name))
-  return words.filter((w) => found.has(w) || have.has(w + 's') || have.has(w + 'es')).length
+  const has = (w: string) => found.has(w) || have.has(w + 's') || have.has(w + 'es')
+  return words.filter((w) => has(w) || (SAME_THING[w] ?? []).some((v) => have.has(v) || have.has(v + 's'))).length
 }
 
 /** The words of a search a title lacks ("radhuni" when Daraz has no Radhuni mustard oil). */
