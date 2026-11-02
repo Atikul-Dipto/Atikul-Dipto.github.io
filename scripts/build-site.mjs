@@ -32,7 +32,6 @@ build('.')
 
 // Sub-apps, each built with its own `base` matching the folder below.
 const subApps = [
-  ['ecommerce-price-tracker', 'price-pulse'],
   ['job-market-dashboard', 'work-signal'],
   ['silo', 'silo'],
 ]

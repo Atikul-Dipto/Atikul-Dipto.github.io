@@ -1,0 +1,8 @@
+# Cloudflare Pages redirects (GitHub Pages ignores this file; it gets
+# public/price-pulse/index.html instead).
+#
+# DorAI (was Price Pulse) moved to its own site on 2026-11-02. Old page links
+# and shared ?link= addresses keep working; the API keeps its method (308).
+/price-pulse            https://dorai-bd.pages.dev/                 301
+/price-pulse/*          https://dorai-bd.pages.dev/:splat           301
+/api/pp/*               https://dorai-bd.pages.dev/api/pp/:splat    308

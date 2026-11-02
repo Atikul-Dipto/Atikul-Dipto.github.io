@@ -1,7 +1,7 @@
 """
 Build a star-schema CSV export from the Price Pulse scraper database.
 
-Source: ecommerce-price-tracker/data/pricetracker.db (SQLite, written by the
+Source: dorai/data/pricetracker.db in the DorAI repo, beside this one (SQLite, written by the
 Selenium pipeline). Output: four CSVs under ./data that Power BI imports.
 
 Run it again after every scrape; the model picks up the new rows with a
@@ -20,7 +20,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-DB = ROOT.parent.parent / "ecommerce-price-tracker" / "data" / "pricetracker.db"
+DB = ROOT.parents[2] / "dorai" / "data" / "pricetracker.db"  # the DorAI repo, a sibling of this one
 OUT = ROOT / "data"
 
 # Retailer display names. The scraper stores lowercase keys.

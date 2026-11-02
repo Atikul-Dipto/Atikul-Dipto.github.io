@@ -25,7 +25,6 @@ jobs:
           cache: npm
           cache-dependency-path: |
             package-lock.json
-            ecommerce-price-tracker/package-lock.json
             job-market-dashboard/package-lock.json
             silo/package-lock.json
 
@@ -35,14 +34,6 @@ jobs:
 
       # Dashboards, served as sub-pages of the same Pages site.
       # Each sub-app sets its own `base` in vite.config.js to match the folder below.
-      - name: Build Price Pulse -> /price-pulse/
-        working-directory: ecommerce-price-tracker
-        run: |
-          npm ci
-          npm run build
-          mkdir -p ../dist/price-pulse
-          cp -r dist/. ../dist/price-pulse/
-
       - name: Build Work Signal -> /work-signal/
         working-directory: job-market-dashboard
         run: |

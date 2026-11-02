@@ -225,12 +225,12 @@ export const projects = [
   },
   {
     title: 'DorAI',
-    summary: 'A shopping agent that finds the best price for one product across Daraz and Cartup.',
+    summary: 'A shopping agent that finds the best price for one product across Daraz, Cartup and Othoba.',
     description: 'Name a product, describe a need in English or বাংলা, or share one from the Daraz app, and each store answers with its best offer of the same product. Listings are matched across stores by model code, size and wording. Price memory lives in Cloudflare D1, Workers AI (Llama 3.3) reads needs, and public vouchers are checked against their terms. A browser extension shows it on the stores\' own product pages.',
     screenshot: '/project-price-pulse.svg',
     tags: ['Cloudflare Workers', 'D1', 'Workers AI', 'React', 'Browser extension'],
-    href: 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/ecommerce-price-tracker',
-    demoHref: '/price-pulse/',
+    href: 'https://github.com/Atikul-Dipto/dorai',
+    demoHref: 'https://dorai-bd.pages.dev/',
     placeholder: false,
   },
   {

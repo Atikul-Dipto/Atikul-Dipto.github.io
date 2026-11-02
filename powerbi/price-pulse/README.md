@@ -1,7 +1,7 @@
 # Price Pulse — Power BI model
 
 A Power BI Project (PBIP) over the price data collected by the
-[Price Pulse scraper](../../ecommerce-price-tracker). The semantic model is
+[Price Pulse scraper](https://github.com/Atikul-Dipto/dorai) (now DorAI). The semantic model is
 plain-text TMDL, so the model and every measure are reviewable in this repo
 rather than buried in a binary `.pbix`.
 

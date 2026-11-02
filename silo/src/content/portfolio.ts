@@ -241,8 +241,8 @@ export const projects: ProjectRecord[] = [
       'Selenium pipeline scraping 8 marketplaces (Daraz, Startech, Pickaboo, Chaldal…) into a Postgres price-history store, with a FastAPI backend, cross-store comparison of the same product, a click-through price chart, and a grounded local-LLM recap of each trend.',
     tags: ['Selenium', 'PostgreSQL', 'FastAPI', 'React'],
     categories: ['SQL', 'Python', 'Product Analytics', 'Business Intelligence'],
-    repo: 'https://github.com/Atikul-Dipto/Atikul-Dipto.github.io/tree/main/ecommerce-price-tracker',
-    demo: '/price-pulse/',
+    repo: 'https://github.com/Atikul-Dipto/dorai',
+    demo: 'https://dorai-bd.pages.dev/',
     screenshot: 'project-price-pulse.svg',
   },
   {
