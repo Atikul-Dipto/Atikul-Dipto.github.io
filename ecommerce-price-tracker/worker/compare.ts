@@ -20,7 +20,7 @@ import type { Env, HistoryMatch, Intent, Listing, Voucher } from './types.ts'
 
 const CACHE_SECONDS = 6 * 3600
 // Raised whenever matching changes, so cached answers from the old rules are dropped.
-const CACHE_VERSION = 2
+const CACHE_VERSION = 3
 
 export interface ProductRef {
   site: Listing['site']
@@ -35,6 +35,7 @@ export interface Comparison {
   cheaper: { site: Listing['site']; label: string; saving: number } | null // the same product for less elsewhere
   checkedAt: string
   cached: boolean
+  unreachable: Listing['site'][] // stores that couldn't be checked this time: nothing is claimed about them
 }
 
 const DARAZ_PRODUCT = /daraz\.com\.bd\/products\/([^?#\s]*?)-i(\d+)(?:-s\d+)?\.html/i
@@ -193,9 +194,11 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
     cheaper: elsewhere && saving > 0 ? { site: elsewhere.site, label: elsewhere.label, saving } : null,
     checkedAt: nowIso,
     cached: false,
+    unreachable: darazDown ? ['daraz'] : [],
   }
-  await cache
-    ?.put(cacheKey, new Response(JSON.stringify(comparison), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${CACHE_SECONDS}` } }))
-    .catch(() => undefined)
+  // A store that couldn't be checked is tried again next time, not remembered for 6 hours.
+  if (!comparison.unreachable.length) {
+    await cache?.put(cacheKey, new Response(JSON.stringify(comparison), { headers: { 'content-type': 'application/json', 'cache-control': `max-age=${CACHE_SECONDS}` } })).catch(() => undefined)
+  }
   return comparison
 }

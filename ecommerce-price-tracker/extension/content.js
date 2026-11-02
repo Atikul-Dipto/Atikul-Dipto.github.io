@@ -78,6 +78,12 @@ function verdict(answer) {
     const where = answer.cheaper.site === source.site ? 'from another seller here' : `on ${answer.cheaper.label}`
     return { cheaper: true, short: `${money(answer.cheaper.saving)} cheaper ${where}`, line: `${money(store.recommended.finalPrice)} ${where}`, sub: `Save ${money(answer.cheaper.saving)} on the same product.` }
   }
+  // A store that couldn't be checked: no claim about the best price.
+  const unchecked = answer.stores.filter((s) => (answer.unreachable ?? []).includes(s.site)).map((s) => s.label)
+  if (unchecked.length) {
+    const line = `Couldn't check ${unchecked.join(' or ')} just now`
+    return { cheaper: false, short: line, line, sub: 'Try again in a few minutes.' }
+  }
   const other = answer.stores.find((s) => s.site !== source.site && s.recommended)
   const sub = other ? `${other.label} has it for ${money(other.recommended.finalPrice)}.` : `Not found on ${answer.stores.filter((s) => s.site !== source.site).map((s) => s.label).join(' or ')} right now.`
   return { cheaper: false, short: 'Best price we found', line: 'This is the best price we found', sub }

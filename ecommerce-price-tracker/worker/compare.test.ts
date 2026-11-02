@@ -99,3 +99,20 @@ test("a shared Daraz link with no title is searched by the page's own title", ()
       assert.equal(result.source.listing.price, 1117)
     },
   ))
+
+test('a Cartup product while Daraz refuses: Daraz is marked unchecked, so nothing is claimed about it', () =>
+  withFetch(
+    (url) => {
+      if (url.includes('cartup.com/product/')) {
+        const ld = { '@type': 'Product', name: 'Rin Liquid Detergent 800ml', offers: { price: 177, availability: 'https://schema.org/InStock', seller: { name: 'Unilever' } } }
+        return new Response(`<html><script type="application/ld+json">${JSON.stringify(ld)}</script></html>`)
+      }
+      return new Response('<script>sec</script>', { status: 200 })
+    },
+    async () => {
+      const result = await compare(readProductUrl('https://cartup.com/product/rin_liquid_detergent_800ml_1234567890123_abc123')!, {})
+      assert.ok(!('error' in result))
+      assert.deepEqual(result.unreachable, ['daraz'])
+      assert.equal(result.cheaper, null)
+    },
+  ))

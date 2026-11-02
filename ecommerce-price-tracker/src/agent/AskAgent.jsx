@@ -396,8 +396,16 @@ function Comparison({ answer }) {
   const source = answer.source.listing
   const sourceStore = answer.stores.find((s) => s.site === source.site)
   const other = answer.stores.find((s) => s.site !== source.site && s.recommended)
+  const unchecked = answer.stores.filter((s) => (answer.unreachable ?? []).includes(s.site)).map((s) => s.label)
   let verdict
-  if (answer.cheaper) {
+  if (unchecked.length && !answer.cheaper) {
+    // A store that couldn't be checked: no claim about the best price.
+    verdict = (
+      <>
+        <b>Couldn't check {unchecked.join(' or ')} just now.</b> Try again in a few minutes.
+      </>
+    )
+  } else if (answer.cheaper) {
     const where = answer.cheaper.site === source.site ? `from another seller on ${answer.cheaper.label}` : `on ${answer.cheaper.label}`
     verdict = (
       <>
