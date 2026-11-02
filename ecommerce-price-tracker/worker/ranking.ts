@@ -141,6 +141,9 @@ export function foundWords(want: string[], name: string): string[] {
   )
 }
 
+// Who it's for, not what it is ("watch for men" is a watch).
+const WHO_FOR = new Set(['men', 'mens', 'women', 'womens', 'man', 'woman', 'boys', 'girls', 'boy', 'girl', 'kids', 'kid', 'baby', 'babies', 'ladies', 'gents', 'unisex', 'children'])
+
 // Words typed around what's wanted, not part of it.
 const FILLER_WORDS = new Set(['for', 'with', 'and', 'the', 'of', 'new', 'original', 'best', 'pcs', 'pc'])
 
@@ -329,6 +332,10 @@ export function rank(listings: Listing[], intent: Intent, limit = 6, extra: List
     // What the shopper typed narrows it first: "radhuni mustard oil" is
     // Radhuni's, and "lotto" is the brand, not whatever Daraz lists beside it.
     const words = queryTokens.filter((t) => !FILLER_WORDS.has(t) && !/^\d+$/.test(t))
+    // ...and it has to be the kind of thing asked for: Othoba's Ruchi Chanachur
+    // has the brand of "ruchi sauce" but isn't a sauce.
+    const kind = words.filter((w) => !WHO_FOR.has(w)).at(-1)
+    if (kind && words.length > 1) pool = pool.filter((l) => wordsCovered([kind], l.name) > 0)
     const best = Math.max(0, ...pool.map((l) => wordsCovered(words, l.name)))
     if (best > 0) pool = pool.filter((l) => wordsCovered(words, l.name) === best)
     // One of it, unless a combo was asked for ("Lux Body Wash 245ml (Bundle of 4)").

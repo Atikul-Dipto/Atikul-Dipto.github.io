@@ -682,3 +682,11 @@ test('unbranded watches: the same photo file is the same product, a look-alike t
   const lotion = listing('Parachute Just for Baby - Baby Lotion 100ml', 163, { brand: 'Just For Baby', image: 'https://static-01.daraz.com.bd/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg' })
   assert.equal(relations(lotion.name, lotion)(onCartup('Parachute Just for Baby - Baby Lotion 100ml', 198, { brand: 'Parachute', image: 'https://x/product/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-1.webp' })), 'same')
 })
+
+test('"ruchi sauce": a Ruchi chanachur has the brand but is no sauce, so it is never the pick', () => {
+  const need: Intent = { ...product('ruchi sauce'), mode: 'need' }
+  assert.deepEqual(rank([listing('Ruchi Chanachur Hot 150gm', 50), listing('Ruchi Chanachur Hot 350gm', 100)], need).ranked, [])
+  assert.equal(rank([listing('Ruchi Chanachur Hot 150gm', 50), listing('Kishwan Hot Tomato Sauce 500g', 138)], need).ranked[0].name, 'Kishwan Hot Tomato Sauce 500g')
+  // "for men" says who it's for; the watch is still the kind.
+  assert.equal(rank([listing("Men's Wallet Leather", 400), listing('Poedagar Watch for Men', 209)], { ...product('watch for men'), mode: 'need' }).ranked[0].name, 'Poedagar Watch for Men')
+})
