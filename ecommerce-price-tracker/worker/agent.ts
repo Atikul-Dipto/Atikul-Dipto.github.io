@@ -102,8 +102,13 @@ type Relation = 'same' | 'variant' | 'close'
  *   close   — most of its words, or a short name made of them ("Jordan Chest
  *             Bag" for the Air Jordan crossbody chest/waist bag).
  * Null for anything less. Out-of-stock listings and accessories never relate.
+ *
+ * With `ref`, the listing the title belongs to, its photo counts too (see
+ * `photoId`): the same photo file is the same product whatever the titles
+ * say, and an unbranded product with no model code isn't "the same" on a
+ * near-identical title alone.
  */
-export function relations(title: string): (l: Listing) => Relation | null {
+export function relations(title: string, ref?: Listing | null): (l: Listing) => Relation | null {
   const main = mainModel(title)
   const [variants, storage, size] = [variantsOf(title, main), storageOf(title), quantities(title)]
   const titleTokens = tokens(title)
@@ -182,17 +187,38 @@ export function relations(title: string): (l: Listing) => Relation | null {
     return differs ? 'variant' : 'same'
   }
   const order: (Relation | null)[] = ['same', 'variant', 'close', null]
+  const photo = ref ? photoId(ref) : null
+  // "Fashion Sports Led Watch... for Men" and "...for Students" are two
+  // different No Brand watches: for these, the title is no identity.
+  const titleProves = !ref || Boolean(main) || !UNBRANDED.test(ref.brand.trim())
   return (l) => {
     if (!l.inStock || isAccessory(l, titleTokens)) return null
     // A renamed Cartup listing is what it is under either of its names.
     const found = [relate(l.name), l.alsoNamed ? relate(l.alsoNamed, true) : null]
-    return found.sort((a, b) => order.indexOf(a) - order.indexOf(b))[0]
+    const byTitle = found.sort((a, b) => order.indexOf(a) - order.indexOf(b))[0]
+    if (!photo || l.itemId === ref?.itemId) return byTitle
+    // The same photo file: Cartup's "Squares Led Digital Sports Watch" is
+    // Daraz's "Fashion Sports Led Watch", uploaded with Daraz's own photo.
+    if (photoId(l) === photo) return isBundle(l.name) && !bundle ? null : size.size && quantities(l.name).size && !sizesAgree(size, l.name) ? 'variant' : 'same'
+    return byTitle === 'same' && !titleProves ? 'close' : byTitle
   }
 }
 
+// What stores write as the brand of something without one.
+export const UNBRANDED = /^(no ?brand|generic|oem|unbranded|n\/a)$/i
+
+/**
+ * The photo's file id: Daraz names images by a 32-character hash
+ * ("/p/2c6060c50c1952d4884713f4be91002b.jpg"), and sellers who copy a
+ * listing to Cartup upload the same file ("/product/2c6060c5...-1743053179278.webp").
+ */
+export function photoId(l: Listing): string | null {
+  return /\/([0-9a-f]{32})(?=[-._])/i.exec(l.image ?? '')?.[1]?.toLowerCase() ?? null
+}
+
 /** The listings that are the same product as `title`. */
-export function sameProduct(listings: Listing[], title: string): Listing[] {
-  const relate = relations(title)
+export function sameProduct(listings: Listing[], title: string, ref?: Listing | null): Listing[] {
+  const relate = relations(title, ref)
   return listings.filter((l) => relate(l) === 'same')
 }
 
@@ -240,13 +266,13 @@ export function matchRows(o: {
   const sameLabel = named ? 'Same product' : 'Same product, another seller'
   for (const l of o.same) add(l, 'same', sameLabel)
 
-  const relate = o.title ? relations(o.title) : () => null
+  const relate = o.title ? relations(o.title, o.ref) : () => null
   const pool = o.pool.filter((l) => !taken.has(l.itemId) && l.price >= floor).map((l) => ({ l, r: relate(l) }))
   const cheapest = (r: Relation) => pool.filter((x) => x.r === r).map((x) => x.l).sort((a, b) => a.price - b.price)
   if (!named) {
     // A kind of item: rank vetted only the pick, so other sellers are held to its price.
     for (const l of cheapest('same')) if (inBudget(l) && l.price >= (o.ref?.price ?? 0) * 0.6) add(l, 'same', sameLabel)
-    if (o.otherPick) for (const l of sameProduct(o.pool, o.otherPick.listing.name)) if (inBudget(l)) add(l, 'same', `Same as ${o.otherPick.label}'s pick`, true)
+    if (o.otherPick) for (const l of sameProduct(o.pool, o.otherPick.listing.name, o.otherPick.listing)) if (inBudget(l)) add(l, 'same', `Same as ${o.otherPick.label}'s pick`, true)
   }
   // Another size of a named product is shown whatever the budget; for a kind of item, within it.
   for (const l of cheapest('variant')) if (named || inBudget(l)) add(l, 'variant', 'Other size or variant')
@@ -363,7 +389,7 @@ export function sharedPick(a: { pick: Listing; elsewhere: Listing[] }, b: { pick
 const firstOffer = (listings: Listing[]): Listing => [...listings].sort((x, y) => Number(trusted(y)) - Number(trusted(x)) || x.price - y.price)[0]
 
 /** Two stores' listings of one product, judged from either title (one store's may say more). */
-const samePicks = (a: Listing, b: Listing) => sameProduct([b], a.name).length > 0 || sameProduct([a], b.name).length > 0
+const samePicks = (a: Listing, b: Listing) => sameProduct([b], a.name, a).length > 0 || sameProduct([a], b.name, b).length > 0
 
 /** Where two stores' picks are the same product, each says how its price compares — a fact, not a push. */
 export function compareAcross(stores: StoreAnswer[]): void {
@@ -502,7 +528,8 @@ export async function run(input: AskInput, env: Env, now = new Date()): Promise<
   // Of same-named categories, keep the ones whose listings look like what Daraz found.
   const browsed = browsedRaw ? cartup.likeDaraz(browsedRaw, [...ranked, ...alternatives].slice(0, 10).map((l) => l.name), kinds) : null
   const unique = (ls: Listing[]) => [...new Map(ls.map((l) => [l.itemId, l])).values()]
-  const cartupSame = named && found ? sameProduct(found.listings, intent.searchQuery) : []
+  // Checked against Daraz's own listing of it, photo included.
+  const cartupSame = named && found ? sameProduct(found.listings, intent.searchQuery, ranked[0]) : []
   // Daraz's pick on Cartup: the listing itself and its other sizes.
   const toDarazPick = darazPick ? relations(darazPick.name) : () => null
   const pickOnCartup = (pickLookup?.listings ?? []).filter((l) => ['same', 'variant'].includes(toDarazPick(l) ?? ''))

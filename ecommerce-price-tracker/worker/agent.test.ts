@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { bestOffer, compareAcross, evidence, matchRows, recommendHere, relations, type Result, run, sameProduct, sharedPick, type StoreAnswer, standing } from './agent.ts'
+import { bestOffer, compareAcross, evidence, matchRows, photoId, recommendHere, relations, type Result, run, sameProduct, sharedPick, type StoreAnswer, standing } from './agent.ts'
 import { decodeIds, fnv1a, likeDaraz, parseCategoryPage, parseProductPage, pickCategories, requiredWords } from './cartup.ts'
 import { bestVoucher, campaignName, check, checkAll } from './eligibility.ts'
 import { buildIntent, cleanSearchQuery, coreQuery, describeQuery, groundedPrice, namesAProduct, parseRules, queryNumbers, restoreModelNumbers } from './intent.ts'
@@ -657,4 +657,28 @@ test('when Daraz answers with a bot check, Cartup still answers and Daraz says i
   } finally {
     globalThis.fetch = realFetch
   }
+})
+
+test('unbranded watches: the same photo file is the same product, a look-alike title with another photo is not', () => {
+  const daraz = listing('Fashion Sports Led Watch, Upgraded Version Electronic Bracelet Gift watch for Men', 109, {
+    brand: 'No Brand',
+    image: 'https://static-01.daraz.com.bd/p/2c6060c50c1952d4884713f4be91002b.jpg',
+  })
+  const squares = onCartup('Squares Led Digital Sports Watch And Ring Touch Watch', 140, {
+    brand: 'No Brand',
+    image: 'https://imrs.cartup.com/api/v1/image-resize?imageUrl=https://sl-dev-s3.s3.amazonaws.com/product/2c6060c50c1952d4884713f4be91002b-1743053179278.webp&width=1600',
+  })
+  const students = onCartup('Fashion Sports Led Watch, Upgraded Version Electronic Bracelet Gift watch for Students', 116, {
+    brand: 'No Brand',
+    image: 'https://imrs.cartup.com/api/v1/image-resize?imageUrl=https://sl-dev-s3.s3.amazonaws.com/product/9f1e2d3c4b5a69788796a5b4c3d2e1f0-1743053179999.webp&width=1600',
+  })
+  assert.equal(photoId(squares), '2c6060c50c1952d4884713f4be91002b')
+  const relate = relations(daraz.name, daraz)
+  assert.equal(relate(squares), 'same')
+  assert.equal(relate(students), 'close')
+  // Without the listing to go on, titles decide as before.
+  assert.equal(relations(daraz.name)(students), 'same')
+  // A branded product keeps matching by title, whatever photo each seller uses.
+  const lotion = listing('Parachute Just for Baby - Baby Lotion 100ml', 163, { brand: 'Just For Baby', image: 'https://static-01.daraz.com.bd/p/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.jpg' })
+  assert.equal(relations(lotion.name, lotion)(onCartup('Parachute Just for Baby - Baby Lotion 100ml', 198, { brand: 'Parachute', image: 'https://x/product/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb-1.webp' })), 'same')
 })

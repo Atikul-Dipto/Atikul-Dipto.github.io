@@ -10,17 +10,18 @@
  * bot check after ~50 questions in half an hour).
  */
 
-import { closestFirst, compareAcross, matchRows, recommendHere, relations, type Result, type StoreAnswer } from './agent.ts'
+import { closestFirst, compareAcross, matchRows, recommendHere, relations, type Result, type StoreAnswer, UNBRANDED } from './agent.ts'
 import * as cartup from './cartup.ts'
 import * as daraz from './daraz.ts'
 import { bestVoucher, checkAll, listingHints } from './eligibility.ts'
 import { coreQuery } from './intent.ts'
+import { mainModel } from './ranking.ts'
 import * as store from './store.ts'
 import type { Env, HistoryMatch, Intent, Listing, Voucher } from './types.ts'
 
 const CACHE_SECONDS = 6 * 3600
 // Raised whenever matching changes, so cached answers from the old rules are dropped.
-const CACHE_VERSION = 3
+const CACHE_VERSION = 5
 
 export interface ProductRef {
   site: Listing['site']
@@ -80,6 +81,19 @@ export async function resolveShared(text: string): Promise<ProductRef | null> {
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 
+/**
+ * An unbranded product's title cut to its first two words and its kind
+ * ("Squares Led Digital Sports Watch And Ring Touch Watch" -> "Squares Led
+ * Watch"). Sellers retitle these freely; Daraz's search for the full Cartup
+ * title missed the same watch, and this finds it, for the photo to confirm.
+ */
+export function shortKind(name: string): string | null {
+  const clause = name.split(/[,|(\-–]|\b(?:and|for|with)\b/i)[0]
+  const words = clause.match(/[a-z]+/gi) ?? []
+  if (words.length < 3) return null
+  return [...new Set([...words.slice(0, 2), words[words.length - 1]])].join(' ')
+}
+
 /** A Daraz address's words ("hoco-eq34-plus-rima-tws-earbuds") as a search. */
 const slugWords = (slug: string) => decodeURIComponent(slug).replace(/[-_]+/g, ' ').trim()
 
@@ -115,10 +129,14 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
     ref.site === 'cartup' ? cartup.fetchProduct(ref.slug).catch(() => null) : Promise.resolve(null),
   ])
   const unique = (ls: Listing[]) => [...new Map(ls.map((l) => [l.itemId, l])).values()]
-  const darazPool = unique(darazHits.flatMap((r) => r?.listings ?? []))
+  let darazPool = unique(darazHits.flatMap((r) => r?.listings ?? []))
   const darazDown = darazHits.every((r) => r === null)
   const cartupPool = unique([...(own ? [own] : []), ...found.flatMap((f) => f.listings)])
   const source = ref.site === 'daraz' ? darazPool.find((l) => l.itemId === ref.itemId) : own
+  // An unbranded Cartup product goes by its photo (agent.ts `photoId`), so
+  // Daraz is also searched by its kind, where a retitled copy shows up.
+  const short = source && ref.site === 'cartup' && !darazDown && !mainModel(source.name) && UNBRANDED.test(source.brand.trim()) ? shortKind(source.name) : null
+  if (short) darazPool = unique([...darazPool, ...((await daraz.search(short).catch(() => null))?.listings ?? [])])
   if (!source) {
     return {
       error:
@@ -155,7 +173,7 @@ export async function compare(ref: ProductRef, env: Env, opts: { name?: string; 
 
   // The product on each store, matched to the source's own title.
   const intent = product(source.name)
-  const relate = relations(source.name)
+  const relate = relations(source.name, source)
   const answerFor = (site: Listing['site'], label: string, pool: Listing[], link: string | null): StoreAnswer => {
     const same = pool.filter((l) => l.itemId === source.itemId || relate(l) === 'same')
     // Its own store: the source first, as the listing being looked at.

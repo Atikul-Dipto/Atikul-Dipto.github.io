@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
 
-import { compare, readProductUrl, resolveShared } from './compare.ts'
+import { compare, readProductUrl, resolveShared, shortKind } from './compare.ts'
 
 test('a product address from a page, or inside the text an app shares', () => {
   assert.deepEqual(readProductUrl('https://www.daraz.com.bd/products/hoco-eq34-plus-rima-tws-earbuds-i412345678-s1987654321.html?spm=a2a0e.searchlist'), {
@@ -116,3 +116,9 @@ test('a Cartup product while Daraz refuses: Daraz is marked unchecked, so nothin
       assert.equal(result.cheaper, null)
     },
   ))
+
+test("an unbranded title's short kind: its first two words and what it is", () => {
+  assert.equal(shortKind('Squares Led Digital Sports Watch And Ring Touch Watch'), 'Squares Led Watch')
+  assert.equal(shortKind('Nylon Backpack Durable Waterproof Casual Shoulder Bag, Black'), 'Nylon Backpack Bag')
+  assert.equal(shortKind('Smart Watch'), null)
+})
