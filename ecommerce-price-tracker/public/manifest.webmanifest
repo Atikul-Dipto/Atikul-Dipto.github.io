@@ -6,7 +6,7 @@
   "start_url": "/price-pulse/",
   "scope": "/price-pulse/",
   "display": "standalone",
-  "background_color": "#fff7ee",
+  "background_color": "#ffffff",
   "theme_color": "#80426e",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
