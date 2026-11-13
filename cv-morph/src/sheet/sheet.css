@@ -1,0 +1,524 @@
+/* The CV page. Everything here is also what the PDF export draws from: it
+   reads boxes, colours and text positions off this layout. So no text lives
+   in a pseudo-element, and nothing visible relies on a shadow or a gradient. */
+
+.sheet {
+  position: relative;
+  width: var(--pw);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: var(--fs);
+  line-height: var(--lh);
+  text-align: left;
+  /* The PDF sets each line glyph by glyph from the font's own widths; turning
+     pair kerning and ligatures off here keeps the page and the PDF identical. */
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: 'kern' 0, 'liga' 0, 'clig' 0, 'calt' 0;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  overflow-wrap: break-word;
+  hyphens: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.sheet *,
+.sheet *::before {
+  box-sizing: border-box;
+}
+
+/* :where() keeps this reset weaker than the classes that set a size. */
+.sheet :where(h1, h2, p) {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.sheet a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.sheet-backs {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.sheet-paper {
+  position: absolute;
+  left: 0;
+  width: var(--pw);
+  height: var(--ph);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.sheet-fill {
+  position: absolute;
+}
+
+.sheet-flow {
+  position: relative;
+}
+
+.sheet-cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.col {
+  min-width: 0;
+  color: var(--text);
+}
+
+/* The page-breaker's lever: space above a block, pushing it onto the next page. */
+.unit::before {
+  content: '';
+  display: block;
+  height: var(--push, 0px);
+}
+
+/* ---------------------------------------------------------------- header */
+
+.head-top {
+  padding: var(--m) var(--m) 0;
+}
+
+.head-top.head-filled {
+  padding-top: calc(var(--m) * 0.8);
+  padding-bottom: calc(var(--m) * 0.7);
+}
+
+.head-main,
+.head-side {
+  margin-bottom: calc(var(--fs) * 1.4 * var(--sp));
+}
+
+.head-row {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--fs) * 1.4);
+}
+
+.head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheet[data-head-align='center'] .head-row {
+  flex-direction: column;
+  text-align: center;
+}
+
+.sheet[data-head-align='center'] .head-text {
+  width: 100%;
+}
+
+.sheet[data-head-align='right'] .head-row {
+  flex-direction: row-reverse;
+  text-align: right;
+}
+
+.head-side .head-row {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.sheet[data-head-align='center'] .head-side .head-row {
+  align-items: center;
+}
+
+.name {
+  font-family: var(--font-head);
+  font-size: var(--name-size);
+  font-weight: var(--name-weight);
+  color: var(--name-color);
+  letter-spacing: var(--name-spacing);
+  line-height: 1.15;
+}
+
+.headline {
+  margin-top: 0.3em;
+  font-size: calc(var(--fs) * 1.15);
+  color: var(--head-text);
+}
+
+.contacts {
+  margin-top: 0.55em;
+  color: var(--head-text);
+}
+
+.contacts-stacked .contact {
+  display: block;
+}
+
+.head-rule {
+  margin-top: calc(var(--m) * 0.4);
+  height: 1px;
+  background: var(--rule);
+}
+
+.head-top.head-filled .head-rule {
+  display: none;
+}
+
+.photo {
+  flex: none;
+  width: calc(var(--fs) * 7);
+  height: calc(var(--fs) * 7);
+  object-fit: cover;
+}
+
+.photo-round {
+  border-radius: 50%;
+}
+
+.photo-square {
+  border-radius: 4px;
+}
+
+/* -------------------------------------------------------------- sections */
+
+.sec {
+  position: relative;
+}
+
+.sec + .sec,
+.head-main + .sec,
+.head-side + .sec {
+  margin-top: calc(var(--fs) * 1.25 * var(--sp));
+}
+
+.sec-h {
+  font-family: var(--font-head);
+  font-size: var(--h-size);
+  font-weight: var(--h-weight);
+  color: var(--h-color);
+  letter-spacing: var(--h-spacing);
+  line-height: 1.25;
+  margin-bottom: calc(var(--fs) * 0.55);
+}
+
+.sheet[data-halign='center'] .sec-h {
+  text-align: center;
+}
+
+.sheet[data-rule='under'] .sec-h {
+  border-bottom: 1px solid var(--rule);
+  padding-bottom: 0.22em;
+}
+
+.sheet[data-rule='over'] .sec-h {
+  border-top: 1px solid var(--rule);
+  padding-top: 0.42em;
+}
+
+.sheet[data-rule='band'] .sec-h {
+  background: var(--band);
+  padding: 0.28em 0.6em;
+}
+
+.sheet[data-rule='bar'] .sec-h {
+  border-left: 3px solid var(--h-color);
+  padding-left: 0.55em;
+}
+
+.para {
+  white-space: pre-wrap;
+}
+
+.contact-line {
+  overflow-wrap: anywhere;
+}
+
+/* --------------------------------------------------------------- entries */
+
+.entry {
+  position: relative;
+}
+
+.entry + .entry {
+  margin-top: calc(var(--fs) * 0.75 * var(--sp));
+}
+
+.e-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.2em;
+}
+
+.e-row > .ed:first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.e-row > .ed:last-child:not(:first-child) {
+  flex: none;
+  max-width: 55%;
+  text-align: right;
+}
+
+.e-title {
+  font-weight: 700;
+}
+
+.e-date,
+.e-loc,
+.e-meta {
+  color: var(--muted);
+}
+
+.sheet[data-sub='italic'] .e-sub {
+  font-style: italic;
+}
+
+.sheet[data-sub='accent'] .e-sub {
+  color: var(--accent);
+}
+
+.e-grid {
+  display: grid;
+  grid-template-columns: 22% minmax(0, 1fr);
+  column-gap: 1em;
+}
+
+.entry[data-dates='left'] .e-indent {
+  margin-left: calc(22% + 1em);
+}
+
+.e-sum {
+  margin-top: 0.15em;
+  white-space: pre-wrap;
+}
+
+.bullet {
+  display: flex;
+  margin-top: 0.12em;
+}
+
+.b-mark {
+  flex: none;
+  width: 1.05em;
+}
+
+.b-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ tags */
+
+.tag-group + .tag-group,
+.unit + .unit > .tag-group {
+  margin-top: 0.3em;
+}
+
+.tag-label {
+  font-weight: 700;
+}
+
+.tag-list .tag-head {
+  margin-top: 0.35em;
+}
+
+.tag-chips .tag-lead {
+  display: block;
+  margin-bottom: 0.3em;
+}
+
+.tag-chips .tag-run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4em 0.45em;
+}
+
+.tag-chips .tag {
+  display: block;
+  padding: 0.1em 0.6em;
+  border: 1px solid var(--rule);
+  border-radius: 3px;
+}
+
+/* --------------------------------------------------------------- editing */
+
+.ed {
+  outline: none;
+  /* Spaces and line breaks print as typed, so the text on the page is the text in the file. */
+  white-space: pre-wrap;
+}
+
+.ed-upper {
+  text-transform: uppercase;
+}
+
+.sheet[data-mode='print'] .ed-upper {
+  /* An exported page carries real capitals in its text. */
+  text-transform: none;
+}
+
+.sheet[data-mode='edit'] .ed,
+.sheet[data-mode='touch'] .ed {
+  border-radius: 2px;
+  cursor: text;
+  transition: background-color 0.12s, box-shadow 0.12s;
+}
+
+.sheet[data-mode='edit'] .ed:hover {
+  background: rgba(70, 150, 255, 0.1);
+}
+
+.sheet[data-mode='edit'] .ed:focus {
+  background: rgba(70, 150, 255, 0.14);
+  box-shadow: 0 0 0 1.5px rgba(40, 130, 255, 0.55);
+}
+
+.sheet[data-mode='touch'] .ed[data-picked] {
+  background: rgba(70, 150, 255, 0.2);
+  box-shadow: 0 0 0 2px rgba(40, 130, 255, 0.7);
+}
+
+/* An empty field shows what goes there. It is hidden until its block is
+   being worked on, so the page keeps the shape it will print in. */
+.sheet[data-mode='edit'] .ed:empty,
+.sheet[data-mode='touch'] .ed:empty {
+  display: inline-block;
+  min-width: 2ch;
+}
+
+.sheet[data-mode='edit'] .ed:empty::before,
+.sheet[data-mode='touch'] .ed:empty::before {
+  content: attr(data-placeholder);
+  color: #9aa6b5;
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  pointer-events: none;
+}
+
+.sheet[data-mode='edit'] .entry:not(:focus-within):not(:hover) .e-sub:empty,
+.sheet[data-mode='edit'] .entry:not(:focus-within):not(:hover) .e-date:empty,
+.sheet[data-mode='edit'] .entry:not(:focus-within):not(:hover) .e-loc:empty,
+.sheet[data-mode='edit'] .entry:not(:focus-within):not(:hover) .e-sum .ed:empty,
+.sheet[data-mode='edit'] .tag-group:not(:focus-within):not(:hover) .tag-label:empty,
+.sheet[data-mode='edit'] .head:not(:focus-within):not(:hover) .headline .ed:empty,
+.sheet[data-mode='touch'] .e-sub:empty,
+.sheet[data-mode='touch'] .e-date:empty,
+.sheet[data-mode='touch'] .e-loc:empty,
+.sheet[data-mode='touch'] .tag-label:empty,
+.sheet[data-mode='touch'] .headline .ed:empty {
+  display: none;
+}
+
+.sheet[data-mode='edit'] .entry:not(:focus-within):not(:hover) .e-sum:has(.ed:empty) {
+  display: none;
+}
+
+/* Tools float beside a block and take no room in the page. */
+.tools {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 7px;
+  background: #0d1424;
+  box-shadow: 0 4px 14px rgba(5, 10, 25, 0.35), 0 0 0 1px rgba(120, 190, 255, 0.35);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.14s;
+  font-family: system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+.sec-tools {
+  top: -4px;
+  right: 0;
+  transform: translateY(-62%);
+}
+
+.entry-tools {
+  top: 0;
+  right: 0;
+  transform: translateY(-78%);
+}
+
+.sec:hover > .sec-tools,
+.sec:focus-within > .sec-tools,
+.entry:hover > .entry-tools,
+.entry:focus-within > .entry-tools {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The entry's own tools win over its section's while the pointer is in the entry. */
+.sec:has(.entry:hover) > .sec-tools {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.tool {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: #cfe3ff;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.tool:hover {
+  background: rgba(110, 190, 255, 0.2);
+  color: #fff;
+}
+
+.tool-danger:hover {
+  background: rgba(255, 90, 110, 0.25);
+}
+
+.tool-grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.tool-inline {
+  display: inline-grid;
+  width: 1.25em;
+  height: 1.25em;
+  margin-left: 0.3em;
+  vertical-align: -0.2em;
+  border-radius: 50%;
+  background: rgba(40, 130, 255, 0.14);
+  color: #2a6fd6;
+  font-size: 0.9em;
+  opacity: 0;
+}
+
+.tag-group:hover .tool-inline,
+.tag-group:focus-within .tool-inline {
+  opacity: 1;
+}
+
+/* A block that is in the air leaves a thin marker where it would land. */
+.sec-lifted,
+.entry-lifted {
+  height: 6px;
+  margin-block: 6px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: linear-gradient(90deg, #46e6ff, #8f7cff);
+  box-shadow: 0 0 14px rgba(70, 230, 255, 0.8);
+}
+
+.sec-lifted > *,
+.entry-lifted > * {
+  display: none;
+}
