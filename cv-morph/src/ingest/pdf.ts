@@ -14,7 +14,8 @@ export interface PdfOptions {
   onProgress?: (done: number, total: number) => void
 }
 
-interface Piece {
+/** A scrap of text exactly as a file positions it: one word, or one run in one font. */
+export interface Piece {
   text: string
   x: number
   y: number
@@ -25,6 +26,10 @@ interface Piece {
   italic: boolean
   font: string
   links: string[]
+  /** Known when the source says (Word); a PDF's is read off its pixels later. */
+  color?: string
+  /** The source marks this as the start of a list item. */
+  bullet?: boolean
 }
 
 /** What a PDF's own name for a typeface says about it: "ABCDEF+Calibri-BoldItalic", "CMBX10". */
@@ -60,7 +65,7 @@ export async function readPdf(lib: PdfLib, data: Uint8Array, name: string, optio
       options.onProgress?.(p, total)
       page.cleanup()
     }
-    return { kind: 'pdf', name, pages, unit: 1, ocr: false, soft }
+    return { kind: 'pdf', name, pages, unit: 1, ocr: false, soft, preview: '' }
   } finally {
     await task.destroy()
   }
@@ -187,8 +192,8 @@ export function toChunks(input: Piece[]): Chunk[] {
         italic: longest.italic,
         lead: Math.max(0, Math.min(trimmed.length, lead) - startTrim),
         font: longest.font,
-        color: '',
-        bullet: false,
+        color: longest.color ?? '',
+        bullet: run[0].bullet ?? false,
         links: [...new Set(run.flatMap((p) => p.links))],
       })
       run = []

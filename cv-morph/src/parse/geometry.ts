@@ -70,6 +70,8 @@ export interface DocModel {
   ocr: boolean
   /** Whether the file breaks words across lines with a hyphen, as TeX does. */
   soft: boolean
+  /** A small picture of the first page (a data URL), or '' when there is none to show. */
+  preview: string
 }
 
 export type Flow = 'head' | 'main' | 'side'

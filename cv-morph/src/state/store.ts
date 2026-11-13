@@ -9,6 +9,15 @@ const COALESCE_MS = 1500
 
 export type Panel = 'design' | 'sections' | 'match'
 
+export interface EditOptions {
+  /** Changes with the same key in quick succession are one undo step. */
+  key?: string
+  /** Blocks may have shifted: the page glides them. */
+  moves?: boolean
+  /** Part of a drag in progress: no undo step of its own. */
+  quiet?: boolean
+}
+
 interface State {
   project: Project | null
   past: Project[]
@@ -30,7 +39,12 @@ interface State {
    * field to focus. Changes with the same `key` in quick succession are one
    * undo step; `moves` says sections may have shifted.
    */
-  edit(change: (draft: Project) => string | void, options?: { key?: string; moves?: boolean }): void
+  edit(change: (draft: Project) => string | void, options?: EditOptions): void
+  /**
+   * Ends a run of quiet changes (a drag): keeps them as one step that undo
+   * takes back to `before`, or drops them and goes back to it now.
+   */
+  settle(before: Project | null, keep: boolean): void
   setField(field: string, value: string): void
   undo(): void
   redo(): void
@@ -69,7 +83,7 @@ export const useStore = create<State>((set, get) => ({
     const draft = structuredClone(project)
     const focusField = change(draft)
     const now = Date.now()
-    const folds = !!options.key && stamp?.key === options.key && now - stamp.at < COALESCE_MS
+    const folds = options.quiet || (!!options.key && stamp?.key === options.key && now - stamp.at < COALESCE_MS)
     set({
       project: draft,
       past: folds ? past : [...past.slice(-(HISTORY - 1)), project],
@@ -78,6 +92,13 @@ export const useStore = create<State>((set, get) => ({
       epoch: options.moves ? epoch + 1 : epoch,
       ...(typeof focusField === 'string' && focusField ? { focus: { field: focusField, nonce: ++nonce } } : {}),
     })
+  },
+
+  settle: (before, keep) => {
+    const { project, past, epoch } = get()
+    if (!before || project === before) return
+    if (keep) set({ past: [...past.slice(-(HISTORY - 1)), before], future: [], stamp: null })
+    else set({ project: before, stamp: null, epoch: epoch + 1 })
   },
 
   setField: (field, value) => get().edit((draft) => writeField(draft.cv, field, value), { key: `field:${field}` }),
@@ -118,4 +139,4 @@ if (typeof localStorage !== 'undefined') {
 }
 
 /** Shorthand for components that only change things. */
-export const edit = (change: (draft: Project) => string | void, options?: { key?: string; moves?: boolean }): void => useStore.getState().edit(change, options)
+export const edit = (change: (draft: Project) => string | void, options?: EditOptions): void => useStore.getState().edit(change, options)

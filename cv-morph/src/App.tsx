@@ -1,33 +1,71 @@
-import { PRESETS } from './design/design.ts'
-import { newProject } from './model/project.ts'
+import { AnimatePresence } from 'motion/react'
+import { useCallback, useEffect, useState } from 'react'
+import { newProject, type Project } from './model/project.ts'
 import { sampleCv } from './model/sample.ts'
-import { Sheet } from './sheet/Sheet.tsx'
+import { useStore } from './state/store.ts'
+import { Home } from './ui/Home.tsx'
+import { ImportFlow, type Source } from './ui/ImportFlow.tsx'
+import { Studio } from './ui/Studio.tsx'
+import { useToasts } from './ui/toast.ts'
 
-// A scratch page while the pieces are built: every template, side by side.
-const cv = sampleCv()
+type View = 'home' | 'studio'
+const viewOf = (): View => (location.hash === '#/studio' ? 'studio' : 'home')
+
 export default function App() {
-  const which = Number(new URLSearchParams(location.search).get('p') ?? -1)
-  const list = which >= 0 ? [PRESETS[which]] : PRESETS
+  const project = useStore((s) => s.project)
+  const toasts = useToasts((s) => s.toasts)
+  const [view, setView] = useState<View>(viewOf)
+  const [source, setSource] = useState<Source | null>(null)
+
+  // The address says which screen this is, so Back on a phone goes from the studio to the start.
+  useEffect(() => {
+    const sync = () => setView(viewOf())
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  const go = useCallback((to: View) => {
+    if (viewOf() !== to) location.hash = to === 'studio' ? '#/studio' : '#/'
+    setView(to)
+  }, [])
+
+  const start = useCallback(
+    (next: Project) => {
+      useStore.getState().open(next)
+      go('studio')
+    },
+    [go],
+  )
+  const replacing = useCallback(() => !useStore.getState().project || window.confirm('This replaces the CV you were working on. Export it first if you want to keep it. Carry on?'), [])
+  const onFile = useCallback((file: File) => replacing() && setSource({ file }), [replacing])
+  const onText = useCallback((text: string) => replacing() && setSource({ text }), [replacing])
+
   return (
-    <main style={{ background: '#222', padding: 20, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-      <button
-        id="export"
-        onClick={async () => {
-          const { exportPdf } = await import('./export/pdf.ts')
-          const result = await exportPdf(newProject(cv, list[0]))
-          const a = document.createElement('a')
-          a.href = URL.createObjectURL(result.blob)
-          a.download = 'cv.pdf'
-          a.click()
-          document.title = `pages ${result.pages} missing [${result.missing}]`
-        }}
-      >
-        export
-      </button>
-      {list.map((design) => {
-        const p = newProject(cv, design)
-        return <Sheet key={design.name} cv={p.cv} design={p.design} arrangement={p.arrangement} mode={new URLSearchParams(location.search).get('m') === 'edit' ? 'edit' : 'view'} gap={16} />
-      })}
-    </main>
+    <>
+      {view === 'studio' && project ? (
+        <Studio onHome={() => go('home')} />
+      ) : (
+        <Home onFile={onFile} onText={onText} onSample={() => replacing() && start(newProject(sampleCv()))} onBlank={() => replacing() && start(newProject())} onContinue={() => go('studio')} />
+      )}
+      <AnimatePresence>
+        {source && (
+          <ImportFlow
+            key="import"
+            source={source}
+            onCancel={() => setSource(null)}
+            onDone={(next) => {
+              setSource(null)
+              start(next)
+            }}
+          />
+        )}
+      </AnimatePresence>
+      <div className="toasts" role="status" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className={`toast ${t.bad ? 'toast-bad' : ''}`}>
+            {t.text}
+          </div>
+        ))}
+      </div>
+    </>
   )
 }

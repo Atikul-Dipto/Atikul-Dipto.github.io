@@ -1,0 +1,345 @@
+/* Reading a file, and copying a format: the page under a scanner. */
+
+.flow {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  overflow: auto;
+  background:
+    radial-gradient(900px 500px at 30% 20%, rgba(50, 110, 255, 0.16), transparent 60%),
+    rgba(4, 6, 12, 0.94);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.flow-inner {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 340px);
+  align-items: center;
+  gap: clamp(24px, 6vw, 64px);
+  width: min(100%, 780px);
+}
+
+.scan {
+  position: relative;
+  width: 100%;
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 1px rgba(120, 190, 255, 0.35),
+    0 30px 90px rgba(0, 0, 0, 0.7),
+    0 0 100px rgba(70, 160, 255, 0.25);
+}
+
+.scan-page {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+  object-position: top;
+  background: #fff;
+  /* Dimmed while it is being read; it comes up to full once it has been. */
+  filter: brightness(0.72) saturate(0.8);
+  transition: filter 0.9s;
+}
+
+.scan[data-found] .scan-page {
+  filter: none;
+}
+
+.scan-blank {
+  display: grid;
+  align-content: start;
+  gap: 4.2%;
+  padding: 9% 10%;
+}
+
+.scan-blank i {
+  height: 7px;
+  border-radius: 3px;
+  background: #d5dbe6;
+}
+
+.scan-blank i:first-child {
+  height: 16px;
+  background: #b8c2d4;
+}
+
+/* The beam: a bright line that sweeps the page top to bottom, trailing light. */
+.scan-beam {
+  position: absolute;
+  right: -3%;
+  left: -3%;
+  height: 22%;
+  border-bottom: 2px solid #7df0ff;
+  background: linear-gradient(180deg, transparent, rgba(70, 230, 255, 0.24));
+  box-shadow: 0 10px 28px rgba(70, 230, 255, 0.55);
+  animation: sweep 1.7s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  pointer-events: none;
+}
+
+.scan[data-found] .scan-beam {
+  animation: sweep 1.5s cubic-bezier(0.3, 0, 0.3, 1) 1 forwards;
+}
+
+@keyframes sweep {
+  0% {
+    top: -22%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    top: 100%;
+    opacity: 0;
+  }
+}
+
+/* Each line the reader found, lit as the beam passes it. */
+.scan-mark {
+  position: absolute;
+  border-radius: 2px;
+  opacity: 0;
+  animation: mark 0.7s var(--ease) forwards;
+}
+
+@keyframes mark {
+  0% {
+    opacity: 0;
+    transform: scaleX(0.6);
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.85;
+    transform: none;
+  }
+}
+
+.scan-text {
+  background: rgba(90, 150, 255, 0.16);
+}
+
+.scan-contact {
+  background: rgba(143, 124, 255, 0.28);
+  box-shadow: 0 0 0 1px rgba(143, 124, 255, 0.7);
+}
+
+.scan-name,
+.scan-headline {
+  background: rgba(255, 107, 203, 0.24);
+  box-shadow: 0 0 0 1px rgba(255, 107, 203, 0.8), 0 0 14px rgba(255, 107, 203, 0.5);
+}
+
+.scan-heading {
+  background: rgba(70, 230, 255, 0.26);
+  box-shadow: 0 0 0 1px rgba(70, 230, 255, 0.9), 0 0 16px rgba(70, 230, 255, 0.6);
+}
+
+.scan-heading b {
+  position: absolute;
+  top: 50%;
+  left: calc(100% + 6px);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #46e6ff;
+  color: #04121c;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+
+.scan-corner {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--cyan);
+  filter: drop-shadow(0 0 6px rgba(70, 230, 255, 0.8));
+}
+
+.scan-tl {
+  top: -7px;
+  left: -7px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.scan-tr {
+  top: -7px;
+  right: -7px;
+  border-bottom: 0;
+  border-left: 0;
+}
+
+.scan-bl {
+  bottom: -7px;
+  left: -7px;
+  border-top: 0;
+  border-right: 0;
+}
+
+.scan-br {
+  right: -7px;
+  bottom: -7px;
+  border-top: 0;
+  border-left: 0;
+}
+
+.flow-kicker {
+  color: var(--cyan);
+}
+
+.flow-title {
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-size: clamp(24px, 4vw, 34px);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.flow-steps {
+  display: grid;
+  gap: 10px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.flow-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-3);
+  transition: color 0.3s;
+}
+
+.flow-steps li[data-state='now'] {
+  color: #fff;
+}
+
+.flow-steps li[data-state='done'] {
+  color: var(--ink-2);
+}
+
+.flow-steps em {
+  color: var(--cyan);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.flow-dot {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1.5px solid var(--line-2);
+  border-radius: 50%;
+  font-size: 11px;
+}
+
+li[data-state='now'] .flow-dot {
+  border-color: var(--cyan);
+  border-top-color: transparent;
+  animation: turn 0.8s linear infinite;
+}
+
+li[data-state='done'] .flow-dot {
+  border-color: var(--lime);
+  background: rgba(141, 255, 180, 0.14);
+  color: var(--lime);
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.flow-found {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 34px;
+  margin-top: 18px;
+}
+
+.flow-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 5px 11px;
+  border: 1px solid rgba(70, 230, 255, 0.45);
+  border-radius: 999px;
+  background: rgba(70, 230, 255, 0.07);
+  font-size: 12.5px;
+}
+
+.flow-chip small {
+  color: var(--ink-3);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+}
+
+.flow-private {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 18px 0 12px;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+
+.flow-error {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+}
+
+.flow-error > svg {
+  color: var(--amber);
+  font-size: 32px;
+}
+
+.flow-error h2 {
+  font-family: var(--font-display);
+  font-size: 26px;
+}
+
+.flow-error p {
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+@media (max-width: 700px) {
+  .flow {
+    place-items: start center;
+  }
+
+  .flow-inner {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .scan {
+    width: min(58vw, 250px);
+    margin: 8px auto 0;
+  }
+
+  .scan-heading b {
+    display: none;
+  }
+}

@@ -144,13 +144,13 @@ export function Sheet({ cv, design, arrangement, mode, gap = 0, hooks, motion = 
     )
 
   const mainColumn = (
-    <div className="col col-main" data-flow="main" data-zone="main" style={mainPad}>
+    <div className="col col-main" data-flow="main" data-zone="main" data-zone-group="section" style={mainPad}>
       {headPlace === 'main' && header}
       {column('main', two ? arrangement.main : [...arrangement.main, ...arrangement.side])}
     </div>
   )
   const sideColumn = two && (
-    <div className="col col-side" data-flow="side" data-zone="side" style={{ ...sidePad, ...sideStyle }}>
+    <div className="col col-side" data-flow="side" data-zone="side" data-zone-group="section" style={{ ...sidePad, ...sideStyle }}>
       {headPlace === 'side' && header}
       {column('side', arrangement.side)}
     </div>
@@ -162,6 +162,7 @@ export function Sheet({ cv, design, arrangement, mode, gap = 0, hooks, motion = 
         ref={ref}
         className="sheet"
         style={style}
+        data-drag-root
         data-mode={mode}
         data-cols={design.columns}
         data-side={side.side}
@@ -292,7 +293,7 @@ function ContactSection({ contacts }: { contacts: Contact[] }) {
   const { mode, design, hooks } = useSheet()
   const dragging = hooks?.dragging === CONTACT_ID
   return (
-    <section className={`sec ${dragging ? 'sec-lifted' : ''}`} data-section={CONTACT_ID} data-glide={CONTACT_ID} data-drop-item={CONTACT_ID}>
+    <section className={`sec ${dragging ? 'sec-lifted' : ''}`} data-section={CONTACT_ID} data-glide={CONTACT_ID} data-drop="section" data-drop-id={CONTACT_ID}>
       {mode === 'edit' && <SectionTools id={CONTACT_ID} />}
       <Unit heading>
         <h2 className="sec-h">
@@ -348,7 +349,17 @@ function SectionView({ section: s, region }: { section: Section; region: Region 
           ? () => edit((p) => ops.addGroup(p, s.id))
           : undefined
   return (
-    <section className={`sec ${lifted ? 'sec-lifted' : ''}`} data-section={s.id} data-kind={s.kind} data-shape={s.shape} data-glide={s.id} data-drop-item={s.id}>
+    <section
+      className={`sec ${lifted ? 'sec-lifted' : ''}`}
+      data-section={s.id}
+      data-kind={s.kind}
+      data-shape={s.shape}
+      data-glide={s.id}
+      data-drop="section"
+      data-drop-id={s.id}
+      data-zone-group={`entry:${s.id}`}
+      data-zone={s.id}
+    >
       {mode === 'edit' && <SectionTools id={s.id} onAdd={add} />}
       <Unit heading>
         <h2 className="sec-h">
@@ -397,7 +408,7 @@ function EntryView({ section: s, entry: e, region }: { section: Section; entry: 
   const lifted = hooks?.dragging === e.id
 
   return (
-    <div className={`entry ${lifted ? 'entry-lifted' : ''}`} data-entry={e.id} data-dates={dates} data-glide={e.id} data-drop-item={e.id}>
+    <div className={`entry ${lifted ? 'entry-lifted' : ''}`} data-entry={e.id} data-dates={dates} data-glide={e.id} data-drop={`entry:${s.id}`} data-drop-id={e.id}>
       {mode === 'edit' && (
         <div className="tools entry-tools" contentEditable={false} data-noexport>
           <button type="button" className="tool tool-grip" aria-label="Drag to reorder" title="Drag to reorder" onPointerDown={(ev) => hooks?.onGrip(ev, { section: s.id, entry: e.id })}>

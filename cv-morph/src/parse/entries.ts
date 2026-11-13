@@ -224,8 +224,8 @@ function fields(group: Line[]): Fields {
       extra.push(...pieces.slice(1))
     } else extra.push(...pieces)
   })
-  // "Data Analyst, Cartup Ltd." on a single line.
-  if (!subtitle && group.length === 1) {
+  // "Data Analyst, Cartup Ltd." on one line, with nothing else said but the dates.
+  if (!subtitle && perLine.filter((pieces) => pieces.length).length === 1) {
     const comma = /^(.{2,60}?),\s+([A-Z].{1,})$/.exec(title)
     if (comma && comma[1].split(' ').length <= 6) [title, subtitle] = [comma[1], comma[2]]
   }

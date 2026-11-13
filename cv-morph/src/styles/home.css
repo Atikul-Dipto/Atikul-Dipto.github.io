@@ -1,0 +1,307 @@
+/* The start screen. */
+
+.home {
+  position: relative;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
+
+/* A slow sky: two drifting glows and a floor of grid lines running away. */
+.home-sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.home-glow {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.34;
+  will-change: transform;
+}
+
+.home-glow-a {
+  top: -28vmax;
+  left: -16vmax;
+  background: radial-gradient(circle, #2a7bff, transparent 62%);
+  animation: drift-a 26s ease-in-out infinite alternate;
+}
+
+.home-glow-b {
+  right: -22vmax;
+  bottom: -30vmax;
+  background: radial-gradient(circle, #b04dff, transparent 62%);
+  animation: drift-b 32s ease-in-out infinite alternate;
+}
+
+@keyframes drift-a {
+  to {
+    transform: translate(14vmax, 9vmax) scale(1.15);
+  }
+}
+
+@keyframes drift-b {
+  to {
+    transform: translate(-12vmax, -8vmax) scale(1.1);
+  }
+}
+
+.home-grid {
+  position: absolute;
+  right: -50%;
+  bottom: -10%;
+  left: -50%;
+  height: 62%;
+  background-image:
+    linear-gradient(rgba(110, 170, 255, 0.16) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(110, 170, 255, 0.16) 1px, transparent 1px);
+  background-size: 56px 56px;
+  -webkit-mask-image: linear-gradient(transparent, #000 70%);
+  mask-image: linear-gradient(transparent, #000 70%);
+  transform: perspective(520px) rotateX(62deg);
+  transform-origin: 50% 100%;
+  animation: floor 2.6s linear infinite;
+}
+
+@keyframes floor {
+  to {
+    background-position: 0 56px;
+  }
+}
+
+.home-top,
+.home-main {
+  position: relative;
+  z-index: 1;
+}
+
+.home-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 20px 0;
+}
+
+.home-main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+.hero {
+  display: grid;
+  justify-items: center;
+  padding: clamp(28px, 7vh, 72px) 0 8px;
+  text-align: center;
+}
+
+.hero-kicker {
+  color: var(--cyan);
+}
+
+.hero h1 {
+  max-width: 14ch;
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-size: clamp(38px, 7.4vw, 78px);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.02;
+}
+
+.hero-sub {
+  max-width: 56ch;
+  margin-top: 18px;
+  color: var(--ink-2);
+  font-size: clamp(15px, 1.7vw, 18px);
+  line-height: 1.55;
+}
+
+.resume {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-top: 26px;
+  padding: 12px 18px;
+  color: var(--ink);
+  text-align: left;
+  transition: border-color 0.2s, transform 0.2s var(--ease);
+}
+
+.resume:hover {
+  border-color: var(--cyan);
+  transform: translateY(-2px);
+}
+
+.resume small {
+  display: block;
+  color: var(--cyan);
+}
+
+.resume b {
+  font-size: 16px;
+}
+
+.resume svg {
+  color: var(--cyan);
+  font-size: 20px;
+}
+
+/* The drop zone: a frame whose border is a ring of light going round. */
+.drop {
+  position: relative;
+  width: min(640px, 100%);
+  margin-top: 28px;
+  padding: 2px;
+  overflow: hidden;
+  border-radius: 22px;
+  isolation: isolate;
+}
+
+.drop-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 150%;
+  aspect-ratio: 1;
+  background: conic-gradient(from 0deg, transparent 0 55%, #46e6ff 70%, #8f7cff 82%, #ff6bcb 92%, transparent 100%);
+  transform: translate(-50%, -50%);
+  animation: ring 5.5s linear infinite;
+}
+
+@keyframes ring {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+.drop[data-over] .drop-ring {
+  animation-duration: 1.1s;
+}
+
+.drop-inner {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: clamp(26px, 5vw, 44px) 22px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(14, 21, 38, 0.97), rgba(8, 12, 23, 0.97));
+  transition: background-color 0.2s;
+}
+
+.drop[data-over] .drop-inner {
+  background: linear-gradient(180deg, rgba(20, 44, 70, 0.97), rgba(10, 20, 40, 0.97));
+}
+
+.drop-icons {
+  display: inline-flex;
+  gap: 10px;
+  color: var(--cyan);
+  font-size: 30px;
+}
+
+.drop h2 {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 600;
+}
+
+.drop p {
+  max-width: 44ch;
+  color: var(--ink-2);
+}
+
+.drop .btn {
+  min-height: 44px;
+  margin-top: 6px;
+  padding: 0 22px;
+  font-size: 15px;
+}
+
+.drop-private {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  color: var(--ink-3) !important;
+  font-size: 12.5px;
+}
+
+.hero-alts {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 14px;
+  margin-top: clamp(36px, 7vh, 72px);
+}
+
+.feature {
+  padding: 20px;
+}
+
+.feature-icon {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 11px;
+  background: rgba(110, 170, 255, 0.12);
+  color: var(--cyan);
+  font-size: 20px;
+  box-shadow: 0 0 0 1px rgba(110, 190, 255, 0.3) inset;
+}
+
+.feature h3 {
+  margin-top: 14px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.feature p {
+  margin-top: 6px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+.home-app {
+  display: flex;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 20px;
+}
+
+.home-app > svg {
+  flex: none;
+  color: var(--violet);
+  font-size: 30px;
+}
+
+.home-app h3 {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.home-app p {
+  margin-top: 4px;
+  color: var(--ink-2);
+  font-size: 13.5px;
+  line-height: 1.55;
+}

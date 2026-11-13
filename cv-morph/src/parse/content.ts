@@ -68,6 +68,8 @@ export function readTags(lines: Line[], ctx: Ctx): TagGroup[] {
   const left = Math.min(...lines.map((l) => l.x), Infinity)
   const cutShort = (line: Line, text: string) =>
     !/[,;|]\s*$/.test(text) && (ctx.geometry ? line.x + line.w > right - (right - left) * 0.14 : text.length > 60 && /[,;|]/.test(text))
+  // In a list a comma ends an item; only a word like "and" left hanging says the item carries on.
+  const hangs = (text: string) => !/[,;|]\s*$/.test(text) && dangles(text)
   let carry = false
   const into = (label: string): TagGroup => {
     cur = newGroup(titleCase(label))
@@ -82,7 +84,7 @@ export function readTags(lines: Line[], ctx: Ctx): TagGroup[] {
       const group = into(labelled[1])
       for (const item of splitList(labelled[2])) group.items.push(newItem(item))
       // Only a line of several items can have been cut mid-item; one skill to a line is just a list.
-      carry = dangles(text) || (group.items.length >= 2 && cutShort(line, text))
+      carry = hangs(text) || (group.items.length >= 2 && cutShort(line, text))
       return
     }
     const next = lines[i + 1]
@@ -113,7 +115,7 @@ export function readTags(lines: Line[], ctx: Ctx): TagGroup[] {
     if (carry && above && items.length && !bulleted(line)) above.text = joinWrapped(above.text, items.shift() ?? '', ctx.soft)
     const several = items.length >= 2
     for (const item of items) group.items.push(newItem(item))
-    carry = dangles(text) || (several && cutShort(line, text))
+    carry = hangs(text) || (several && cutShort(line, text))
   })
   for (const group of groups) group.items = group.items.filter((item) => item.text)
   return groups.filter((group) => group.items.length || group.label)
