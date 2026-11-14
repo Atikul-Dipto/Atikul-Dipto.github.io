@@ -9,7 +9,7 @@ export function sectionLines(s: Section): string[] {
   return s.entries.flatMap((e) => [
     [e.title, e.subtitle].filter(Boolean).join(' — '),
     [e.date, e.location].filter(Boolean).join(' | '),
-    ...e.summary.split('\n'),
+    ...e.summary.split('\n').filter((line) => line.trim()),
     ...e.bullets.filter((b) => b.text.trim()).map((b) => `- ${b.text}`),
     '',
   ]).filter((line, i, all) => line || (i > 0 && all[i - 1]))

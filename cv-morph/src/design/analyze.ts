@@ -61,7 +61,7 @@ function ruleIn(raster: Raster, x0: number, x1: number, y0: number, y1: number, 
     const sum = [0, 0, 0]
     for (let i = 0; i < samples; i++) {
       const p = pixel(raster, x0 + ((x1 - x0) * (i + 0.5)) / samples, y)
-      if (distance(p, bg) > 42) {
+      if (distance(p, bg) > 22) {
         inked++
         sum[0] += p[0]
         sum[1] += p[1]
@@ -246,8 +246,7 @@ export function analyze(doc: DocModel, parsed: Parsed): Analysis {
   const headFont = most(sample.filter((h) => h.font).map((h) => [h.font, 1])) ?? name?.font
   d.fonts.body = font ? matchFont(font) : 'inter'
   d.fonts.heading = headFont ? matchFont(headFont, false) : d.fonts.body
-  // OCR measures the height of the letters, which runs a little over the type size.
-  d.fonts.size = clamp(round(parsed.body * (doc.ocr ? 0.94 : 1), 0.25), 8, 12.5)
+  d.fonts.size = clamp(round(parsed.body, 0.25), 8, 12.5)
   const pitches: number[] = []
   bodyLines.forEach((l, i) => {
     const next = bodyLines[i + 1]

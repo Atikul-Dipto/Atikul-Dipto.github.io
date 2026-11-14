@@ -41,6 +41,8 @@ export function ImportFlow({ source, onDone, onCancel }: Props) {
       try {
         const doc = 'file' in source ? await readFile(source.file, (p) => live && setProgress(p)) : readText(source.text)
         const parsed = parseCv(doc)
+        // A handle for looking at what was read, while developing.
+        if (import.meta.env.DEV) Object.assign(window, { cvMorphLast: { doc, parsed } })
         if (!parsed.cv.name && !parsed.cv.sections.length) {
           throw new Error(doc.ocr ? 'No text could be read from that picture. A sharper, straighter picture usually works; a PDF works best.' : 'No text was found in that file.')
         }

@@ -1,6 +1,6 @@
-import type { Worker as OcrWorker } from 'tesseract.js'
-import { luminance, toHex } from '../design/color.ts'
+import type { PSM, Worker as OcrWorker } from 'tesseract.js'
 import type { Chunk, DocModel } from '../parse/geometry.ts'
+import { findColumns } from '../parse/layout.ts'
 import { colour, type Progress } from './index.ts'
 import { toChunks, type Piece } from './pdf.ts'
 import { previewOf, rasterOf } from './raster.ts'
@@ -10,6 +10,8 @@ import { previewOf, rasterOf } from './raster.ts'
 
 /** Page units for a picture: as wide as an A4 sheet in points, so sizes come out in points, near enough. */
 const PAGE_WIDTH = 595.28
+/** From the top of a "d" to the foot of a "p" is about this much of the type size. */
+const LETTER_HEIGHT = 0.95
 
 let engine: Promise<OcrWorker> | null = null
 let report: (ratio: number) => void = () => {}
@@ -24,9 +26,7 @@ function ocr(): Promise<OcrWorker> {
         langPath: base,
         workerBlobURL: false,
         logger: (m) => {
-          // Fetching the engine and the model is the first third; reading is the rest.
-          if (m.status === 'recognizing text') report(0.35 + m.progress * 0.65)
-          else if (/loading|initializing/.test(m.status)) report(Math.min(0.34, 0.05 + m.progress * 0.25))
+          if (m.status === 'recognizing text') report(m.progress)
         },
       })
     })
@@ -37,76 +37,41 @@ function ocr(): Promise<OcrWorker> {
   return engine
 }
 
-/**
- * Light text on a dark panel reads poorly: OCR expects dark on light. Where a
- * patch of the page is mostly dark, its pixels are flipped before reading.
- */
-function forReading(source: HTMLCanvasElement): HTMLCanvasElement {
+function crop(source: HTMLCanvasElement, x: number, y: number, w: number, h: number): HTMLCanvasElement {
   const out = document.createElement('canvas')
-  out.width = source.width
-  out.height = source.height
-  const context = out.getContext('2d', { willReadFrequently: true }) as CanvasRenderingContext2D
-  context.drawImage(source, 0, 0)
-  const image = context.getImageData(0, 0, out.width, out.height)
-  const { data, width, height } = image
-  const cell = 28
-  for (let cy = 0; cy < height; cy += cell) {
-    for (let cx = 0; cx < width; cx += cell) {
-      const x1 = Math.min(width, cx + cell)
-      const y1 = Math.min(height, cy + cell)
-      let dark = 0
-      let count = 0
-      for (let y = cy; y < y1; y += 3) {
-        for (let x = cx; x < x1; x += 3) {
-          const i = (y * width + x) * 4
-          if (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114 < 110) dark++
-          count++
-        }
-      }
-      if (dark < count * 0.6) continue
-      for (let y = cy; y < y1; y++) {
-        for (let x = cx; x < x1; x++) {
-          const i = (y * width + x) * 4
-          data[i] = 255 - data[i]
-          data[i + 1] = 255 - data[i + 1]
-          data[i + 2] = 255 - data[i + 2]
-        }
-      }
-    }
-  }
-  context.putImageData(image, 0, 0)
+  out.width = Math.max(1, Math.round(w))
+  out.height = Math.max(1, Math.round(h))
+  out.getContext('2d')?.drawImage(source, Math.round(x), Math.round(y), out.width, out.height, 0, 0, out.width, out.height)
   return out
 }
 
-/** Reads the text of a page picture. `scale` is the picture's pixels per page unit. */
-export async function ocrPage(canvas: HTMLCanvasElement, scale: number, onRatio: (ratio: number) => void): Promise<Chunk[]> {
-  report = onRatio
-  let worker: OcrWorker
-  try {
-    worker = await ocr()
-  } catch {
-    throw new Error('The text reader couldn’t be loaded. Check the connection and try again; after one use it works offline.')
-  }
-  const { data } = await worker.recognize(forReading(canvas), {}, { blocks: true, text: false })
-  report = () => {}
+/**
+ * Reads one picture (the page, or a column cut from it) into words with
+ * their places. `dx`, `dy` are where the picture sits in the page, in pixels.
+ */
+async function read(worker: OcrWorker, source: HTMLCanvasElement, mode: '3' | '4', scale: number, dx = 0, dy = 0): Promise<Piece[]> {
+  await worker.setParameters({ tessedit_pageseg_mode: mode as unknown as PSM })
+  const { data } = await worker.recognize(source, {}, { blocks: true, text: false })
   const pieces: Piece[] = []
   for (const block of data.blocks ?? []) {
     for (const paragraph of block.paragraphs) {
       for (const line of paragraph.lines) {
         const words = line.words.filter((w) => w.text.trim() && w.confidence > 20)
         if (!words.length) continue
-        // The height of a line's letters, top of a "d" to foot of a "p", is its type size, near enough.
+        // A list bullet is read as whatever small shape it most resembles.
+        if (words.length > 1 && /^[eo«»¢©®°¤*+~-]$/.test(words[0].text) && /^[A-Z0-9("'“]/.test(words[1].text)) words[0].text = '•'
         const tall = line.rowAttributes?.rowHeight || line.bbox.y1 - line.bbox.y0
-        const size = Math.max(4, tall / scale)
-        const top = line.bbox.y0 / scale
-        const height = Math.max(size, (line.bbox.y1 - line.bbox.y0) / scale)
+        const size = Math.max(4, tall / LETTER_HEIGHT / scale)
+        const { x0, y0, x1, y1 } = line.baseline
+        const baselineAt = (x: number) => (x1 === x0 ? y0 : y0 + ((y1 - y0) * (x - x0)) / (x1 - x0))
         for (const word of words) {
+          const base = (dy + baselineAt((word.bbox.x0 + word.bbox.x1) / 2)) / scale
           pieces.push({
             text: word.text,
-            x: word.bbox.x0 / scale,
-            y: top,
+            x: (dx + word.bbox.x0) / scale,
+            y: base - size * 0.8,
             w: (word.bbox.x1 - word.bbox.x0) / scale,
-            h: height,
+            h: size,
             size,
             bold: false,
             italic: false,
@@ -117,7 +82,53 @@ export async function ocrPage(canvas: HTMLCanvasElement, scale: number, onRatio:
       }
     }
   }
-  return toChunks(pieces)
+  return pieces
+}
+
+/**
+ * Reads the text of a page picture. `scale` is the picture's pixels per page
+ * unit.
+ *
+ * A page in two columns is read twice. Read whole, lines from the two
+ * columns that happen to sit level are taken for one line, and where they
+ * don't quite sit level the letters come out garbled. So the first reading
+ * is only used to find the columns; each column is then cut out and read on
+ * its own.
+ */
+export async function ocrPage(canvas: HTMLCanvasElement, scale: number, onRatio: (ratio: number) => void): Promise<Chunk[]> {
+  let worker: OcrWorker
+  try {
+    worker = await ocr()
+  } catch {
+    throw new Error('The text reader couldn’t be loaded. Check the connection and try again; after one use it works offline.')
+  }
+  try {
+    report = (ratio) => onRatio(ratio * 0.5)
+    const whole = toChunks(await read(worker, canvas, '3', scale))
+    const width = canvas.width / scale
+    const height = canvas.height / scale
+    const layout = findColumns({ width, height, chunks: whole, raster: null, rules: [], fills: [] })
+    if (!layout.gutter) return whole
+
+    const middle = ((layout.gutter.x0 + layout.gutter.x1) / 2) * scale
+    const top = layout.top * scale
+    const bottom = Math.min(canvas.height, layout.bottom * scale)
+    const parts: [number, number, number, number][] = [
+      [0, 0, canvas.width, top],
+      [0, top, middle, bottom - top],
+      [middle, top, canvas.width - middle, bottom - top],
+      [0, bottom, canvas.width, canvas.height - bottom],
+    ]
+    const real = parts.filter(([, , w, h]) => w > 20 && h > 20)
+    const pieces: Piece[] = []
+    for (const [i, [x, y, w, h]] of real.entries()) {
+      report = (ratio) => onRatio(0.5 + ((i + ratio) / real.length) * 0.5)
+      pieces.push(...(await read(worker, crop(canvas, x, y, w, h), '4', scale, x, y)))
+    }
+    return toChunks(pieces)
+  } finally {
+    report = () => {}
+  }
 }
 
 export async function readImage(file: File, onProgress: (p: Progress) => void): Promise<DocModel> {
@@ -147,6 +158,3 @@ export async function readImage(file: File, onProgress: (p: Progress) => void): 
   colour([page])
   return { kind: 'image', name: file.name, pages: [page], unit: 1, ocr: true, soft: false, preview: previewOf(canvas) }
 }
-
-/** Whether a colour is dark enough that text on it must be light. */
-export const isDarkRgb = (r: number, g: number, b: number): boolean => luminance(toHex([r, g, b])) < 0.4
