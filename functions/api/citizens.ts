@@ -15,6 +15,8 @@
  * changes every day, and those rows are cleared after two days.
  */
 
+import { abusive } from '../_lib/abuse'
+
 interface D1Result<T> {
   results: T[]
   meta: { last_row_id: number }
@@ -63,32 +65,6 @@ function clean(raw: unknown): string | null {
   if (name.length < 2 || name.length > 40) return null
   if (!/^[\p{L}\p{M}][\p{L}\p{M} .'’-]*$/u.test(name)) return null
   return name
-}
-
-/**
- * Abuse, in English and Bangla (in both scripts). Whole words for the short
- * ones, so a name like Iqbal is never caught by a fragment of it.
- */
-const WORDS = [
-  'fuck', 'fucker', 'fucking', 'shit', 'bitch', 'cunt', 'dick', 'cock', 'pussy', 'whore', 'slut', 'bastard', 'asshole', 'nigger', 'nigga', 'faggot', 'fag', 'retard', 'rape', 'rapist', 'nazi', 'hitler', 'porn', 'sex', 'penis', 'vagina', 'motherfucker',
-  'magi', 'khanki', 'chudi', 'chuda', 'choda', 'chod', 'chodi', 'bal', 'baal', 'haramjada', 'haramzada', 'haramjadi', 'shuor', 'shuorer', 'kuttar', 'bainchod', 'banchod', 'madarchod', 'madarchud', 'bhosdi', 'gandu', 'randi',
-]
-const FRAGMENTS = ['fuck', 'shit', 'cunt', 'nigg', 'fagg', 'motherf', 'khanki', 'madarch', 'bainch', 'banch', 'haramj', 'haramz']
-const BANGLA = ['মাগি', 'মাগী', 'খানকি', 'খানকী', 'চোদ', 'চুদ', 'বাল', 'হারামজাদা', 'হারামজাদি', 'শুয়োর', 'শূয়োর', 'কুত্তার', 'বেশ্যা', 'রান্ডি', 'বোকাচোদা']
-
-function abusive(name: string) {
-  const plain = name
-    .toLowerCase()
-    .replace(/[0@]/g, 'o')
-    .replace(/[1!|]/g, 'i')
-    .replace(/3/g, 'e')
-    .replace(/4/g, 'a')
-    .replace(/[$5]/g, 's')
-  const words = plain.split(/[^\p{L}\p{M}]+/u).filter(Boolean)
-  if (words.some((w) => WORDS.includes(w))) return true
-  const squashed = plain.replace(/[^\p{L}]/gu, '')
-  if (FRAGMENTS.some((f) => squashed.includes(f))) return true
-  return BANGLA.some((b) => name.includes(b))
 }
 
 // ---- storage -------------------------------------------------------------------

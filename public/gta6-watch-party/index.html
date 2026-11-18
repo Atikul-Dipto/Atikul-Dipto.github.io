@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vice Cope · GTA VI Watch Party for PC Players</title>
+<meta name="description" content="GTA VI launches on PS5 and Xbox at 30 FPS. PC players: claim a spectator seat, post your cope, and watch together from your 240 Hz monitor.">
+<meta property="og:title" content="Vice Cope: the GTA VI watch party for PC players">
+<meta property="og:description" content="They play at 30 FPS. We watch at 240 Hz. Claim your spectator seat.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#140826">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='22' fill='%23ff3d8b'/%3E%3Cpath d='M10 40h44M12 46h40M16 52h32' stroke='%23140826' stroke-width='3'/%3E%3Ctext x='32' y='30' font-family='monospace' font-weight='700' font-size='16' text-anchor='middle' fill='%23ffe14d'%3E30%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Space+Grotesk:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
+<style>
+:root {
+  --night: #140826;
+  --night-2: #1f0d3a;
+  --night-3: #2b1350;
+  --pink: #ff3d8b;
+  --orange: #ff9a3c;
+  --yellow: #ffe14d;
+  --teal: #2de2e6;
+  --ink: #fff4fb;
+  --muted: #c9b6dd;
+  --line: rgba(255, 255, 255, .12);
+  --card: rgba(31, 13, 58, .78);
+  --radius: 18px;
+  --display: 'Anton', Impact, 'Arial Narrow', sans-serif;
+  --body: 'Space Grotesk', system-ui, sans-serif;
+  --mono: 'VT323', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--night);
+  color: var(--ink);
+  font: 16px/1.55 var(--body);
+  overflow-x: hidden;
+}
+a { color: var(--teal); }
+button, input, select { font: inherit; }
+:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+.wrap { width: min(1120px, 100% - 32px); margin-inline: auto; }
+
+/* ---------- ticker ---------- */
+.ticker {
+  position: sticky; top: 0; z-index: 30;
+  background: var(--yellow); color: var(--night);
+  font: 700 14px/1 var(--body); text-transform: uppercase; letter-spacing: .04em;
+  overflow: hidden; white-space: nowrap; border-bottom: 3px solid var(--night);
+}
+.ticker .tag { position: absolute; left: 0; top: 0; bottom: 0; z-index: 2; display: grid; place-items: center; padding: 0 14px; background: var(--pink); color: #fff; }
+.ticker .track { display: inline-block; padding: 10px 0 10px 100%; animation: tick 70s linear infinite; }
+.ticker .track span { margin-right: 56px; }
+.ticker .track span::before { content: '★ '; color: var(--pink); }
+@keyframes tick { to { transform: translateX(-100%); } }
+
+/* ---------- nav ---------- */
+nav.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; }
+.brand { font: 26px/1 var(--display); letter-spacing: .02em; text-decoration: none; color: var(--ink); text-transform: uppercase; }
+.brand b { background: linear-gradient(90deg, var(--pink), var(--orange)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.brand small { display: block; font: 500 11px/1.2 var(--body); letter-spacing: .14em; color: var(--muted); margin-top: 4px; }
+.toggle {
+  display: inline-flex; align-items: center; gap: 10px; cursor: pointer;
+  background: var(--night-2); border: 1px solid var(--line); color: var(--ink);
+  padding: 8px 14px 8px 8px; border-radius: 999px; font-size: 14px; white-space: nowrap; flex: none;
+}
+.toggle .knob { width: 40px; height: 22px; border-radius: 999px; background: #3a2560; position: relative; transition: background .2s; }
+.toggle .knob::after { content: ''; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: transform .2s; }
+.toggle[aria-pressed="true"] .knob { background: var(--pink); }
+.toggle[aria-pressed="true"] .knob::after { transform: translateX(18px); }
+
+/* ---------- hero ---------- */
+.hero { position: relative; min-height: min(92vh, 860px); display: grid; isolation: isolate; overflow: hidden; border-bottom: 3px solid var(--pink); }
+.hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -2; }
+.hero::after { content: ''; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(20,8,38,.55) 0%, rgba(20,8,38,.15) 40%, rgba(20,8,38,.7) 100%); }
+.hero .wrap { display: flex; flex-direction: column; }
+.hero-body { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 24px 0 56px; max-width: 760px; }
+.kicker { display: inline-flex; align-self: flex-start; gap: 8px; align-items: center; background: rgba(20,8,38,.75); border: 1px solid var(--line); padding: 6px 12px; border-radius: 999px; font-size: 13px; color: var(--muted); backdrop-filter: blur(6px); }
+.kicker .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pink); box-shadow: 0 0 12px var(--pink); animation: blink 1.2s steps(2) infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+h1 { font: clamp(48px, 9.5vw, 116px)/.9 var(--display); text-transform: uppercase; margin: 18px 0 14px; letter-spacing: .005em; text-shadow: 0 4px 0 rgba(0,0,0,.35); }
+h1 .strike { position: relative; color: var(--yellow); white-space: nowrap; }
+h1 .strike::after { content: ''; position: absolute; left: -4%; right: -4%; top: 52%; height: .12em; background: var(--pink); transform: rotate(-4deg); box-shadow: 0 2px 0 rgba(0,0,0,.35); }
+.lede { font-size: clamp(17px, 2.2vw, 21px); max-width: 600px; margin: 0 0 26px; color: #f3e6ff; text-shadow: 0 1px 8px rgba(20,8,38,.8); }
+.cta { display: flex; gap: 12px; flex-wrap: wrap; }
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer; text-decoration: none;
+  border: 0; border-radius: 12px; padding: 14px 22px; font-weight: 700; font-size: 16px;
+  background: linear-gradient(90deg, var(--pink), var(--orange)); color: #fff;
+  box-shadow: 0 6px 0 #8a1748, 0 10px 30px rgba(255,61,139,.35);
+  transition: transform .08s, box-shadow .08s;
+}
+.btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #8a1748; }
+.btn.ghost { background: rgba(20,8,38,.7); color: var(--ink); border: 1px solid var(--line); box-shadow: none; backdrop-filter: blur(6px); }
+.btn[disabled] { opacity: .6; cursor: progress; }
+
+.clocks { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 34px; max-width: 640px; }
+.clock { background: rgba(20,8,38,.72); border: 1px solid var(--line); border-radius: 14px; padding: 12px 16px; backdrop-filter: blur(8px); }
+.clock .label { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.clock .value { font: 44px/1 var(--mono); color: var(--teal); letter-spacing: .02em; }
+.clock.pc .value { color: var(--pink); animation: glitch 2.4s steps(1) infinite; }
+.clock .note { font-size: 12px; color: var(--muted); }
+@keyframes glitch { 0%, 92% { transform: none; opacity: 1; } 93% { transform: translateX(3px) skewX(-8deg); opacity: .6; } 96% { transform: translateX(-2px); } }
+.hz-badge { position: absolute; right: 16px; bottom: 16px; z-index: 2; font: 22px/1.1 var(--mono); text-align: right; background: rgba(20,8,38,.78); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; color: var(--yellow); }
+.hz-badge small { display: block; font: 12px/1.3 var(--body); color: var(--muted); }
+
+/* ---------- sections ---------- */
+section { padding: 88px 0; position: relative; }
+.eyebrow { font: 700 13px/1 var(--body); letter-spacing: .18em; text-transform: uppercase; color: var(--pink); margin-bottom: 12px; }
+h2 { font: clamp(36px, 6vw, 64px)/.95 var(--display); text-transform: uppercase; margin: 0 0 14px; }
+.sub { color: var(--muted); max-width: 680px; margin: 0 0 36px; font-size: 18px; }
+.stripe { background: linear-gradient(180deg, var(--night) 0%, var(--night-2) 100%); }
+
+/* ---------- FPS lab ---------- */
+.lab { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.pane { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+.pane canvas { display: block; width: 100%; aspect-ratio: 16 / 10; background: #000; }
+.pane .cap { padding: 14px 16px 18px; }
+.pane h3 { margin: 0 0 4px; font: 26px/1 var(--display); text-transform: uppercase; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.pane h3 .fps { font: 26px/1 var(--mono); color: var(--yellow); white-space: nowrap; }
+.pane p { margin: 0; color: var(--muted); font-size: 14px; }
+.pane.ps h3 { color: var(--teal); }
+.pane.pc h3 { color: var(--pink); }
+.pane.you h3 { color: var(--orange); }
+.lab-controls { display: flex; flex-wrap: wrap; gap: 14px 28px; align-items: center; margin-top: 22px; padding: 16px 20px; background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); }
+.lab-controls label { display: flex; align-items: center; gap: 10px; font-size: 15px; }
+.lab-controls output { font: 22px/1 var(--mono); color: var(--yellow); min-width: 7ch; }
+input[type="range"] { accent-color: var(--pink); width: 170px; }
+.unlock-msg { font: 20px/1.2 var(--mono); color: var(--pink); min-height: 1.2em; }
+
+/* ---------- seat form + ticket ---------- */
+.seat-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: start; }
+form.seat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; display: grid; gap: 18px; }
+.field { display: grid; gap: 6px; }
+.field > span { font-weight: 700; font-size: 14px; letter-spacing: .04em; }
+.field small { color: var(--muted); font-size: 13px; }
+input[type="text"], select {
+  width: 100%; background: var(--night); color: var(--ink); border: 1px solid #4a2f75; border-radius: 10px; padding: 12px 14px;
+}
+input[type="text"]:focus, select:focus { border-color: var(--pink); outline: none; box-shadow: 0 0 0 3px rgba(255,61,139,.3); }
+.cope-row { display: flex; align-items: center; gap: 14px; }
+.cope-row input { flex: 1; width: auto; }
+.cope-num { font: 34px/1 var(--mono); color: var(--yellow); min-width: 4ch; text-align: right; }
+.cope-label { font-size: 14px; color: var(--orange); min-height: 1.5em; }
+.form-msg { min-height: 1.4em; font-size: 15px; color: var(--yellow); }
+.form-msg.err { color: #ff7aa8; }
+
+.ticket {
+  position: relative; border-radius: var(--radius); padding: 26px 26px 22px; color: var(--night);
+  background: linear-gradient(135deg, var(--yellow) 0%, var(--orange) 55%, var(--pink) 100%);
+  box-shadow: 0 20px 50px rgba(255,61,139,.25); overflow: hidden;
+}
+.ticket::before, .ticket::after { content: ''; position: absolute; top: 58%; width: 28px; height: 28px; border-radius: 50%; background: var(--night); }
+.ticket::before { left: -14px; }
+.ticket::after { right: -14px; }
+.ticket .t-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.ticket .t-kind { font: 700 12px/1 var(--body); letter-spacing: .2em; text-transform: uppercase; }
+.ticket .t-seat { font: 64px/.9 var(--display); }
+.ticket .t-name { font: 40px/1 var(--display); text-transform: uppercase; margin: 10px 0 2px; word-break: break-word; }
+.ticket .t-rig { font-weight: 700; }
+.ticket .t-perf { border-top: 2px dashed rgba(20,8,38,.45); margin: 18px -26px 14px; }
+.ticket dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; margin: 0; font-size: 14px; }
+.ticket dt { font-weight: 700; text-transform: uppercase; font-size: 12px; letter-spacing: .1em; padding-top: 2px; }
+.ticket dd { margin: 0; }
+.ticket .t-fine { margin-top: 14px; margin-right: 128px; font-size: 11px; opacity: .8; }
+.ticket.preview { filter: saturate(.6); }
+.ticket .stamp { position: absolute; right: 18px; bottom: 22px; transform: rotate(-12deg); border: 3px solid var(--night); border-radius: 8px; padding: 4px 10px; font: 22px/1 var(--display); text-transform: uppercase; opacity: .85; }
+.ticket-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.ticket-actions[hidden] { display: none; }
+
+/* ---------- lobby ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 22px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 20px; }
+.stat .k { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font: 54px/1 var(--mono); color: var(--teal); }
+.stat .d { font-size: 14px; color: var(--muted); }
+.lobby-grid { display: grid; grid-template-columns: .9fr 1.1fr; gap: 16px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px; }
+.panel h3 { margin: 0 0 14px; font: 24px/1 var(--display); text-transform: uppercase; }
+.rigbar { display: grid; grid-template-columns: 11.5em 1fr 3ch; gap: 10px; align-items: center; font-size: 14px; margin-bottom: 8px; }
+.rigbar .bar { height: 12px; border-radius: 6px; background: rgba(255,255,255,.07); overflow: hidden; }
+.rigbar .bar i { display: block; height: 100%; border-radius: 6px; background: linear-gradient(90deg, var(--teal), var(--pink)); width: 0; transition: width .8s; }
+.rigbar .n { font: 20px/1 var(--mono); text-align: right; color: var(--yellow); }
+.wall { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; max-height: 470px; overflow-y: auto; padding-right: 6px; }
+.wall li { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; padding: 10px 12px; border-radius: 12px; background: rgba(20,8,38,.6); border: 1px solid var(--line); }
+.wall .seatno { grid-row: span 2; font: 26px/1 var(--mono); color: var(--yellow); align-self: center; }
+.wall .who { font-weight: 700; overflow-wrap: anywhere; }
+.wall .who small { font-weight: 400; color: var(--muted); }
+.wall .said { color: #f1dcff; font-size: 14px; overflow-wrap: anywhere; }
+.wall .said:empty::before { content: '(stared at the screen in silence)'; color: var(--muted); font-style: italic; }
+.empty { color: var(--muted); font-style: italic; }
+
+/* ---------- plan ---------- */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; counter-reset: step; }
+.step { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 20px; counter-increment: step; }
+.step::before { content: counter(step, decimal-leading-zero); font: 44px/1 var(--display); color: var(--pink); display: block; margin-bottom: 8px; }
+.step h3 { margin: 0 0 6px; font-size: 19px; }
+.step p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* ---------- checklist ---------- */
+.checklist { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 22px; list-style: none; padding: 0; margin: 0 0 22px; }
+.checklist label { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); cursor: pointer; }
+.checklist input { width: 22px; height: 22px; accent-color: var(--pink); flex: none; margin-top: 2px; }
+.checklist input:checked + span { color: var(--muted); text-decoration: line-through; text-decoration-color: var(--pink); }
+.meter { display: flex; align-items: center; gap: 16px; }
+.meter .track { flex: 1; height: 18px; border-radius: 9px; background: rgba(255,255,255,.08); overflow: hidden; }
+.meter .fill { height: 100%; width: 0; background: repeating-linear-gradient(45deg, var(--pink) 0 12px, var(--orange) 12px 24px); transition: width .4s; }
+.meter output { font: 28px/1 var(--mono); color: var(--yellow); min-width: 5ch; text-align: right; }
+.meter-note { color: var(--muted); font-size: 14px; margin-top: 8px; min-height: 1.4em; }
+
+/* ---------- FAQ ---------- */
+.faq { display: grid; gap: 10px; max-width: 820px; }
+.faq details { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 0 20px; }
+.faq summary { cursor: pointer; padding: 18px 0; font-weight: 700; font-size: 18px; list-style: none; display: flex; justify-content: space-between; gap: 16px; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after { content: '+'; font: 28px/0.8 var(--mono); color: var(--pink); }
+.faq details[open] summary::after { content: '−'; }
+.faq details p { margin: 0 0 18px; color: var(--muted); }
+
+footer { border-top: 1px solid var(--line); padding: 36px 0 60px; color: var(--muted); font-size: 14px; }
+footer p { margin: 0 0 10px; max-width: 820px; }
+
+/* ---------- console mode ---------- */
+body.console-mode { cursor: none; }
+body.console-mode * { cursor: none !important; }
+body.console-mode main, body.console-mode .hero canvas { filter: blur(.5px) saturate(1.1); }
+#fakeCursor { position: fixed; left: 0; top: 0; width: 22px; height: 22px; z-index: 100; pointer-events: none; display: none; }
+body.console-mode #fakeCursor { display: block; }
+#cinema { position: fixed; left: 16px; bottom: 16px; z-index: 90; display: none; font: 20px/1 var(--mono); background: var(--pink); color: #fff; padding: 8px 12px; border-radius: 8px; }
+body.console-mode #cinema { display: block; }
+.toast { position: fixed; left: 50%; top: 70px; transform: translate(-50%, -20px); opacity: 0; z-index: 95; background: var(--night-3); border: 2px solid var(--yellow); color: var(--ink); padding: 12px 18px; border-radius: 12px; max-width: calc(100% - 32px); transition: opacity .25s, transform .25s; pointer-events: none; text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 920px) {
+  .lab { grid-template-columns: 1fr; }
+  .seat-grid, .lobby-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr 1fr; }
+  .checklist { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  section { padding: 64px 0; }
+  .clocks, .stats, .steps { grid-template-columns: 1fr; }
+  .toggle .txt-long { display: none; }
+  .hz-badge { left: 16px; right: auto; bottom: 12px; font-size: 18px; }
+  .hero-body { padding-bottom: 96px; }
+  .clock .value { font-size: 38px; }
+  .rigbar { grid-template-columns: 9.5em 1fr 3ch; font-size: 13px; }
+  .ticket .t-name { font-size: 30px; }
+  .ticket .t-seat { font-size: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker .track { animation-duration: 200s; }
+  .kicker .dot, .clock.pc .value { animation: none; }
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+
+<div class="ticker" aria-label="Breaking news, all of it made up">
+  <div class="tag">Breaking</div>
+  <div class="track" id="ticker"></div>
+</div>
+
+<header class="hero" id="top">
+  <canvas id="heroCanvas" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <nav class="top">
+      <a class="brand" href="#top">Vice <b>Cope</b><small>PC players' GTA VI watch party</small></a>
+      <button class="toggle" id="consoleToggle" aria-pressed="false" type="button">
+        <span class="knob"></span><span><span class="txt-long">Console mode </span>(30 FPS)</span>
+      </button>
+    </nav>
+    <div class="hero-body">
+      <span class="kicker"><span class="dot"></span><span id="kickerText">Consoles unlock at midnight, your local time</span></span>
+      <h1><span id="h1Line">GTA VI is out.</span><br>Just <span class="strike">not on PC.</span></h1>
+      <p class="lede">PS5 and Xbox players get Leonida at a "cinematic" 30 FPS. We get to watch them do it, from monitors that could draw it eight times faster. So let's watch together, loudly.</p>
+      <div class="cta">
+        <a class="btn" href="#seat">Claim my spectator seat →</a>
+        <a class="btn ghost" href="#lab">Compare the frames</a>
+      </div>
+      <div class="clocks">
+        <div class="clock">
+          <div class="label" id="consoleClockLabel">Console launch in</div>
+          <div class="value" id="consoleClock">--:--:--</div>
+          <div class="note" id="consoleClockNote">Nov 19, 00:00 where you are (rolling regional release)</div>
+        </div>
+        <div class="clock pc">
+          <div class="label">PC launch in</div>
+          <div class="value" id="pcClock">NaN:NaN</div>
+          <div class="note">Not announced. Guesses say 2027–28. Guesses also said 2025.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="hz-badge" id="hzBadge" aria-live="polite">measuring your monitor…<small>&nbsp;</small></div>
+</header>
+
+<main>
+  <section id="lab" class="stripe">
+    <div class="wrap">
+      <div class="eyebrow">The FPS lab</div>
+      <h2>Three ways to experience one launch</h2>
+      <p class="sub">The same made-up sunset drive, drawn three ways in your browser right now. No game footage, because there's no game for us to run. That's the whole point.</p>
+      <div class="lab">
+        <div class="pane ps">
+          <canvas id="paneConsole" aria-label="The drive, drawn at 30 frames per second"></canvas>
+          <div class="cap">
+            <h3>The couch <span class="fps" id="fpsConsole">30</span></h3>
+            <p>A PS5 player, playing the game. 30 FPS, as Rockstar intended. Even on PS5 Pro.</p>
+          </div>
+        </div>
+        <div class="pane pc">
+          <canvas id="panePc" aria-label="The drive, drawn at your monitor's full refresh rate"></canvas>
+          <div class="cap">
+            <h3>Your PC <span class="fps" id="fpsPc">–</span></h3>
+            <p>What your rig could do. Right now it's rendering a road we drew. Feel the power. Feel the emptiness.</p>
+          </div>
+        </div>
+        <div class="pane you">
+          <canvas id="paneStream" aria-label="The drive as a blocky, buffering livestream with chat"></canvas>
+          <div class="cap">
+            <h3>Your actual night <span class="fps" id="fpsStream">30</span></h3>
+            <p>A 30 FPS stream of a 30 FPS game, re-encoded, four seconds behind, with chat. On a <span id="yourHz">240</span> Hz monitor.</p>
+          </div>
+        </div>
+      </div>
+      <div class="lab-controls">
+        <label>Motion blur (cope) <input type="range" id="blur" min="0" max="100" value="0"> <output id="blurOut">0%</output></label>
+        <button class="btn" type="button" id="unlockBtn">Unlock 144 FPS for the couch</button>
+        <span class="unlock-msg" id="unlockMsg" aria-live="polite"></span>
+      </div>
+    </div>
+  </section>
+
+  <section id="seat">
+    <div class="wrap">
+      <div class="eyebrow">Step one</div>
+      <h2>Claim your spectator seat</h2>
+      <p class="sub">Every seat goes up on the lobby wall for everyone to see. Pick a handle, confess your rig, and rate your cope honestly. Nobody's checking. We can all tell anyway.</p>
+      <div class="seat-grid">
+        <form class="seat" id="seatForm" novalidate>
+          <label class="field">
+            <span>Handle</span>
+            <input type="text" id="handle" name="handle" maxlength="24" autocomplete="nickname" placeholder="e.g. FrameRateFred" required>
+            <small>2–24 characters. Shows on the wall, so keep it friendly.</small>
+          </label>
+          <label class="field">
+            <span>Your rig</span>
+            <select id="rig" name="rig"></select>
+            <small id="rigQuip">&nbsp;</small>
+          </label>
+          <div class="field">
+            <span id="copeLbl">Cope level</span>
+            <div class="cope-row">
+              <input type="range" id="cope" name="cope" min="0" max="100" value="42" aria-labelledby="copeLbl">
+              <output class="cope-num" id="copeNum">42</output>
+            </div>
+            <div class="cope-label" id="copeLabel"></div>
+          </div>
+          <label class="field">
+            <span>Your cope line <small>(optional)</small></span>
+            <input type="text" id="line" name="line" maxlength="90" placeholder="The human eye can't see past 30 FPS anyway (crying)">
+            <small><span id="lineCount">0</span>/90 · no links</small>
+          </label>
+          <button class="btn" type="submit" id="submitBtn">Print my seat ticket</button>
+          <div class="form-msg" id="formMsg" role="status"></div>
+        </form>
+
+        <div>
+          <div class="ticket preview" id="ticket" aria-live="polite">
+            <div class="t-top">
+              <div>
+                <div class="t-kind">Spectator pass · admit one</div>
+                <div class="t-name" id="tName">Your name here</div>
+                <div class="t-rig" id="tRig">Rig: unknown</div>
+              </div>
+              <div class="t-seat" id="tSeat">#???</div>
+            </div>
+            <div class="t-perf"></div>
+            <dl>
+              <dt>Seat</dt><dd id="tWhere">To be assigned by the couch</dd>
+              <dt>Cope</dt><dd id="tCope">42%</dd>
+              <dt>Showtime</dt><dd>Nov 19, 00:00 your time</dd>
+              <dt>Frames</dt><dd>30 per second, shared between all of us</dd>
+            </dl>
+            <div class="stamp" id="tStamp">Preview</div>
+            <div class="t-fine">Controller not included. Do not touch the controller. Do not ask for the controller. Non-transferable to PC, much like the game.</div>
+          </div>
+          <div class="ticket-actions" id="ticketActions" hidden>
+            <button class="btn ghost" type="button" id="shareBtn">Share my ticket</button>
+            <a class="btn ghost" href="#lobby">See the lobby</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="lobby" class="stripe">
+    <div class="wrap">
+      <div class="eyebrow">Step two</div>
+      <h2>The lobby</h2>
+      <p class="sub">Who's here, what they're running, and how they're holding up. Updates by itself while you keep the page open.</p>
+      <div class="stats">
+        <div class="stat"><div class="k">Spectators seated</div><div class="v" id="sCount">–</div><div class="d" id="sCountD">counting heads at 30 FPS…</div></div>
+        <div class="stat"><div class="k">Average cope</div><div class="v" id="sCope">–</div><div class="d" id="sCopeD">&nbsp;</div></div>
+        <div class="stat"><div class="k">Wasted horsepower</div><div class="v" id="sWaste">–</div><div class="d">combined frames per second the lobby could render, but won't</div></div>
+      </div>
+      <div class="lobby-grid">
+        <div class="panel">
+          <h3>Rigs in the room</h3>
+          <div id="rigBars"></div>
+        </div>
+        <div class="panel">
+          <h3>The cope wall</h3>
+          <ul class="wall" id="wall"><li class="empty">Loading the lobby…</li></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="plan">
+    <div class="wrap">
+      <div class="eyebrow">How the party works</div>
+      <h2>The plan, such as it is</h2>
+      <p class="sub">There's no official stream and nobody's in charge. Just thousands of PC players looking at the same thing at the same time and being very normal about it.</p>
+      <div class="steps">
+        <div class="step"><h3>Claim a seat</h3><p>Your handle, rig and cope line go up on the wall. That's your RSVP.</p></div>
+        <div class="step"><h3>Pick a stream</h3><p>At midnight your time, open any big GTA VI launch stream on Twitch or YouTube. Any of them. They're all 30 FPS.</p></div>
+        <div class="step"><h3>Keep this tab open</h3><p>The lobby refreshes itself. Watch the cope wall fill up as midnight rolls around the planet.</p></div>
+        <div class="step"><h3>Hydration game</h3><p>Sip water whenever the streamer says "it looks so smooth". You will be extremely hydrated.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="todo" class="stripe">
+    <div class="wrap">
+      <div class="eyebrow">Meanwhile</div>
+      <h2>Things to do until the PC port</h2>
+      <p class="sub">Tick them off. Your progress stays in this browser. Like the game, it never leaves your platform.</p>
+      <ul class="checklist" id="checklist"></ul>
+      <div class="meter">
+        <div class="track"><div class="fill" id="meterFill"></div></div>
+        <output id="meterOut">0%</output>
+      </div>
+      <div class="meter-note" id="meterNote">PC-port readiness. It doesn't go any faster if you tick everything. We checked.</div>
+    </div>
+  </section>
+
+  <section id="faq">
+    <div class="wrap">
+      <div class="eyebrow">Questions nobody asked</div>
+      <h2>FAQ</h2>
+      <div class="faq">
+        <details><summary>Is this official?</summary><p>No. This is a fan-made parody page. Rockstar doesn't know we exist, which is sort of the theme of the evening.</p></details>
+        <details><summary>When exactly is the party?</summary><p>November 19, 2026 at midnight local time. That's when consoles unlock in each region, so the party rolls around the world one timezone at a time. You can arrive whenever you can stand it.</p></details>
+        <details><summary>Is GTA VI coming to PC?</summary><p>Rockstar hasn't announced a PC version or a date. History says it usually happens eventually: GTA V reached PC about a year and a half after consoles, and Red Dead Redemption 2 took about a year. Until then, this lobby exists.</p></details>
+        <details><summary>Can my PS5 friend come?</summary><p>Yes. They are the content. Be supportive. Say "nice" about once every 33 milliseconds, which is one frame for them.</p></details>
+        <details><summary>What does Console Mode do?</summary><p>It caps this page at 30 FPS, makes your mouse cursor update at 30 FPS, and adds a little motion blur, so you can practise. We call it cinematic. You can also unlock it with a certain famous cheat code.</p></details>
+        <details><summary>What do you keep about me?</summary><p>Only what you type into the seat form: handle, rig, cope level and cope line. They're shown publicly on the wall. Spam limits use a scrambled code for your connection that changes every day and is deleted after two days. No accounts, no cookies, no tracking.</p></details>
+        <details><summary>Something on the wall is out of line. What now?</summary><p>The site owner can take any seat down. Get in touch through <a href="/">the main site</a>.</p></details>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p><strong>Vice Cope</strong> is a fan-made parody. It isn't affiliated with or endorsed by Rockstar Games, Take-Two Interactive, Sony or Microsoft. Grand Theft Auto and GTA are trademarks of Take-Two Interactive. No game footage or art is used; every frame here is drawn by your browser.</p>
+    <p>Facts as of November 18, 2026: console launch on November 19, 2026 at midnight local time; 30 FPS on every console including PS5 Pro; no PC version announced.</p>
+    <p><a href="/">← Back to the main site</a></p>
+  </div>
+</footer>
+
+<svg id="fakeCursor" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2l7 19 2.5-7.5L20 11z" fill="#fff" stroke="#140826" stroke-width="1.6" stroke-linejoin="round"/></svg>
+<div id="cinema" aria-hidden="true">● CINEMATIC 30</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch { /* private mode: fine */ } },
+  };
+
+  // ---------------------------------------------------------------- ticker
+  const NEWS = [
+    'Local man upgrades GPU for a game he cannot play',
+    'PS5 owner calls 30 FPS "buttery"; nearby PC player has to sit down',
+    'Scientists confirm the human eye can see 30 FPS "if it really tries"',
+    'PC player refreshes a store page that does not exist for the 400th time today',
+    'Analysts: PC port "definitely coming, eventually, probably"',
+    'Man with an RTX 5090 to watch a 1080p stream with a four-second delay',
+    'Motion blur slider found to be load-bearing',
+    'Study: 9 in 10 PC players "were not even that hyped anyway"',
+    'Steam Deck owner spotted pointing it at a TV, hoping',
+    'Your GPU fans have stopped spinning out of respect',
+    '"Just buy a console," says friend, ending friendship',
+  ];
+  $('ticker').innerHTML = NEWS.concat(NEWS).map((n) => `<span>${n}</span>`).join('');
+
+  // ---------------------------------------------------------------- console mode
+  let consoleMode = false;
+  const toast = (msg) => {
+    const t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove('show'), 3200);
+  };
+  function setConsoleMode(on, why) {
+    consoleMode = on;
+    document.body.classList.toggle('console-mode', on);
+    $('consoleToggle').setAttribute('aria-pressed', String(on));
+    if (why) toast(why);
+  }
+  $('consoleToggle').addEventListener('click', () =>
+    setConsoleMode(!consoleMode, consoleMode ? 'Back to your monitor\'s full refresh rate. Smooth. Lonely.' : 'Console mode on. Everything is 30 FPS now. Cinematic.'));
+  const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+  let kpos = 0;
+  addEventListener('keydown', (e) => {
+    kpos = e.key === KONAMI[kpos] ? kpos + 1 : e.key === KONAMI[0] ? 1 : 0;
+    if (kpos === KONAMI.length) { kpos = 0; setConsoleMode(true, 'Cheat activated: authentic console experience. No refunds.'); }
+  });
+  // The fake cursor only moves 30 times a second, like everything else in console mode.
+  let mouse = { x: -50, y: -50 };
+  addEventListener('pointermove', (e) => { mouse = { x: e.clientX, y: e.clientY }; }, { passive: true });
+  const cursor = $('fakeCursor');
+  setInterval(() => { if (consoleMode) cursor.style.transform = `translate(${mouse.x - 3}px, ${mouse.y - 2}px)`; }, 1000 / 30);
+
+  // ---------------------------------------------------------------- clocks
+  const pad = (n) => String(n).padStart(2, '0');
+  const launch = new Date(2026, 10, 19, 0, 0, 0); // midnight, local time
+  function tickClocks() {
+    const ms = launch - Date.now();
+    if (ms > 0) {
+      const s = Math.floor(ms / 1000);
+      const d = Math.floor(s / 86400);
+      $('consoleClock').textContent = (d ? d + 'd ' : '') + `${pad(Math.floor(s / 3600) % 24)}:${pad(Math.floor(s / 60) % 60)}:${pad(s % 60)}`;
+      $('h1Line').textContent = d ? 'GTA VI is coming.' : 'GTA VI drops tonight.';
+    } else {
+      $('h1Line').textContent = 'GTA VI is out.';
+      const s = Math.floor(-ms / 1000);
+      $('consoleClockLabel').textContent = 'They\'ve been playing for';
+      $('consoleClock').textContent = `${Math.floor(s / 3600)}h ${pad(Math.floor(s / 60) % 60)}m`;
+      $('consoleClockNote').textContent = 'That\'s about ' + (s * 30).toLocaleString() + ' frames. We watched every one.';
+      $('kickerText').textContent = 'Live now on consoles. Live now on our faces.';
+    }
+    const glitches = ['NaN:NaN', '¯\\_(ツ)_/¯', '20??-??-??', 'undefined', '404 days', '∞:∞:∞', 'soon™'];
+    if (Math.random() < .12) $('pcClock').textContent = glitches[Math.floor(Math.random() * glitches.length)];
+  }
+  tickClocks();
+  setInterval(tickClocks, 1000);
+
+  // ---------------------------------------------------------------- refresh rate
+  let monitorHz = 60;
+  (function measure() {
+    const deltas = [];
+    let last = 0;
+    function step(t) {
+      if (last) deltas.push(t - last);
+      last = t;
+      if (deltas.length < 90) return requestAnimationFrame(step);
+      deltas.sort((a, b) => a - b);
+      const raw = 1000 / deltas[Math.floor(deltas.length / 2)];
+      const common = [30, 50, 60, 75, 90, 100, 120, 144, 165, 170, 180, 200, 240, 280, 360, 500];
+      monitorHz = common.reduce((a, b) => (Math.abs(b - raw) < Math.abs(a - raw) ? b : a));
+      const x = (monitorHz / 30).toFixed(monitorHz % 30 ? 1 : 0);
+      $('yourHz').textContent = monitorHz;
+      $('hzBadge').innerHTML = `YOUR MONITOR: ${monitorHz} Hz<small>${monitorHz > 30 ? `${x}× what the couch gets. Wasted, tonight.` : 'Oh. You\'re already on console frames. Respect.'}</small>`;
+    }
+    requestAnimationFrame(step);
+  })();
+
+  // ---------------------------------------------------------------- the drive (original art)
+  const skyline = Array.from({ length: 40 }, (_, i) => ({ x: i / 40, w: .012 + ((i * 37) % 11) / 400, h: .03 + ((i * 53) % 17) / 160 }));
+  function drawScene(ctx, w, h, t, opt = {}) {
+    const hz = h * .56;
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, hz);
+    sky.addColorStop(0, '#1a0933'); sky.addColorStop(.55, '#6b1d6e'); sky.addColorStop(1, '#ff7b54');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, w, hz);
+    // sun with stripes
+    const r = Math.min(w, h) * .3, cx = w / 2;
+    const sun = ctx.createLinearGradient(0, hz - r, 0, hz);
+    sun.addColorStop(0, '#ffe14d'); sun.addColorStop(1, '#ff3d8b');
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, hz, r, Math.PI, 0); ctx.closePath(); ctx.clip();
+    ctx.fillStyle = sun; ctx.fillRect(cx - r, hz - r, r * 2, r);
+    ctx.fillStyle = '#ff7b54';
+    for (let i = 0; i < 6; i++) { const y = hz - r * .5 + i * r * .09; ctx.fillRect(cx - r, y, r * 2, 1.5 + i * r * .012); }
+    ctx.restore();
+    // skyline, drifting slowly
+    ctx.fillStyle = '#2a0f45';
+    const drift = (t * .00001) % 1;
+    for (const b of skyline) {
+      let x = ((b.x - drift + 1) % 1) * w;
+      ctx.fillRect(x, hz - b.h * h, b.w * w, b.h * h);
+    }
+    // ground
+    const g = ctx.createLinearGradient(0, hz, 0, h);
+    g.addColorStop(0, '#2b0f4a'); g.addColorStop(1, '#0d0418');
+    ctx.fillStyle = g; ctx.fillRect(0, hz, w, h - hz);
+    // road
+    const bottomHalf = w * .42, topHalf = w * .012;
+    ctx.fillStyle = '#1b0b2b';
+    ctx.beginPath(); ctx.moveTo(cx - topHalf, hz); ctx.lineTo(cx + topHalf, hz); ctx.lineTo(cx + bottomHalf, h); ctx.lineTo(cx - bottomHalf, h); ctx.fill();
+    ctx.strokeStyle = '#ff3d8b'; ctx.lineWidth = Math.max(1, w / 400);
+    ctx.beginPath(); ctx.moveTo(cx - topHalf, hz); ctx.lineTo(cx - bottomHalf, h); ctx.moveTo(cx + topHalf, hz); ctx.lineTo(cx + bottomHalf, h); ctx.stroke();
+    // lane dashes, rushing toward us
+    const speed = (t * .0005) % 1;
+    ctx.fillStyle = '#ffe14d';
+    for (let i = 0; i < 10; i++) {
+      const d = ((i / 10) - speed + 1) % 1;
+      const p = 1 - d, p2 = p * p * p;
+      const y = hz + (h - hz) * p2, len = (h - hz) * .06 * p2 + 1, wid = w * .008 * p2 + .5;
+      ctx.fillRect(cx - wid / 2, y, wid, len);
+    }
+    // palms on both sides
+    for (let i = 0; i < 6; i++) {
+      const d = ((i / 6) - (t * .00022) % 1 + 1) % 1;
+      const p = 1 - d, p2 = p * p;
+      const y = hz + (h - hz) * p2 * p;
+      const half = topHalf + (bottomHalf - topHalf) * p2 * p;
+      const size = h * .9 * p2 * p + 2;
+      palm(ctx, cx - half - size * .35, y, size, -1);
+      palm(ctx, cx + half + size * .35, y, size, 1);
+    }
+    // the car, rear view
+    const bob = Math.sin(t * .02) * h * .004;
+    const cw = w * .2, ch = cw * .38, carX = cx - cw / 2 + Math.sin(t * .0011) * w * .03, carY = h * .78 + bob;
+    ctx.fillStyle = '#0d0418';
+    ctx.fillRect(carX + cw * .04, carY + ch * .82, cw * .16, ch * .3);
+    ctx.fillRect(carX + cw * .8, carY + ch * .82, cw * .16, ch * .3);
+    ctx.fillStyle = '#2de2e6';
+    ctx.beginPath(); ctx.moveTo(carX + cw * .2, carY); ctx.lineTo(carX + cw * .8, carY); ctx.lineTo(carX + cw * .9, carY + ch * .4); ctx.lineTo(carX + cw * .1, carY + ch * .4); ctx.fill();
+    ctx.fillStyle = '#1a6f86'; ctx.fillRect(carX, carY + ch * .4, cw, ch * .5);
+    ctx.fillStyle = '#140826'; ctx.fillRect(carX + cw * .26, carY + ch * .07, cw * .48, ch * .28);
+    ctx.fillStyle = '#ff3d8b'; ctx.shadowColor = '#ff3d8b'; ctx.shadowBlur = cw * .08;
+    ctx.fillRect(carX + cw * .05, carY + ch * .5, cw * .22, ch * .12); ctx.fillRect(carX + cw * .73, carY + ch * .5, cw * .22, ch * .12);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffe14d'; ctx.fillRect(carX + cw * .4, carY + ch * .66, cw * .2, ch * .13);
+    ctx.fillStyle = '#140826'; ctx.font = `700 ${Math.max(6, ch * .1)}px monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('30FPS', carX + cw / 2, carY + ch * .73);
+    if (opt.label) {
+      ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+      ctx.font = `${Math.max(14, h * .085)}px VT323, monospace`;
+      ctx.fillStyle = 'rgba(20,8,38,.7)'; ctx.fillRect(8, 8, ctx.measureText(opt.label).width + 14, h * .1);
+      ctx.fillStyle = '#ffe14d'; ctx.fillText(opt.label, 15, 10);
+    }
+  }
+  function palm(ctx, x, y, s, side) {
+    ctx.strokeStyle = '#120520'; ctx.fillStyle = '#120520';
+    ctx.lineWidth = Math.max(1, s * .045); ctx.lineCap = 'round';
+    const topX = x + side * s * .12, topY = y - s;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + side * s * .02, y - s * .5, topX, topY); ctx.stroke();
+    ctx.lineWidth = Math.max(1, s * .03);
+    for (let k = 0; k < 7; k++) {
+      const a = -Math.PI / 2 + (k - 3) * .5;
+      const ex = topX + Math.cos(a) * s * .42, ey = topY + Math.sin(a) * s * .2 + s * .16;
+      ctx.beginPath(); ctx.moveTo(topX, topY);
+      ctx.quadraticCurveTo(topX + Math.cos(a) * s * .25, topY - s * .14, ex, ey); ctx.stroke();
+    }
+  }
+
+  // ---------------------------------------------------------------- render loop
+  const CHAT = ['KEKW', 'pc port when', 'first', 'so smooth 😍', 'is this 4k?', 'W', 'chat is this real', 'my 4090 is crying', 'buffering again lol', 'L', 'streamer pls open settings', '30fps is cinematic stop', 'Pog', 'hold W', 'who else on pc 😔'];
+  function fitCanvas(c, maxDpr = 1.5) {
+    const dpr = Math.min(devicePixelRatio || 1, maxDpr);
+    const r = c.getBoundingClientRect();
+    const w = Math.max(1, Math.round(r.width * dpr)), h = Math.max(1, Math.round(r.height * dpr));
+    if (c.width !== w || c.height !== h) { c.width = w; c.height = h; }
+    return { w, h };
+  }
+  const low = document.createElement('canvas');
+  const panes = [
+    {
+      canvas: $('heroCanvas'), cap: () => (reduceMotion ? 0 : Infinity), maxDpr: 1,
+      draw(ctx, w, h, t) { drawScene(ctx, w, h, t); },
+    },
+    {
+      canvas: $('paneConsole'), cap: () => (couchUnlocked ? 144 : 30), fpsEl: $('fpsConsole'),
+      draw(ctx, w, h, t) {
+        drawScene(ctx, w, h, t, { label: couchUnlocked ? 'UNLOCKED?!' : '30 FPS · CINEMATIC' });
+      },
+    },
+    {
+      canvas: $('panePc'), cap: () => Infinity, fpsEl: $('fpsPc'),
+      draw(ctx, w, h, t) { drawScene(ctx, w, h, t, { label: 'NOTHING TO PLAY' }); },
+    },
+    {
+      canvas: $('paneStream'), cap: () => 30, fpsEl: $('fpsStream'), chat: [], nextChat: 0,
+      draw(ctx, w, h, t) {
+        const buffering = (t % 9000) > 7600;
+        if (!buffering || !this.frozen) {
+          low.width = Math.max(1, w >> 3); low.height = Math.max(1, h >> 3);
+          const lctx = low.getContext('2d');
+          drawScene(lctx, low.width, low.height, t - 4000);
+          ctx.imageSmoothingEnabled = false;
+          ctx.drawImage(low, 0, 0, w, h);
+          this.frozen = buffering;
+        }
+        if (buffering) {
+          ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(0, 0, w, h);
+          ctx.save(); ctx.translate(w / 2, h / 2); ctx.rotate(t / 160);
+          ctx.strokeStyle = '#fff'; ctx.lineWidth = h * .02; ctx.lineCap = 'round';
+          ctx.beginPath(); ctx.arc(0, 0, h * .08, 0, Math.PI * 1.5); ctx.stroke(); ctx.restore();
+        } else this.frozen = false;
+        // LIVE badge + viewers
+        const fs = Math.max(11, h * .06);
+        ctx.font = `700 ${fs}px Space Grotesk, sans-serif`; ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+        ctx.fillStyle = '#e91916'; ctx.fillRect(8, 8, fs * 2.6, fs * 1.4);
+        ctx.fillStyle = '#fff'; ctx.fillText('LIVE', 8 + fs * .4, 8 + fs * .2);
+        ctx.fillStyle = 'rgba(0,0,0,.6)'; ctx.fillRect(8 + fs * 2.8, 8, fs * 4.6, fs * 1.4);
+        ctx.fillStyle = '#fff'; ctx.fillText('👁 1.2M', 8 + fs * 3.1, 8 + fs * .2);
+        // chat
+        if (t > this.nextChat) {
+          this.chat.push(CHAT[Math.floor(Math.random() * CHAT.length)]);
+          if (this.chat.length > 5) this.chat.shift();
+          this.nextChat = t + 500 + Math.random() * 900;
+        }
+        const cw = w * .38, lh = fs * 1.25;
+        ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.fillRect(w - cw - 8, h - lh * 5 - 16, cw, lh * 5 + 8);
+        ctx.font = `${fs * .9}px Space Grotesk, sans-serif`;
+        this.chat.forEach((m, i) => {
+          ctx.fillStyle = ['#2de2e6', '#ffe14d', '#ff9a3c', '#c9b6dd', '#ff3d8b'][(m.length + i) % 5];
+          ctx.fillText(m, w - cw, h - lh * 5 - 12 + i * lh, cw - 8);
+        });
+      },
+    },
+  ];
+  let couchUnlocked = false;
+  const visible = new Map();
+  const io = new IntersectionObserver((es) => es.forEach((e) => visible.set(e.target, e.isIntersecting)));
+  panes.forEach((p) => { p.last = 0; p.frames = 0; p.fpsT = 0; p.ctx = p.canvas.getContext('2d'); io.observe(p.canvas); });
+  let blurAmt = 0;
+  function loop(now) {
+    for (const p of panes) {
+      if (!visible.get(p.canvas)) continue;
+      let cap = p.cap();
+      if (consoleMode) cap = Math.min(cap, 30);
+      if (cap === 0) { if (!p.drawnOnce) { const { w, h } = fitCanvas(p.canvas, p.maxDpr); p.draw(p.ctx, w, h, 0); p.drawnOnce = true; } continue; }
+      if (cap !== Infinity && now - p.last < 1000 / cap - 1) continue;
+      p.last = cap === Infinity ? now : Math.max(p.last + 1000 / cap, now - 1000 / cap);
+      const { w, h } = fitCanvas(p.canvas, p.maxDpr);
+      if (p.fpsEl === $('fpsConsole') && blurAmt > 0) {
+        p.ctx.globalAlpha = 1 - blurAmt * .0085;
+        p.draw(p.ctx, w, h, now);
+        p.ctx.globalAlpha = 1;
+      } else p.draw(p.ctx, w, h, now);
+      p.frames++;
+      if (p.fpsEl && now - p.fpsT > 500) {
+        p.fpsEl.textContent = Math.round(p.frames * 1000 / (now - p.fpsT)) + ' FPS';
+        p.frames = 0; p.fpsT = now;
+      }
+    }
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+  addEventListener('resize', () => panes.forEach((p) => (p.drawnOnce = false)));
+
+  $('blur').addEventListener('input', (e) => {
+    blurAmt = +e.target.value;
+    $('blurOut').textContent = blurAmt + '%';
+    $('paneConsole').style.filter = `blur(${blurAmt / 40}px)`;
+  });
+  $('unlockBtn').addEventListener('click', async () => {
+    const btn = $('unlockBtn'), msg = $('unlockMsg');
+    btn.disabled = true;
+    couchUnlocked = true;
+    const lines = ['Contacting Rockstar…', 'Overclocking the PS5…', 'Asking Sony nicely…', 'Installing more RAM.exe…'];
+    for (const l of lines) { msg.textContent = l; await new Promise((r) => setTimeout(r, 700)); }
+    couchUnlocked = false;
+    msg.textContent = 'ERROR: frames not available on this platform. Back to 30.';
+    btn.textContent = 'Try again (it won\'t work)';
+    btn.disabled = false;
+  });
+
+  // ---------------------------------------------------------------- seat form
+  const RIGS = [
+    ['5090', 'RTX 5090', 'Overqualified spectator. Drawing a stream at 1% load.', 260],
+    ['4090', 'RTX 4090', 'Melted one power connector for this moment.', 220],
+    ['mid', 'RTX 4070 / 5070-ish', 'Mid-range menace. Perfectly balanced, nothing to play.', 160],
+    ['3060', 'RTX 3060', 'The people\'s champion. Would\'ve run it on medium. Probably.', 110],
+    ['1060', 'GTX 1060', 'Will outlive us all. Still not enough for Leonida.', 70],
+    ['amd', 'Radeon (any)', 'Team Red, waiting in red.', 150],
+    ['arc', 'Intel Arc', 'A brave pioneer. Drivers updated today, again.', 90],
+    ['igpu', 'Integrated graphics', 'The stream is also 30 FPS for you. You win, technically.', 30],
+    ['deck', 'Steam Deck', 'Portable coping. Can be held up to the TV.', 45],
+    ['ps5', 'I own a PS5 (spy)', 'Double agent. You\'re here to gloat or to be forgiven.', 30],
+  ];
+  const RIG = Object.fromEntries(RIGS.map(([k, label, quip, fps]) => [k, { label, quip, fps }]));
+  $('rig').innerHTML = RIGS.map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+  $('rig').value = '3060';
+  const COPE = [
+    [10, 'Totally fine. Didn\'t want it anyway. (Lie.)'],
+    [30, 'Mild cope. Rewatching the trailers "for research".'],
+    [50, 'Refreshing the Rockstar Newswire every hour.'],
+    [70, 'Telling myself 30 FPS is "cinematic".'],
+    [90, 'Pricing a PS5 "just to try it".'],
+    [101, 'Drafting a 6,000-word letter to Rockstar. Page 14.'],
+  ];
+  const copeText = (v) => COPE.find(([max]) => v < max)[1];
+  const SEATS = [
+    'Behind the PS5 guy\'s left shoulder', 'Floor, next to the subwoofer', 'Kitchen doorway, partial view',
+    'Arm of the couch', 'The bean bag that leaks', 'Standing, holding a snack you didn\'t bring',
+    'Outside, looking in through the window', 'Next to the cat, who also can\'t play',
+    'Under the desk with your PC, for moral support', 'Front row. Too close. 30 FPS at full size.',
+  ];
+  function paintTicket(d, real) {
+    $('tName').textContent = d.handle || 'Your name here';
+    $('tRig').textContent = 'Rig: ' + (RIG[d.rig]?.label ?? 'unknown');
+    $('tCope').textContent = d.cope + '% · ' + copeText(d.cope);
+    $('tSeat').textContent = real ? '#' + String(d.n).padStart(4, '0') : '#???';
+    $('tWhere').textContent = real ? SEATS[d.n % SEATS.length] : 'To be assigned by the couch';
+    $('tStamp').textContent = real ? 'Seated' : 'Preview';
+    $('ticket').classList.toggle('preview', !real);
+    $('ticketActions').hidden = !real;
+  }
+  function formState() {
+    return { handle: $('handle').value.trim(), rig: $('rig').value, cope: +$('cope').value, line: $('line').value.trim() };
+  }
+  const mine = (() => { try { return JSON.parse(store.get('vicecope.seat') || 'null'); } catch { return null; } })();
+  function syncForm() {
+    const s = formState();
+    $('copeNum').textContent = s.cope;
+    $('copeLabel').textContent = copeText(s.cope);
+    $('rigQuip').textContent = RIG[s.rig].quip;
+    $('lineCount').textContent = $('line').value.length;
+    if (!mine) paintTicket(s, false);
+  }
+  ['handle', 'rig', 'cope', 'line'].forEach((id) => $(id).addEventListener('input', syncForm));
+  syncForm();
+  if (mine) {
+    paintTicket(mine, true);
+    $('submitBtn').textContent = 'You already have a seat';
+    $('formMsg').textContent = `You're seat #${String(mine.n).padStart(4, '0')}. One per person; the couch is only so big.`;
+  }
+
+  const API = location.hostname.endsWith('atikul-islam-portfolio.pages.dev')
+    ? '/api/watchparty'
+    : /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && location.port === '8788'
+      ? '/api/watchparty'
+      : 'https://atikul-islam-portfolio.pages.dev/api/watchparty';
+
+  $('seatForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const msg = $('formMsg');
+    msg.classList.remove('err');
+    if (store.get('vicecope.seat')) { msg.textContent = 'You already have a seat. Scroll down to the lobby and admire it.'; return; }
+    const s = formState();
+    if (s.handle.length < 2) { msg.classList.add('err'); msg.textContent = 'Your handle needs at least 2 characters.'; $('handle').focus(); return; }
+    $('submitBtn').disabled = true;
+    msg.textContent = 'Printing your ticket at 30 FPS…';
+    try {
+      const r = await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(s) });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data.error || 'The lobby server dropped a frame. Try again.');
+      store.set('vicecope.seat', JSON.stringify(data.seat));
+      paintTicket(data.seat, true);
+      msg.textContent = `Seated! You're spectator #${String(data.seat.n).padStart(4, '0')}.`;
+      $('submitBtn').textContent = 'You already have a seat';
+      renderLobby(data.lobby);
+      toast('Ticket printed. Do not touch the controller.');
+    } catch (err) {
+      msg.classList.add('err');
+      msg.textContent = err.message === 'Failed to fetch' ? 'Couldn\'t reach the lobby. Check your connection and try again.' : err.message;
+      $('submitBtn').disabled = false;
+    }
+  });
+  $('shareBtn').addEventListener('click', async () => {
+    const seat = JSON.parse(store.get('vicecope.seat') || 'null');
+    if (!seat) return;
+    const text = `I'm spectator #${String(seat.n).padStart(4, '0')} at Vice Cope, the GTA VI watch party for PC players. Cope level: ${seat.cope}%. They play at 30 FPS, we watch at ${monitorHz} Hz.`;
+    const url = location.origin + location.pathname;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Vice Cope', text, url });
+      else { await navigator.clipboard.writeText(`${text} ${url}`); toast('Copied to your clipboard. Spread the cope.'); }
+    } catch { /* user cancelled */ }
+  });
+
+  // ---------------------------------------------------------------- lobby
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function renderLobby(l) {
+    $('sCount').textContent = l.count.toLocaleString();
+    $('sCountD').textContent = l.count ? `${l.count === 1 ? 'one brave soul' : 'PC players'} watching other people play` : 'Be the first. Someone has to.';
+    const avg = l.count ? Math.round(l.copeSum / l.count) : 0;
+    $('sCope').textContent = l.count ? avg + '%' : '–';
+    $('sCopeD').textContent = l.count ? copeText(avg) : 'No data. Suspiciously calm.';
+    const waste = Object.entries(l.rigs).reduce((sum, [k, n]) => sum + (RIG[k]?.fps ?? 60) * n, 0);
+    $('sWaste').textContent = waste ? waste.toLocaleString() : '–';
+    const max = Math.max(1, ...Object.values(l.rigs));
+    $('rigBars').innerHTML = RIGS.map(([k, label]) => {
+      const n = l.rigs[k] || 0;
+      return `<div class="rigbar"><span>${esc(label)}</span><span class="bar"><i style="width:${(n / max) * 100}%"></i></span><span class="n">${n}</span></div>`;
+    }).join('');
+    $('wall').innerHTML = l.recent.length
+      ? l.recent.map((s) => `<li><span class="seatno">#${String(s.n).padStart(4, '0')}</span><span class="who">${esc(s.handle)} <small>· ${esc(RIG[s.rig]?.label ?? s.rig)} · cope ${s.cope}%</small></span><span class="said">${esc(s.line)}</span></li>`).join('')
+      : '<li class="empty">Nobody here yet. The lobby is running at 0 FPS.</li>';
+  }
+  async function loadLobby() {
+    try {
+      const r = await fetch(API, { headers: { accept: 'application/json' } });
+      if (!r.ok) throw new Error();
+      renderLobby(await r.json());
+    } catch {
+      if (!$('wall').querySelector('.who')) $('wall').innerHTML = '<li class="empty">The lobby server is running at 30 FPS and missed this frame. Retrying shortly.</li>';
+    }
+  }
+  loadLobby();
+  setInterval(() => { if (!document.hidden) loadLobby(); }, 30000);
+
+  // ---------------------------------------------------------------- checklist
+  const TODO = [
+    'Free up about 212 GB, the reported console install size. Then 212 more, for mods.',
+    'Upgrade your GPU, in anticipation. Twice.',
+    'Replay GTA V. Again. Number 14.',
+    'Explain frame pacing to a PS5 owner, gently',
+    'Learn to love motion blur',
+    'Bookmark the store page that doesn\'t exist yet',
+    'Go outside. Real life renders at unlimited FPS. The graphics are a bit mid.',
+    'Buy a PS5 "ironically"',
+    'Pretend you never wanted it anyway',
+    'Defend the PC port\'s release date in a comment section. There isn\'t one.',
+  ];
+  const done = new Set(JSON.parse(store.get('vicecope.todo') || '[]'));
+  $('checklist').innerHTML = TODO.map((t, i) => `<li><label><input type="checkbox" data-i="${i}" ${done.has(i) ? 'checked' : ''}><span>${esc(t)}</span></label></li>`).join('');
+  const NOTES = [
+    'PC-port readiness. It doesn\'t go any faster if you tick everything. We checked.',
+    'Good start. Rockstar has been informed. (They have not.)',
+    'Halfway. The port is not halfway. Nothing is halfway.',
+    'Nearly there. "There" is not a place on any roadmap.',
+    'Fully ready. The PC port is now exactly as far away as before. Congratulations.',
+  ];
+  function syncTodo() {
+    const pct = Math.round((done.size / TODO.length) * 100);
+    $('meterFill').style.width = pct + '%';
+    $('meterOut').textContent = pct + '%';
+    $('meterNote').textContent = NOTES[pct === 100 ? 4 : Math.min(3, Math.floor(pct / 34) + (pct > 0 ? 1 : 0))];
+    store.set('vicecope.todo', JSON.stringify([...done]));
+  }
+  $('checklist').addEventListener('change', (e) => {
+    const i = +e.target.dataset.i;
+    e.target.checked ? done.add(i) : done.delete(i);
+    syncTodo();
+  });
+  syncTodo();
+})();
+</script>
+</body>
+</html>
