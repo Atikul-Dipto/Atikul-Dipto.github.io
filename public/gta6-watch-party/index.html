@@ -866,8 +866,11 @@ body.console-mode #cinema { display: block; }
     `<optgroup label="${group}">${rigs.map(([k, label]) => `<option value="${k}">${label}</option>`).join('')}</optgroup>`).join('');
   $('rig').value = 'rtx3060';
   // A rig typed in comes back from the lobby as "custom:<name>"; the lobby counts those as "other".
-  const rigLabel = (key) => (key.startsWith('custom:') ? key.slice(7) : key === 'other' ? 'Typed-in rigs' : RIG[key]?.label ?? key);
-  const rigFps = (key) => RIG[key]?.fps ?? 60;
+  // Seats claimed before the full list (18 Nov 2026) used these keys.
+  const LEGACY = { 5090: 'rtx5090', 4090: 'rtx4090', mid: 'rtx4070', 3060: 'rtx3060', 1060: 'gtx1060', amd: 'radeon' };
+  const norm = (key) => LEGACY[key] || key;
+  const rigLabel = (key) => (key.startsWith('custom:') ? key.slice(7) : key === 'other' ? 'Typed-in rigs' : RIG[norm(key)]?.label ?? key);
+  const rigFps = (key) => RIG[norm(key)]?.fps ?? 60;
   const COPE = [
     [10, 'Totally fine. Didn\'t want it anyway. (Lie.)'],
     [30, 'Mild cope. Rewatching the trailers "for research".'],
@@ -971,7 +974,9 @@ body.console-mode #cinema { display: block; }
     const waste = Object.entries(l.rigs).reduce((sum, [k, n]) => sum + rigFps(k) * n, 0);
     $('sWaste').textContent = waste ? waste.toLocaleString() : '–';
     // The eight most common rigs, then everything else in one bar.
-    const ranked = Object.entries(l.rigs).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    const merged = {};
+    for (const [k, n] of Object.entries(l.rigs)) merged[norm(k)] = (merged[norm(k)] || 0) + n;
+    const ranked = Object.entries(merged).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
     const rows = ranked.slice(0, 8);
     const rest = ranked.slice(8).reduce((sum, [, n]) => sum + n, 0);
     if (rest) rows.push([`${ranked.length - 8} more rigs`, rest]);
