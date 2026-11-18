@@ -143,6 +143,9 @@ input[type="range"] { accent-color: var(--pink); width: 170px; }
 .seat-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 28px; align-items: start; }
 form.seat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 26px; display: grid; gap: 18px; }
 .field { display: grid; gap: 6px; }
+.field[hidden] { display: none; }
+optgroup { background: var(--night-2); color: var(--muted); font-style: normal; }
+option { background: var(--night); color: var(--ink); }
 .field > span { font-weight: 700; font-size: 14px; letter-spacing: .04em; }
 .field small { color: var(--muted); font-size: 13px; }
 input[type="text"], select {
@@ -361,6 +364,11 @@ body.console-mode #cinema { display: block; }
             <span>Your rig</span>
             <select id="rig" name="rig"></select>
             <small id="rigQuip">&nbsp;</small>
+          </label>
+          <label class="field" id="rigOtherField" hidden>
+            <span>Type your GPU</span>
+            <input type="text" id="rigOther" name="rigOther" maxlength="32" placeholder="e.g. Radeon VII, Quadro P5000, a potato">
+            <small>2–32 characters. It goes on the wall next to your name.</small>
           </label>
           <div class="field">
             <span id="copeLbl">Cope level</span>
@@ -792,21 +800,74 @@ body.console-mode #cinema { display: block; }
   });
 
   // ---------------------------------------------------------------- seat form
-  const RIGS = [
-    ['5090', 'RTX 5090', 'Overqualified spectator. Drawing a stream at 1% load.', 260],
-    ['4090', 'RTX 4090', 'Melted one power connector for this moment.', 220],
-    ['mid', 'RTX 4070 / 5070-ish', 'Mid-range menace. Perfectly balanced, nothing to play.', 160],
-    ['3060', 'RTX 3060', 'The people\'s champion. Would\'ve run it on medium. Probably.', 110],
-    ['1060', 'GTX 1060', 'Will outlive us all. Still not enough for Leonida.', 70],
-    ['amd', 'Radeon (any)', 'Team Red, waiting in red.', 150],
-    ['arc', 'Intel Arc', 'A brave pioneer. Drivers updated today, again.', 90],
-    ['igpu', 'Integrated graphics', 'The stream is also 30 FPS for you. You win, technically.', 30],
-    ['deck', 'Steam Deck', 'Portable coping. Can be held up to the TV.', 45],
-    ['ps5', 'I own a PS5 (spy)', 'Double agent. You\'re here to gloat or to be forgiven.', 30],
+  // Every rig: [key, label, frames it could push (a made-up number for the lobby's
+  // "wasted horsepower"), its own joke or null for the group's]. Keys must match
+  // RIGS in functions/api/watchparty.ts.
+  const RIG_GROUPS = [
+    ['NVIDIA RTX 50', 'Brand new. Fake frames ready. Nothing to generate.', [
+      ['rtx5090', 'RTX 5090', 260, 'Overqualified spectator. Drawing a stream at 1% load.'],
+      ['rtx5080', 'RTX 5080', 220, null], ['rtx5070ti', 'RTX 5070 Ti', 190, null], ['rtx5070', 'RTX 5070', 170, '"4090 performance," they said. For a game you can\'t run.'],
+      ['rtx5060ti', 'RTX 5060 Ti', 140, null], ['rtx5060', 'RTX 5060', 125, null], ['rtx5050', 'RTX 5050', 100, null],
+    ]],
+    ['NVIDIA RTX 40', 'Frame generation standing by. No frames to generate.', [
+      ['rtx4090', 'RTX 4090', 230, 'Melted one power connector for this moment.'],
+      ['rtx4080s', 'RTX 4080 Super', 200, null], ['rtx4080', 'RTX 4080', 195, null], ['rtx4070tis', 'RTX 4070 Ti Super', 175, null],
+      ['rtx4070ti', 'RTX 4070 Ti', 165, null], ['rtx4070s', 'RTX 4070 Super', 155, null], ['rtx4070', 'RTX 4070', 140, null],
+      ['rtx4060ti', 'RTX 4060 Ti', 115, null], ['rtx4060', 'RTX 4060', 100, null],
+    ]],
+    ['NVIDIA RTX 30', 'Survived the crypto boom. Can survive this.', [
+      ['rtx3090ti', 'RTX 3090 Ti', 160, null], ['rtx3090', 'RTX 3090', 150, '24 GB of VRAM. 0 GB of GTA VI.'],
+      ['rtx3080ti', 'RTX 3080 Ti', 145, null], ['rtx3080', 'RTX 3080', 135, 'Hunted it down in 2021 for a moment exactly like this one.'],
+      ['rtx3070ti', 'RTX 3070 Ti', 115, null], ['rtx3070', 'RTX 3070', 108, '8 GB of VRAM and a dream.'],
+      ['rtx3060ti', 'RTX 3060 Ti', 98, null], ['rtx3060', 'RTX 3060', 80, 'The people\'s champion. Would\'ve run it on medium. Probably.'],
+      ['rtx3050', 'RTX 3050', 55, null],
+    ]],
+    ['NVIDIA RTX 20', 'Ray-tracing pioneer. Now tracing other people\'s gameplay.', [
+      ['rtx2080ti', 'RTX 2080 Ti', 105, 'Paid launch price to be early. Still early. Still waiting.'],
+      ['rtx2080s', 'RTX 2080 Super', 92, null], ['rtx2080', 'RTX 2080', 88, null], ['rtx2070s', 'RTX 2070 Super', 82, null],
+      ['rtx2070', 'RTX 2070', 74, null], ['rtx2060s', 'RTX 2060 Super', 70, null], ['rtx2060', 'RTX 2060', 62, null],
+    ]],
+    ['NVIDIA GTX 16', 'No RT cores, no problem, no game.', [
+      ['gtx1660ti', 'GTX 1660 Ti', 55, null], ['gtx1660s', 'GTX 1660 Super', 54, null], ['gtx1660', 'GTX 1660', 48, null],
+      ['gtx1650s', 'GTX 1650 Super', 44, null], ['gtx1650', 'GTX 1650', 36, 'The laptop classic. Fans already at 100% from the stream.'], ['gtx1630', 'GTX 1630', 22, null],
+    ]],
+    ['NVIDIA GTX 10', 'Pascal never dies. It just waits.', [
+      ['gtx1080ti', 'GTX 1080 Ti', 75, 'The GOAT. Even the GOAT can\'t play it.'],
+      ['gtx1080', 'GTX 1080', 60, null], ['gtx1070ti', 'GTX 1070 Ti', 55, null], ['gtx1070', 'GTX 1070', 50, null],
+      ['gtx1060', 'GTX 1060', 40, 'Will outlive us all. Still not enough for Leonida.'],
+      ['gtx1050ti', 'GTX 1050 Ti', 28, null], ['gtx1050', 'GTX 1050', 22, null], ['gt1030', 'GT 1030', 12, 'Technically a graphics card. Emotionally, a hostage.'],
+    ]],
+    ['NVIDIA, other', 'NVIDIA, but make it niche.', [
+      ['titan', 'Titan (any)', 90, 'Bought a Titan to watch a stream. Iconic.'],
+      ['nvlaptop', 'NVIDIA laptop GPU', 70, 'Gaming laptop. Plugged in. Sounding like a jet.'],
+      ['gtx900', 'GTX 900 series or older', 25, 'Museum piece. Respect. Please don\'t let it see the 30 FPS.'],
+    ]],
+    ['AMD Radeon', 'Team Red, waiting in red.', [
+      ['rx9070xt', 'RX 9070 XT', 190, null], ['rx9070', 'RX 9070', 170, null], ['rx9060xt', 'RX 9060 XT', 120, null],
+      ['rx7900xtx', 'RX 7900 XTX', 210, '24 GB of VRAM, all of it spectating.'], ['rx7900xt', 'RX 7900 XT', 185, null], ['rx7900gre', 'RX 7900 GRE', 160, null],
+      ['rx7800xt', 'RX 7800 XT', 145, null], ['rx7700xt', 'RX 7700 XT', 120, null], ['rx7600', 'RX 7600 / 7600 XT', 95, null],
+      ['rx6900xt', 'RX 6900 XT / 6950 XT', 140, null], ['rx6800xt', 'RX 6800 / 6800 XT', 125, null], ['rx6700xt', 'RX 6700 XT / 6750 XT', 100, null],
+      ['rx6600', 'RX 6600 / 6650 XT', 75, null], ['rx5700', 'RX 5700 / 5700 XT', 65, null], ['rx580', 'RX 580 / 570', 35, 'Polaris forever. Fine wine, aged past drinking.'],
+      ['radeon', 'Another Radeon', 80, null],
+    ]],
+    ['Intel Arc', 'A brave pioneer. Drivers updated today, again.', [
+      ['arcb580', 'Arc B580', 95, null], ['arcb570', 'Arc B570', 85, null], ['arca770', 'Arc A770', 80, null], ['arca750', 'Arc A750', 72, null], ['arc', 'Another Arc', 60, null],
+    ]],
+    ['Everything else', null, [
+      ['igpu', 'Integrated graphics', 30, 'The stream is also 30 FPS for you. You win, technically.'],
+      ['deck', 'Steam Deck', 45, 'Portable coping. Can be held up to the TV.'],
+      ['ps5', 'I own a PS5 (spy)', 30, 'Double agent. You\'re here to gloat or to be forgiven.'],
+      ['other', 'Something else (type it)', 60, 'Mysterious hardware. We respect the mystery.'],
+    ]],
   ];
-  const RIG = Object.fromEntries(RIGS.map(([k, label, quip, fps]) => [k, { label, quip, fps }]));
-  $('rig').innerHTML = RIGS.map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
-  $('rig').value = '3060';
+  const RIG = {};
+  for (const [, groupQuip, rigs] of RIG_GROUPS) for (const [k, label, fps, quip] of rigs) RIG[k] = { label, fps, quip: quip || groupQuip };
+  $('rig').innerHTML = RIG_GROUPS.map(([group, , rigs]) =>
+    `<optgroup label="${group}">${rigs.map(([k, label]) => `<option value="${k}">${label}</option>`).join('')}</optgroup>`).join('');
+  $('rig').value = 'rtx3060';
+  // A rig typed in comes back from the lobby as "custom:<name>"; the lobby counts those as "other".
+  const rigLabel = (key) => (key.startsWith('custom:') ? key.slice(7) : key === 'other' ? 'Typed-in rigs' : RIG[key]?.label ?? key);
+  const rigFps = (key) => RIG[key]?.fps ?? 60;
   const COPE = [
     [10, 'Totally fine. Didn\'t want it anyway. (Lie.)'],
     [30, 'Mild cope. Rewatching the trailers "for research".'],
@@ -824,7 +885,7 @@ body.console-mode #cinema { display: block; }
   ];
   function paintTicket(d, real) {
     $('tName').textContent = d.handle || 'Your name here';
-    $('tRig').textContent = 'Rig: ' + (RIG[d.rig]?.label ?? 'unknown');
+    $('tRig').textContent = 'Rig: ' + (d.rig === 'other' ? d.rigName || 'something mysterious' : rigLabel(d.rig));
     $('tCope').textContent = d.cope + '% · ' + copeText(d.cope);
     $('tSeat').textContent = real ? '#' + String(d.n).padStart(4, '0') : '#???';
     $('tWhere').textContent = real ? SEATS[d.n % SEATS.length] : 'To be assigned by the couch';
@@ -833,7 +894,9 @@ body.console-mode #cinema { display: block; }
     $('ticketActions').hidden = !real;
   }
   function formState() {
-    return { handle: $('handle').value.trim(), rig: $('rig').value, cope: +$('cope').value, line: $('line').value.trim() };
+    const s = { handle: $('handle').value.trim(), rig: $('rig').value, cope: +$('cope').value, line: $('line').value.trim() };
+    if (s.rig === 'other') s.rigName = $('rigOther').value.trim();
+    return s;
   }
   const mine = (() => { try { return JSON.parse(store.get('vicecope.seat') || 'null'); } catch { return null; } })();
   function syncForm() {
@@ -841,10 +904,12 @@ body.console-mode #cinema { display: block; }
     $('copeNum').textContent = s.cope;
     $('copeLabel').textContent = copeText(s.cope);
     $('rigQuip').textContent = RIG[s.rig].quip;
+    $('rigOtherField').hidden = s.rig !== 'other';
     $('lineCount').textContent = $('line').value.length;
     if (!mine) paintTicket(s, false);
   }
-  ['handle', 'rig', 'cope', 'line'].forEach((id) => $(id).addEventListener('input', syncForm));
+  ['handle', 'rig', 'rigOther', 'cope', 'line'].forEach((id) => $(id).addEventListener('input', syncForm));
+  $('rig').addEventListener('change', () => { syncForm(); if ($('rig').value === 'other') $('rigOther').focus(); });
   syncForm();
   if (mine) {
     paintTicket(mine, true);
@@ -865,6 +930,7 @@ body.console-mode #cinema { display: block; }
     if (store.get('vicecope.seat')) { msg.textContent = 'You already have a seat. Scroll down to the lobby and admire it.'; return; }
     const s = formState();
     if (s.handle.length < 2) { msg.classList.add('err'); msg.textContent = 'Your handle needs at least 2 characters.'; $('handle').focus(); return; }
+    if (s.rig === 'other' && s.rigName.length < 2) { msg.classList.add('err'); msg.textContent = 'Type your GPU (at least 2 characters), or pick one from the list.'; $('rigOther').focus(); return; }
     $('submitBtn').disabled = true;
     msg.textContent = 'Printing your ticket at 30 FPS…';
     try {
@@ -902,15 +968,19 @@ body.console-mode #cinema { display: block; }
     const avg = l.count ? Math.round(l.copeSum / l.count) : 0;
     $('sCope').textContent = l.count ? avg + '%' : '–';
     $('sCopeD').textContent = l.count ? copeText(avg) : 'No data. Suspiciously calm.';
-    const waste = Object.entries(l.rigs).reduce((sum, [k, n]) => sum + (RIG[k]?.fps ?? 60) * n, 0);
+    const waste = Object.entries(l.rigs).reduce((sum, [k, n]) => sum + rigFps(k) * n, 0);
     $('sWaste').textContent = waste ? waste.toLocaleString() : '–';
-    const max = Math.max(1, ...Object.values(l.rigs));
-    $('rigBars').innerHTML = RIGS.map(([k, label]) => {
-      const n = l.rigs[k] || 0;
-      return `<div class="rigbar"><span>${esc(label)}</span><span class="bar"><i style="width:${(n / max) * 100}%"></i></span><span class="n">${n}</span></div>`;
-    }).join('');
+    // The eight most common rigs, then everything else in one bar.
+    const ranked = Object.entries(l.rigs).filter(([, n]) => n > 0).sort((a, b) => b[1] - a[1]);
+    const rows = ranked.slice(0, 8);
+    const rest = ranked.slice(8).reduce((sum, [, n]) => sum + n, 0);
+    if (rest) rows.push([`${ranked.length - 8} more rigs`, rest]);
+    const max = Math.max(1, ...rows.map(([, n]) => n));
+    $('rigBars').innerHTML = rows.length
+      ? rows.map(([k, n]) => `<div class="rigbar"><span>${esc(rigLabel(k))}</span><span class="bar"><i style="width:${(n / max) * 100}%"></i></span><span class="n">${n}</span></div>`).join('')
+      : '<p class="empty">No rigs in the room yet. Suspiciously quiet fans.</p>';
     $('wall').innerHTML = l.recent.length
-      ? l.recent.map((s) => `<li><span class="seatno">#${String(s.n).padStart(4, '0')}</span><span class="who">${esc(s.handle)} <small>· ${esc(RIG[s.rig]?.label ?? s.rig)} · cope ${s.cope}%</small></span><span class="said">${esc(s.line)}</span></li>`).join('')
+      ? l.recent.map((s) => `<li><span class="seatno">#${String(s.n).padStart(4, '0')}</span><span class="who">${esc(s.handle)} <small>· ${esc(rigLabel(s.rig))} · cope ${s.cope}%</small></span><span class="said">${esc(s.line)}</span></li>`).join('')
       : '<li class="empty">Nobody here yet. The lobby is running at 0 FPS.</li>';
   }
   // The lobby is fetched only while it's on screen and the tab is visible, every
