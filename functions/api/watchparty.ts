@@ -9,8 +9,10 @@
  *           seat down (it is kept, hidden, never shown)
  *
  * Storage is the D1 database bound as DB (tables in migrations/0002). A GET
- * reads one row, the lobby kept as a JSON snapshot that each write rebuilds
- * from the table. Nothing about a visitor is stored but what they type; spam
+ * reads one row, the lobby kept as a JSON snapshot. A new seat bumps its
+ * totals in place (one atomic UPDATE) and refreshes the latest 120, so a claim
+ * costs about the same with 10 seats or 10,000; only a take-down recounts the
+ * whole table. Nothing about a visitor is stored but what they type; spam
  * limits use a salted hash of the connection address that changes every day,
  * and those rows are cleared after two days.
  */
@@ -19,7 +21,7 @@ import { abusive } from '../_lib/abuse'
 
 interface D1Result<T> {
   results: T[]
-  meta: { last_row_id: number }
+  meta: { last_row_id: number; changes: number }
 }
 interface D1Stmt {
   bind(...v: unknown[]): D1Stmt
@@ -119,6 +121,20 @@ async function rebuild(env: Env): Promise<Lobby> {
   return lobby
 }
 
+/** Count one new seat into the snapshot without rescanning the table. */
+async function addSeat(env: Env, seat: Seat): Promise<Lobby> {
+  const rigPath = `$.rigs."${seat.rig}"` // rig is from the fixed RIGS list
+  const bumped = await env.DB.prepare(
+    "UPDATE snapshot SET value = json_set(value, '$.count', COALESCE(json_extract(value, '$.count'), 0) + 1, '$.copeSum', COALESCE(json_extract(value, '$.copeSum'), 0) + ?, ?, COALESCE(json_extract(value, ?), 0) + 1) WHERE key = 'squad'",
+  )
+    .bind(seat.cope, rigPath, rigPath)
+    .run()
+  if (!bumped.meta.changes) return rebuild(env)
+  const { results: recent } = await env.DB.prepare('SELECT n, handle, rig, cope, line FROM squad WHERE hidden = 0 ORDER BY n DESC LIMIT ?').bind(RECENT).all<Seat>()
+  await env.DB.prepare("UPDATE snapshot SET value = json_set(value, '$.recent', json(?)) WHERE key = 'squad'").bind(JSON.stringify(recent)).run()
+  return readLobby(env)
+}
+
 async function ipHash(request: Request, env: Env) {
   const ip = request.headers.get('cf-connecting-ip') ?? 'unknown'
   const day = new Date().toISOString().slice(0, 10)
@@ -166,8 +182,9 @@ export async function onRequestPost({ request, env }: Ctx) {
   const res = await env.DB.prepare('INSERT INTO squad (handle, rig, cope, line) VALUES (?, ?, ?, ?)').bind(handle, rig, cope, line).run()
   const seat: Seat = { n: res.meta.last_row_id, handle, rig, cope, line }
   await env.DB.prepare('INSERT INTO squad_joins (ip_hash, at) VALUES (?, ?)').bind(hash, now).run()
-  await env.DB.prepare('DELETE FROM squad_joins WHERE at < ?').bind(now - 2 * 86_400_000).run()
-  const fresh = await rebuild(env)
+  // Old spam-limit rows go now and then (that DELETE scans the table, so not on every claim).
+  if (Math.random() < 0.05) await env.DB.prepare('DELETE FROM squad_joins WHERE at < ?').bind(now - 2 * 86_400_000).run()
+  const fresh = await addSeat(env, seat)
   return json(request, { seat, lobby: fresh }, 201)
 }
 
