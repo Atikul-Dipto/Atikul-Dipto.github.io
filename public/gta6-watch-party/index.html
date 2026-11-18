@@ -8,6 +8,13 @@
 <meta property="og:title" content="Vice Cope: the GTA VI watch party for PC players">
 <meta property="og:description" content="They play at 30 FPS. We watch at 240 Hz. Claim your spectator seat.">
 <meta property="og:type" content="website">
+<meta property="og:url" content="https://vice-cope.atikul-dipto.workers.dev/">
+<meta property="og:image" content="https://vice-cope.atikul-dipto.workers.dev/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Vice Cope: they play at 30 FPS, we watch at 240 Hz">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://vice-cope.atikul-dipto.workers.dev/">
 <meta name="theme-color" content="#140826">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='36' r='22' fill='%23ff3d8b'/%3E%3Cpath d='M10 40h44M12 46h40M16 52h32' stroke='%23140826' stroke-width='3'/%3E%3Ctext x='32' y='30' font-family='monospace' font-weight='700' font-size='16' text-anchor='middle' fill='%23ffe14d'%3E30%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -463,7 +470,7 @@ body.console-mode #cinema { display: block; }
         <details><summary>Can my PS5 friend come?</summary><p>Yes. They are the content. Be supportive. Say "nice" about once every 33 milliseconds, which is one frame for them.</p></details>
         <details><summary>What does Console Mode do?</summary><p>It caps this page at 30 FPS, makes your mouse cursor update at 30 FPS, and adds a little motion blur, so you can practise. We call it cinematic. You can also unlock it with a certain famous cheat code.</p></details>
         <details><summary>What do you keep about me?</summary><p>Only what you type into the seat form: handle, rig, cope level and cope line. They're shown publicly on the wall. Spam limits use a scrambled code for your connection that changes every day and is deleted after two days. No accounts, no cookies, no tracking.</p></details>
-        <details><summary>Something on the wall is out of line. What now?</summary><p>The site owner can take any seat down. Get in touch through <a href="/">the main site</a>.</p></details>
+        <details><summary>Something on the wall is out of line. What now?</summary><p>The site owner can take any seat down. Get in touch through <a href="https://atikul-islam-portfolio.pages.dev/">the main site</a>.</p></details>
       </div>
     </div>
   </section>
@@ -473,7 +480,7 @@ body.console-mode #cinema { display: block; }
   <div class="wrap">
     <p><strong>Vice Cope</strong> is a fan-made parody. It isn't affiliated with or endorsed by Rockstar Games, Take-Two Interactive, Sony or Microsoft. Grand Theft Auto and GTA are trademarks of Take-Two Interactive. No game footage or art is used; every frame here is drawn by your browser.</p>
     <p>Facts as of November 18, 2026: console launch on November 19, 2026 at midnight local time; 30 FPS on every console including PS5 Pro; no PC version announced.</p>
-    <p><a href="/">← Back to the main site</a></p>
+    <p>Made by <a href="https://atikul-islam-portfolio.pages.dev/">Atikul Islam</a>, on a PC, at a perfectly good frame rate.</p>
   </div>
 </footer>
 
@@ -906,17 +913,33 @@ body.console-mode #cinema { display: block; }
       ? l.recent.map((s) => `<li><span class="seatno">#${String(s.n).padStart(4, '0')}</span><span class="who">${esc(s.handle)} <small>· ${esc(RIG[s.rig]?.label ?? s.rig)} · cope ${s.cope}%</small></span><span class="said">${esc(s.line)}</span></li>`).join('')
       : '<li class="empty">Nobody here yet. The lobby is running at 0 FPS.</li>';
   }
+  // The lobby is fetched only while it's on screen and the tab is visible, every
+  // 45 s, backing off after errors: the free API allowance is shared by everyone.
+  const EVERY = 45000;
+  let lastLoad = 0, failures = 0, lobbyInView = false, loading = false;
   async function loadLobby() {
+    if (loading) return;
+    loading = true;
+    lastLoad = Date.now();
     try {
       const r = await fetch(API, { headers: { accept: 'application/json' } });
       if (!r.ok) throw new Error();
       renderLobby(await r.json());
+      failures = 0;
     } catch {
+      failures++;
       if (!$('wall').querySelector('.who')) $('wall').innerHTML = '<li class="empty">The lobby server is running at 30 FPS and missed this frame. Retrying shortly.</li>';
+    } finally {
+      loading = false;
     }
   }
-  loadLobby();
-  setInterval(() => { if (!document.hidden) loadLobby(); }, 30000);
+  const due = () => Date.now() - lastLoad > EVERY * 2 ** Math.min(failures, 4);
+  new IntersectionObserver(([e]) => {
+    lobbyInView = e.isIntersecting;
+    if (lobbyInView && due()) loadLobby();
+  }, { rootMargin: '600px 0px' }).observe($('lobby'));
+  setInterval(() => { if (lobbyInView && !document.hidden && due()) loadLobby(); }, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && lobbyInView && due()) loadLobby(); });
 
   // ---------------------------------------------------------------- checklist
   const TODO = [

@@ -1,0 +1,14 @@
+// Vice Cope, the GTA VI watch party page, on its own free address:
+// https://vice-cope.atikul-dipto.workers.dev (Workers static assets).
+// The page itself lives in public/gta6-watch-party/ and is also served at
+// /gta6-watch-party/ on both portfolio hosts. Its lobby API stays on the
+// portfolio's Pages project (functions/api/watchparty.ts).
+//
+//   npx wrangler deploy --config vice-cope/wrangler.jsonc
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "vice-cope",
+  "compatibility_date": "2026-11-17",
+  "workers_dev": true,
+  "assets": { "directory": "../public/gta6-watch-party" }
+}
