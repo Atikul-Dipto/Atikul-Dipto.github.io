@@ -54,7 +54,7 @@ const MAX_SEATS = 20000
 const RECENT = 120
 const RIGS = ['5090', '4090', 'mid', '3060', '1060', 'amd', 'arc', 'igpu', 'deck', 'ps5']
 const ALLOWED = [
-  /^https:\/\/vice-cope\.atikul-dipto\.workers\.dev$/,
+  /^https:\/\/([a-z0-9-]+\.)?vice-cope\.pages\.dev$/,
   /^https:\/\/atikul-dipto\.github\.io$/,
   /^https:\/\/([a-z0-9-]+\.)?atikul-islam-portfolio\.pages\.dev$/, /^http:\/\/(127\.0\.0\.1|localhost):\d+$/]
 
